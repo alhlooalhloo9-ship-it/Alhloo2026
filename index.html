@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بضاعة الندوة</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f5f7;color:#202b32;font-family:Arial,sans-serif}
+header{background:#174c3c;color:#fff;text-align:center;padding:18px}
+main{max-width:900px;margin:auto;padding:12px}
+.tabs{display:flex;gap:8px;position:sticky;top:0;background:#fff;padding:10px;z-index:2}
+.tabs button{flex:1}
+.box{background:#fff;border-radius:13px;padding:14px;margin:12px 0;box-shadow:0 2px 8px #0001}
+button{border:0;border-radius:8px;padding:10px 12px;background:#e1eee7;color:#174c3c;font-size:15px;cursor:pointer}
+.primary{background:#174c3c;color:#fff}
+.danger{background:#fee2e2;color:#9f2222}
+input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.prod{background:#fff;border:1px solid #dce4e0;border-radius:12px;padding:12px;text-align:center;cursor:pointer;min-width:0}
+.prod:active{transform:scale(.98)}
+.prod img{width:75px;height:75px;object-fit:contain;display:block;margin:auto auto 8px}
+.name{font-weight:bold;overflow-wrap:anywhere}
+.price{color:#174c3c;margin:7px}
+.muted{font-size:13px;color:#667}
+.actions{display:flex;gap:5px;margin-top:9px}
+.actions button{flex:1;font-size:12px;padding:7px 3px}
+.row{display:flex;align-items:center;gap:8px;border-bottom:1px solid #eee;padding:12px 0}
+.row .info{flex:1;min-width:0}
+.row small{display:block;color:#667;margin-top:5px}
+.qty{display:flex;align-items:center;gap:5px}
+.total{background:#edf6f0;padding:12px;border-radius:9px;line-height:2;font-weight:bold;margin-top:12px}
+.hidden{display:none!important}
+.badge{background:#e1eee7;border-radius:20px;padding:3px 8px}
+.detailsBtn{display:block;margin:10px auto 0;min-width:130px}
+.detailsPanel{position:fixed;inset:0;background:#0009;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px}
+.detailsCard{background:#fff;color:#202b32;border-radius:16px;padding:20px;width:min(100%,360px);max-height:85vh;overflow:auto;box-shadow:0 12px 40px #0005;line-height:2}
+.detailsCard h3{margin-top:0}
+.detailsCard .profitLine{background:#edf6f0;border-radius:9px;padding:10px;font-weight:bold}
+.total .totalTitle{font-size:17px;margin-bottom:5px}
+.total .totalRow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #d7e8dc}
+.total .totalRow:last-child{border:0}
+.total .profitBox{margin-top:10px;background:#dcefe3;padding:12px;border-radius:10px}
+.total .profitRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:380px){.grid{grid-template-columns:1fr}}
+@media print{header,.tabs,.no-print{display:none!important}body{background:#fff}.box{box-shadow:none}}
+</style>
+</head>
+<body>
+<header>
+<h1>📦 بضاعة الندوة</h1>
+<div>اضغط على المنتج لإضافته إلى الفاتورة</div>
+</header>
+<div class="tabs">
+<button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
+<button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
+</div>
+<main>
+<section id="productsPage">
+<div class="box">
+<h3 id="formTitle">➕ إضافة منتج</h3>
+<form id="form">
+<label>اسم المادة</label><input id="name" required placeholder="اسم المنتج">
+<label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50">
+<label>عدد القطع داخل العبوة</label><input id="pieces" required type="number" min="1" step="1" value="1">
+<label>سعر بيع القطعة بالليرة التركية</label><input id="sellTry" required type="number" min="0" step="0.1" value="5">
+<label>كمية المخزون (عدد العبوات)</label><input id="stock" required type="number" min="0" step="1" value="0">
+<label>صورة المنتج (اختيارية)</label><input id="image" type="file" accept="image/*"><div id="preview"></div>
+<button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm()">إلغاء</button>
+</form>
+</div>
+<div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
+</section>
+<section id="invoicePage" class="hidden">
+<div class="box"><h3>🧾 ملخص الفاتورة</h3><div id="items"></div><div id="totals"></div>
+<div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+<button class="primary" onclick="share()">مشاركة الفاتورة</button><button onclick="print()">طباعة / حفظ PDF</button><button class="danger" onclick="clearCart()">تفريغ الفاتورة</button>
+</div></div>
+</section>
+<div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
+<div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><button class="primary" style="width:100%;margin-top:12px" onclick="closeDetails()">إغلاق</button></div>
+</div>
+<div class="box">
+<h3>💱 أسعار الصرف</h3>
+<label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.01" value="49.7">
+<label>الدولار مقابل الليرة السورية الجديدة</label><input id="sypRate" type="number" min="0.01" step="0.01" value="140">
+<p class="muted">الليرة السورية الجديدة: كل 1000 ليرة قديمة = 10 ليرات جديدة.</p>
+<button class="primary" onclick="saveRates()">حفظ أسعار الصرف</button>
+<p class="muted">أسعار الصرف يدوية وقابلة للتعديل، وليست جلباً تلقائياً من الإنترنت.</p>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let products=JSON.parse(localStorage.getItem('nadwa_products')||'null');
+let cart=JSON.parse(localStorage.getItem('nadwa_cart')||'{}');
+let tryRate=+(localStorage.getItem('nadwa_try')||49.7);
+let sypRate=+(localStorage.getItem('nadwa_syp')||140);
+let editId=null,newImage=null,removeImg=false;
+if(sypRate>=1000){sypRate=sypRate/100;localStorage.setItem('nadwa_syp',String(sypRate));}
+if(!products){
+products=[
+['عصير كرتون',2],['بيض الأرض السعيدة',1.75],['رامو علك',1.5],['بطاطا',0.5],['بطاطا',0.5],['جام جامص - راجع الاسم',2],['كيس نفّاخ - راجع الاسم',1.5],['أصابع مالح',1.6],['سميري - راجع الاسم',1.8],['طرابيش',1.6],['بسكوت',2],['بسكوت',1.6],['علك',1],['بسكوت',1.1],['شعر غزالة - راجع الاسم',2.5],['ماشيليو عودان - راجع الاسم',1.6],['بانتي مشي بسكوت - راجع الاسم',2.2],['سيارات علك',2.2],['بسكوت - راجع الاسم',2.8],['قهوة صايب - راجع الاسم',2.2],['كينشينو - راجع الاسم',2]
+].map((x,i)=>({id:i+1,name:x[0],price:x[1],pieces:1,sellTry:5,stock:0,image:''}));
+save();
+}
+$('tryRate').value=tryRate;$('sypRate').value=sypRate;
+function save(){localStorage.setItem('nadwa_products',JSON.stringify(products));localStorage.setItem('nadwa_cart',JSON.stringify(cart));}
+function page(p){$('productsPage').classList.toggle('hidden',p!=='products');$('invoicePage').classList.toggle('hidden',p!=='invoice');$('tabProducts').classList.toggle('primary',p==='products');$('tabInvoice').classList.toggle('primary',p==='invoice');if(p==='invoice')renderInvoice();}
+function resetForm(){$('form').reset();editId=null;newImage=null;removeImg=false;$('preview').innerHTML='';$('formTitle').textContent='➕ إضافة منتج';}
+$('image').addEventListener('change',function(){let f=this.files[0];if(!f)return;if(f.size>1500000){alert('اختر صورة أصغر من 1.5 ميغابايت');this.value='';return;}let r=new FileReader();r.onload=()=>{newImage=r.result;removeImg=false;$('preview').innerHTML='<img style="width:75px;height:75px;object-fit:contain" src="'+newImage+'"><br><button type="button" onclick="removeImage()">إزالة الصورة</button>';};r.readAsDataURL(f);});
+function removeImage(){newImage=null;removeImg=true;$('image').value='';$('preview').textContent='ستزال الصورة عند الحفظ';}
+$('form').addEventListener('submit',e=>{e.preventDefault();let n=$('name').value.trim();let p=+$('price').value;let s=+$('stock').value;let pc=Math.max(1,+$('pieces').value||1);let st=Math.max(0,+$('sellTry').value||0);if(!n||p<0||s<0)return;if(editId!==null){let x=products.find(z=>z.id===editId);x.name=n;x.price=p;x.stock=s;x.pieces=pc;x.sellTry=st;if(newImage)x.image=newImage;if(removeImg)x.image='';}else{products.push({id:Date.now(),name:n,price:p,pieces:pc,sellTry:st,stock:s,image:newImage||''});}save();resetForm();renderProducts();renderInvoice();});
+function editProduct(id){let p=products.find(x=>x.id===id);editId=id;newImage=null;removeImg=false;$('name').value=p.name;$('price').value=p.price;$('stock').value=p.stock;$('pieces').value=p.pieces||1;$('sellTry').value=p.sellTry??5;$('formTitle').textContent='✏️ تعديل المنتج';$('preview').innerHTML=p.image?'<img style="width:75px;height:75px;object-fit:contain" src="'+p.image+'"><br><button type="button" onclick="removeImage()">إزالة الصورة</button>':'<p class="muted">لا توجد صورة محفوظة.</p>';$('image').value='';window.scrollTo({top:0,behavior:'smooth'});}
+function deleteProduct(id){if(!confirm('حذف المنتج؟'))return;products=products.filter(p=>p.id!==id);delete cart[id];save();renderProducts();renderInvoice();}
+function add(id){cart[id]=(cart[id]||0)+1;save();renderProducts();renderInvoice();}
+function qty(id,d){let n=(cart[id]||0)+d;if(n<=0)delete cart[id];else cart[id]=n;save();renderProducts();renderInvoice();}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(n){return Number(n).toLocaleString('en-US',{maximumFractionDigits:2});}
+function openDetails(id){let p=products.find(x=>x.id===id);if(!p)return;let pieces=Math.max(1,+p.pieces||1);let packCost=+p.price||0;let packRevenue=(+p.sellTry||0)*pieces/tryRate;let packProfit=packRevenue-packCost;$('modalTitle').textContent=p.name+' — تفاصيل العبوة';$('modalContent').innerHTML='<div>عدد القطع بالعبوة: <b>'+pieces+'</b></div>'+'<div>سعر شراء العبوة: <b>$'+packCost.toFixed(2)+'</b></div>'+'<div>سعر بيع القطعة: <b>'+fmt(p.sellTry||0)+' ل.ت</b></div>'+'<div>تكلفة العبوة بالتركي: <b>'+fmt(packCost*tryRate)+' ل.ت</b></div>'+'<div>قيمة بيع العبوة بالتركي: <b>'+fmt((+p.sellTry||0)*pieces)+' ل.ت</b></div>'+'<div class="profitLine">ربح العبوة: '+fmt(packProfit*tryRate)+' ل.ت</div>'+'<div>ربح العبوة بالدولار: <b>$'+packProfit.toFixed(2)+'</b></div>'+'<div>ربح العبوة بالسوري الجديد: <b>'+fmt(packProfit*sypRate)+' ل.س</b></div>'+'<hr><div>المخزون: '+fmt(p.stock||0)+' عبوة</div>'+'<div>الكمية بالفاتورة: '+fmt(cart[p.id]||0)+' عبوة</div>';$('detailsModal').classList.remove('hidden');}
+function closeDetails(){$('detailsModal').classList.add('hidden');}
+function renderProducts(){let root=$('products');root.innerHTML='';products.forEach(p=>{let el=document.createElement('div');el.className='prod';el.onclick=()=>add(p.id);let pieces=Math.max(1,+p.pieces||1);el.innerHTML=(p.image?'<img src="'+p.image+'">':'<div style="font-size:42px;margin:12px">📦</div>')+'<div class="name">'+esc(p.name)+'</div>'+'<div class="muted">عدد القطع: '+pieces+'</div>'+'<div class="price">$'+(+p.price).toFixed(2)+'</div>'+'<button class="detailsBtn" type="button">التفاصيل</button>'+'<div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div>';el.querySelector('.detailsBtn').onclick=e=>{e.stopPropagation();openDetails(p.id);};el.querySelector('.edit').onclick=e=>{e.stopPropagation();editProduct(p.id);};el.querySelector('.del').onclick=e=>{e.stopPropagation();deleteProduct(p.id);};root.appendChild(el);});$('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);}
+function renderInvoice(){let root=$('items');let sum=0,profitTry=0;root.innerHTML='';let entries=Object.entries(cart).filter(([id,n])=>n>0&&products.some(p=>p.id===+id));if(!entries.length){root.innerHTML='<p>الفاتورة فارغة. ارجع إلى المنتجات واضغط على المواد المطلوبة.</p>';$('totals').innerHTML='';$('count').textContent='0';return;}entries.forEach(([id,n])=>{let p=products.find(x=>x.id===+id);let line=(+p.price||0)*n;let pieces=Math.max(1,+p.pieces||1);let lineProfit=((+p.sellTry||0)*pieces-(+p.price||0)*tryRate)*n;sum+=line;profitTry+=lineProfit;let el=document.createElement('div');el.className='row';el.innerHTML='<div class="info"><b>'+esc(p.name)+'</b>'+'<small>عدد القطع بالعبوة: '+pieces+' | الكمية: '+n+' عبوة</small>'+'<small>سعر العبوة: $'+(+p.price).toFixed(2)+' | إجمالي السطر: $'+line.toFixed(2)+'</small></div>'+'<div class="qty"><button class="minus">−</button><b>'+n+'</b><button class="plus">+</button></div>';el.querySelector('.minus').onclick=()=>qty(+id,-1);el.querySelector('.plus').onclick=()=>qty(+id,1);root.appendChild(el);});let profitUsd=profitTry/tryRate;$('totals').innerHTML='<div class="total">'+'<div class="totalTitle">💳 إجمالي الفاتورة</div>'+'<div class="totalRow"><span>المجموع بالدولار</span><b>$'+sum.toFixed(2)+'</b></div>'+'<div class="totalRow"><span>المجموع بالليرة التركية</span><b>'+fmt(sum*tryRate)+' ل.ت</b></div>'+'<div class="totalRow"><span>المجموع بالسوري الجديد</span><b>'+fmt(sum*sypRate)+' ل.س</b></div>'+'<div class="profitBox">'+'<div class="totalTitle">📈 الربح المتوقع لكل المواد</div>'+'<div class="profitRow"><span>بالتركي</span><b>'+fmt(profitTry)+' ل.ت</b></div>'+'<div class="profitRow"><span>بالدولار</span><b>$'+profitUsd.toFixed(2)+'</b></div>'+'<div class="profitRow"><span>بالسوري الجديد</span><b>'+fmt(profitUsd*sypRate)+' ل.س</b></div>'+'</div>'+'<p class="muted">الربح محسوب على أساس بيع كل قطع العبوات المختارة بالسعر المحدد، وليس إثباتاً لمبيعات تمت فعلياً.</p>'+'</div>';$('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);}
+function saveRates(){let t=+$('tryRate').value;let s=+$('sypRate').value;if(t<=0||s<=0){alert('أدخل أسعار صرف صحيحة');return;}tryRate=t;sypRate=s;localStorage.setItem('nadwa_try',t);localStorage.setItem('nadwa_syp',s);renderInvoice();alert('تم حفظ أسعار الصرف');}
+function clearCart(){if(confirm('تفريغ الفاتورة؟')){cart={};save();renderProducts();renderInvoice();}}
+function share(){let a=['فاتورة بضاعة الندوة'];let sum=0;Object.entries(cart).forEach(([id,n])=>{let p=products.find(x=>x.id===+id);if(!p)return;sum+=p.price*n;a.push(p.name+' × '+n+' — $'+(p.price*n).toFixed(2)+' | '+fmt(p.price*n*tryRate)+' ل.ت'+' | '+fmt(p.price*n*sypRate)+' ل.س جديدة');});a.push('المجموع: $'+sum.toFixed(2),'بالتركي: '+fmt(sum*tryRate)+' ل.ت','بالسوري: '+fmt(sum*sypRate)+' ل.س جديدة');let t=a.join('\n');if(navigator.share){navigator.share({title:'فاتورة بضاعة الندوة',text:t}).catch(()=>{});}else if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(()=>prompt('انسخ الفاتورة',t));}else{prompt('انسخ الفاتورة',t);}}
+renderProducts();renderInvoice();
+</script>
+</body>
+</html>
