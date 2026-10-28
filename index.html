@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#174c3c">
 <title>بضاعة الندوة</title>
 <style>
 *{box-sizing:border-box}
@@ -137,6 +139,7 @@ function newInvoice(){let snap=invoiceSnapshot();if(snap){if(!confirm('حفظ ا
 function renderArchive(){let total=invoices.reduce((s,i)=>s+(+i.total||0),0);$('archiveTotals').innerHTML='<div class="totalRow"><span>عدد الفواتير المحفوظة</span><b>'+invoices.length+'</b></div><div class="totalRow"><span>مجموع كل الفواتير بالدولار</span><b>
 function share(){let a=['فاتورة بضاعة الندوة'];let sum=0;Object.entries(cart).forEach(([id,n])=>{let p=products.find(x=>x.id===+id);if(!p)return;sum+=p.price*n;a.push(p.name+' × '+n+' — $'+(p.price*n).toFixed(2)+' | '+fmt(p.price*n*tryRate)+' ل.ت'+' | '+fmt(p.price*n*sypRate)+' ل.س جديدة');});a.push('المجموع: $'+sum.toFixed(2),'بالتركي: '+fmt(sum*tryRate)+' ل.ت','بالسوري: '+fmt(sum*sypRate)+' ل.س جديدة');let t=a.join('\n');if(navigator.share){navigator.share({title:'فاتورة بضاعة الندوة',text:t}).catch(()=>{});}else if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(()=>prompt('انسخ الفاتورة',t));}else{prompt('انسخ الفاتورة',t);}}
 renderProducts();renderInvoice();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(err=>console.warn("Offline cache registration failed",err)));}
 </script>
 </body>
 </html>+(+p.price).toFixed(2)+'</div>'+'<button class="detailsBtn" type="button">التفاصيل</button>'+'<div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div>';if(p.image){el.querySelector('.productPhoto').onclick=e=>{e.stopPropagation();add(p.id);};let photoBtn=document.createElement('button');photoBtn.type='button';photoBtn.className='photoOpenBtn';photoBtn.textContent='🔍 فتح الصورة';photoBtn.onclick=e=>{e.stopPropagation();openZoomPhoto(p.image);};el.insertBefore(photoBtn,el.querySelector('.detailsBtn'));}el.querySelector('.detailsBtn').onclick=e=>{e.stopPropagation();openDetails(p.id);};el.querySelector('.edit').onclick=e=>{e.stopPropagation();editProduct(p.id);};el.querySelector('.del').onclick=e=>{e.stopPropagation();deleteProduct(p.id);};root.appendChild(el);});$('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);}
