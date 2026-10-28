@@ -57,33 +57,8 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 .total .profitRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
 @media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}}
 
-.printInvoiceHeader{display:none}
-@page{size:A4 portrait;margin:8mm}
-@media print{
-  html,body{margin:0!important;padding:0!important;background:#fff!important;color:#17221d!important;font-size:10pt!important}
-  body *{visibility:hidden!important}
-  #invoicePage,#invoicePage *{visibility:visible!important}
-  #invoicePage{display:block!important;position:absolute!important;inset:0 auto auto 0!important;width:100%!important;margin:0!important;padding:0!important}
-  #invoicePage .box{display:block!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important}
-  #invoicePage h3{display:none!important}
-  #invoicePage .no-print,#invoicePage .qty button{display:none!important}
-  .printInvoiceHeader{display:block!important;text-align:center;border-bottom:2px solid #174c3c;padding:0 0 8px;margin:0 0 10px}
-  .printInvoiceHeader h1{font-size:19pt;margin:0 0 4px;color:#174c3c}
-  .printInvoiceHeader p{margin:3px 0;font-size:9pt}
-  #items .row{display:flex!important;align-items:flex-start!important;gap:8px!important;padding:6px 2px!important;margin:0!important;border-bottom:1px solid #d8dfdb!important;break-inside:avoid!important;page-break-inside:avoid!important;font-size:9pt!important}
-  #items .row .info{flex:1!important}
-  #items .row .info b{font-size:10pt!important}
-  #items .row .info small{font-size:8pt!important;color:#333!important;margin-top:2px!important}
-  #items .qty{min-width:35px!important;justify-content:center!important;padding-top:3px!important}
-  #items .qty b{font-size:9pt!important}
-  #totals .total{margin-top:9px!important;padding:9px!important;border:1px solid #cbd9d0!important;border-radius:7px!important;background:#f5faf6!important;line-height:1.45!important;break-inside:avoid!important;page-break-inside:avoid!important;font-size:9pt!important}
-  #totals .totalTitle{font-size:11pt!important;margin-bottom:3px!important}
-  #totals .totalRow{padding:4px 0!important}
-  #totals .profitBox{margin-top:6px!important;padding:6px!important}
-  #totals .profitRow{padding:3px 0!important}
-  #totals .muted,.muted{font-size:7.5pt!important}
-  #items:empty{display:none!important}
-}
+@media print{header,.tabs,.no-print{display:none!important}body{background:#fff}.box{box-shadow:none}}
+
 </style>
 </head>
 <body>
@@ -110,7 +85,7 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm();page('products')">إلغاء</button>
 </form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
 <section id="invoicePage" class="hidden">
-<div class="box"><div class="printInvoiceHeader"><h1>بضاعة الندوة</h1><p>فاتورة مبيعات</p><p>التاريخ: <span id="invoiceDate"></span></p></div><h3>🧾 ملخص الفاتورة</h3><div id="items"></div><div id="totals"></div>
+<div class="box"><h3>🧾 ملخص الفاتورة</h3><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
 <button class="primary" onclick="share()">مشاركة الفاتورة</button><button onclick="print()">طباعة / حفظ PDF</button><button class="danger" onclick="clearCart()">تفريغ الفاتورة</button>
 </div></div>
