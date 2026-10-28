@@ -59,7 +59,8 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <main>
 <section id="productsPage">
 <div style="display:flex;justify-content:flex-start;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج</button></div>
-<div class="box">
+<div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
+</section>
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <label>اسم المادة</label><input id="name" required placeholder="اسم المنتج">
 <label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50">
@@ -67,10 +68,8 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <label>سعر بيع القطعة بالليرة التركية</label><input id="sellTry" required type="number" min="0" step="0.1" value="5">
 <label>كمية المخزون (عدد العبوات)</label><input id="stock" required type="number" min="0" step="1" value="0">
 <label>صورة المنتج (اختيارية)</label><input id="image" type="file" accept="image/*"><div id="preview"></div>
-<button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm()">إلغاء</button>
+<button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm();page('products')">إلغاء</button>
 </form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
-<div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
-</section>
 <section id="invoicePage" class="hidden">
 <div class="box"><h3>🧾 ملخص الفاتورة</h3><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
