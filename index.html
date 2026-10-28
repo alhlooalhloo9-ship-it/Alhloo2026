@@ -16,7 +16,7 @@ button{border:0;border-radius:8px;padding:10px 12px;background:#e1eee7;color:#17
 .primary{background:#174c3c;color:#fff}
 .danger{background:#fee2e2;color:#9f2222}
 input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .prod{background:#fff;border:1px solid #dce4e0;border-radius:12px;padding:12px;text-align:center;cursor:pointer;min-width:0}
 .prod:active{transform:scale(.98)}
 .prod img{width:100%;max-width:190px;height:180px;object-fit:contain;display:block;margin:0 auto 10px;border-radius:8px}.prod .productPhoto{width:100%;max-width:190px;height:180px;object-fit:contain;cursor:zoom-in}
@@ -42,8 +42,7 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 .total .totalRow:last-child{border:0}
 .total .profitBox{margin-top:10px;background:#dcefe3;padding:12px;border-radius:10px}
 .total .profitRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
-@media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:380px){.grid{grid-template-columns:1fr}}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}}
 @media print{header,.tabs,.no-print{display:none!important}body{background:#fff}.box{box-shadow:none}}
 </style>
 </head>
