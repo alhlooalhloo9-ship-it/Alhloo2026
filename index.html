@@ -8,6 +8,10 @@
 <title>بضاعة الندوة</title>
 <style>
 *{box-sizing:border-box}
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+img,canvas,input,button{max-width:100%}
+main{width:100%;min-width:0}
+.grid,.prod,.box{min-width:0;max-width:100%}
 body{margin:0;background:#f3f5f7;color:#202b32;font-family:Arial,sans-serif}
 header{background:#174c3c;color:#fff;text-align:center;padding:18px}
 main{max-width:900px;margin:auto;padding:12px}
@@ -48,7 +52,8 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 .detailsBtn{display:block;margin:10px auto 0;min-width:130px}
 .detailsPanel{position:fixed;inset:0;background:#0009;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px}
 .detailsCard{background:#fff;color:#202b32;border-radius:16px;padding:20px;width:min(100%,360px);max-height:85vh;overflow:auto;box-shadow:0 12px 40px #0005;line-height:2}
-.detailsCard h3{margin-top:0}\n.cropBox{margin:10px 0;padding:10px;border:1px solid #dce4e0;border-radius:12px;background:#f8faf9}.cropStage{width:100%;max-width:320px;aspect-ratio:1/1;margin:8px auto;overflow:hidden;background:#e8ece9;border:2px dashed #174c3c;border-radius:10px;touch-action:none;position:relative}.cropStage canvas{width:100%;height:100%;display:block;cursor:move}.cropControls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cropControls input{flex:1;min-width:130px;margin:0}.zoomPhotoPanel{position:fixed;inset:0;background:#000d;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}.zoomPhotoCard{width:min(100%,520px);background:#fff;border-radius:14px;padding:12px;text-align:center}.zoomPhotoCard img{display:block;width:100%;max-height:70vh;object-fit:contain;margin:auto}.zoomPhotoCard button{margin-top:10px}
+.detailsCard h3{margin-top:0}
+.cropBox{margin:10px 0;padding:10px;border:1px solid #dce4e0;border-radius:12px;background:#f8faf9}.cropStage{width:100%;max-width:320px;aspect-ratio:1/1;margin:8px auto;overflow:hidden;background:#e8ece9;border:2px dashed #174c3c;border-radius:10px;touch-action:none;position:relative}.cropStage canvas{width:100%;height:100%;display:block;cursor:move}.cropControls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cropControls input{flex:1;min-width:130px;margin:0}.zoomPhotoPanel{position:fixed;inset:0;background:#000d;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}.zoomPhotoCard{width:min(100%,520px);background:#fff;border-radius:14px;padding:12px;text-align:center}.zoomPhotoCard img{display:block;width:100%;max-height:70vh;object-fit:contain;margin:auto}.zoomPhotoCard button{margin-top:10px}
 .detailsCard .profitLine{background:#edf6f0;border-radius:9px;padding:10px;font-weight:bold}
 .total .totalTitle{font-size:17px;margin-bottom:5px}
 .total .totalRow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #d7e8dc}
@@ -90,7 +95,8 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <button class="primary" onclick="share()">مشاركة الفاتورة</button><button onclick="print()">طباعة / حفظ PDF</button><button class="danger" onclick="clearCart()">تفريغ الفاتورة</button>
 </div></div>
 </section>
-<div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>\n<div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
+<div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>
+<div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
 <div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><button class="primary" style="width:100%;margin-top:12px" onclick="closeDetails()">إغلاق</button></div>
 </div>
 <div class="box">
