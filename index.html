@@ -58,9 +58,9 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 </div>
 <main>
 <section id="productsPage">
+<div style="display:flex;justify-content:flex-start;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج</button></div>
 <div class="box">
-<h3 id="formTitle">➕ إضافة منتج</h3>
-<form id="form">
+<section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <label>اسم المادة</label><input id="name" required placeholder="اسم المنتج">
 <label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50">
 <label>عدد القطع داخل العبوة</label><input id="pieces" required type="number" min="1" step="1" value="1">
@@ -68,8 +68,7 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <label>كمية المخزون (عدد العبوات)</label><input id="stock" required type="number" min="0" step="1" value="0">
 <label>صورة المنتج (اختيارية)</label><input id="image" type="file" accept="image/*"><div id="preview"></div>
 <button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm()">إلغاء</button>
-</form>
-</div>
+</form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
 <div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
 </section>
 <section id="invoicePage" class="hidden">
@@ -106,12 +105,12 @@ save();
 }
 $('tryRate').value=tryRate;$('sypRate').value=sypRate;
 function save(){localStorage.setItem('nadwa_products',JSON.stringify(products));localStorage.setItem('nadwa_cart',JSON.stringify(cart));}
-function page(p){$('productsPage').classList.toggle('hidden',p!=='products');$('invoicePage').classList.toggle('hidden',p!=='invoice');$('tabProducts').classList.toggle('primary',p==='products');$('tabInvoice').classList.toggle('primary',p==='invoice');if(p==='invoice')renderInvoice();}
+function page(p){$('productsPage').classList.toggle('hidden',p!=='products');$('productFormPage').classList.toggle('hidden',p!=='add');$('invoicePage').classList.toggle('hidden',p!=='invoice');$('tabProducts').classList.toggle('primary',p==='products'||p==='add');$('tabInvoice').classList.toggle('primary',p==='invoice');if(p==='invoice')renderInvoice();if(p==='products')renderProducts();window.scrollTo({top:0,behavior:'smooth'});}
 function resetForm(){$('form').reset();editId=null;newImage=null;removeImg=false;$('preview').innerHTML='';$('formTitle').textContent='➕ إضافة منتج';}
 $('image').addEventListener('change',function(){let f=this.files[0];if(!f)return;if(f.size>1500000){alert('اختر صورة أصغر من 1.5 ميغابايت');this.value='';return;}let r=new FileReader();r.onload=()=>{newImage=r.result;removeImg=false;$('preview').innerHTML='<img style="width:75px;height:75px;object-fit:contain" src="'+newImage+'"><br><button type="button" onclick="removeImage()">إزالة الصورة</button>';};r.readAsDataURL(f);});
 function removeImage(){newImage=null;removeImg=true;$('image').value='';$('preview').textContent='ستزال الصورة عند الحفظ';}
-$('form').addEventListener('submit',e=>{e.preventDefault();let n=$('name').value.trim();let p=+$('price').value;let s=+$('stock').value;let pc=Math.max(1,+$('pieces').value||1);let st=Math.max(0,+$('sellTry').value||0);if(!n||p<0||s<0)return;if(editId!==null){let x=products.find(z=>z.id===editId);x.name=n;x.price=p;x.stock=s;x.pieces=pc;x.sellTry=st;if(newImage)x.image=newImage;if(removeImg)x.image='';}else{products.push({id:Date.now(),name:n,price:p,pieces:pc,sellTry:st,stock:s,image:newImage||''});}save();resetForm();renderProducts();renderInvoice();});
-function editProduct(id){let p=products.find(x=>x.id===id);editId=id;newImage=null;removeImg=false;$('name').value=p.name;$('price').value=p.price;$('stock').value=p.stock;$('pieces').value=p.pieces||1;$('sellTry').value=p.sellTry??5;$('formTitle').textContent='✏️ تعديل المنتج';$('preview').innerHTML=p.image?'<img style="width:75px;height:75px;object-fit:contain" src="'+p.image+'"><br><button type="button" onclick="removeImage()">إزالة الصورة</button>':'<p class="muted">لا توجد صورة محفوظة.</p>';$('image').value='';window.scrollTo({top:0,behavior:'smooth'});}
+$('form').addEventListener('submit',e=>{e.preventDefault();let n=$('name').value.trim();let p=+$('price').value;let s=+$('stock').value;let pc=Math.max(1,+$('pieces').value||1);let st=Math.max(0,+$('sellTry').value||0);if(!n||p<0||s<0)return;if(editId!==null){let x=products.find(z=>z.id===editId);x.name=n;x.price=p;x.stock=s;x.pieces=pc;x.sellTry=st;if(newImage)x.image=newImage;if(removeImg)x.image='';}else{products.push({id:Date.now(),name:n,price:p,pieces:pc,sellTry:st,stock:s,image:newImage||''});}save();resetForm();page('products');renderProducts();renderInvoice();});
+function editProduct(id){let p=products.find(x=>x.id===id);editId=id;newImage=null;removeImg=false;$('name').value=p.name;$('price').value=p.price;$('stock').value=p.stock;$('pieces').value=p.pieces||1;$('sellTry').value=p.sellTry??5;$('formTitle').textContent='✏️ تعديل المنتج';$('preview').innerHTML=p.image?'<img style="width:75px;height:75px;object-fit:contain" src="'+p.image+'"><br><button type="button" onclick="removeImage()">إزالة الصورة</button>':'<p class="muted">لا توجد صورة محفوظة.</p>';$('image').value='';page('add');window.scrollTo({top:0,behavior:'smooth'});}
 function deleteProduct(id){if(!confirm('حذف المنتج؟'))return;products=products.filter(p=>p.id!==id);delete cart[id];save();renderProducts();renderInvoice();}
 function add(id){cart[id]=(cart[id]||0)+1;save();renderProducts();renderInvoice();}
 function qty(id,d){let n=(cart[id]||0)+d;if(n<=0)delete cart[id];else cart[id]=n;save();renderProducts();renderInvoice();}
