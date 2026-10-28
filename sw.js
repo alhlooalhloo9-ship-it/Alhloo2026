@@ -1,4 +1,4 @@
-const CACHE_NAME = "nadwa-offline-v11";
+const CACHE_NAME = "nadwa-offline-v12";
 const APP_SHELL = ["./", "./index.html", "./manifest.json"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
