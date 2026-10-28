@@ -1,0 +1,12 @@
+{
+  "name": "بضاعة الندوة",
+  "short_name": "بضاعة الندوة",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f5f7",
+  "theme_color": "#174c3c",
+  "description": "إدارة المنتجات والفواتير والعمل دون إنترنت"
+}
