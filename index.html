@@ -76,6 +76,18 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
 </div>
 <main>
+<section class="box" id="cloudPanel">
+<h3>☁️ الحساب والمزامنة</h3>
+<div id="authStatus" class="muted">غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.</div>
+<div id="authForm">
+<label>البريد الإلكتروني</label><input id="authEmail" type="email" autocomplete="email" placeholder="البريد الإلكتروني">
+<label>كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="signInBtn">تسجيل الدخول</button><button type="button" id="signUpBtn">إنشاء حساب</button></div>
+</div>
+<div id="authActions" class="hidden"><button type="button" class="primary" id="syncBtn">مزامنة المنتجات والإعدادات</button> <button type="button" id="signOutBtn">تسجيل الخروج</button></div>
+<p class="muted">لن تُحذف المنتجات المحلية تلقائياً. عند أول مزامنة، تُضاف المنتجات المحلية إلى السحابة وتُدمج مع الموجودة دون حذف سجلات السحابة. لا تُزامَن الفاتورة المفتوحة كسجل بيع.</p>
+<div id="syncMessage" role="status" class="muted"></div>
+</section>
 <section id="productsPage">
 <div style="display:flex;justify-content:flex-start;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج</button></div>
 <div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
@@ -108,7 +120,12 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 <p class="muted">أسعار الصرف يدوية وقابلة للتعديل، وليست جلباً تلقائياً من الإنترنت.</p>
 </div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL="https://eqtzokxomfvzeivrlat.supabase.co";
+const SUPABASE_KEY="sb_publishable_FvLnkT5CVb-8-20XDoTO-Q_z32ONRmD";
+const cloud=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let cloudUser=null, syncingCloud=false, cloudTimer=null;
 const $=id=>document.getElementById(id);
 let products=JSON.parse(localStorage.getItem('nadwa_products')||'null');
 let cart=JSON.parse(localStorage.getItem('nadwa_cart')||'{}');
@@ -126,7 +143,7 @@ products=[
 save();
 }
 $('tryRate').value=tryRate;$('sypRate').value=sypRate;
-function save(){localStorage.setItem('nadwa_products',JSON.stringify(products));localStorage.setItem('nadwa_cart',JSON.stringify(cart));}
+function save(){localStorage.setItem('nadwa_products',JSON.stringify(products));localStorage.setItem('nadwa_cart',JSON.stringify(cart));if(cloudUser&&!syncingCloud){clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>syncProductsToCloud().catch(e=>showCloudMessage('تعذرت المزامنة التلقائية: '+e.message)),1800);}}
 function page(p){$('productsPage').classList.toggle('hidden',p!=='products');$('productFormPage').classList.toggle('hidden',p!=='add');$('invoicePage').classList.toggle('hidden',p!=='invoice');$('tabProducts').classList.toggle('primary',p==='products'||p==='add');$('tabInvoice').classList.toggle('primary',p==='invoice');if(p==='invoice')renderInvoice();if(p==='products')renderProducts();window.scrollTo({top:0,behavior:'smooth'});}
 function resetForm(){$('form').reset();editId=null;newImage=null;removeImg=false;$('preview').innerHTML='';$('formTitle').textContent='➕ إضافة منتج';}
 function handleSelectedImage(f){if(!f)return;if(f.size>5000000){alert('اختر صورة أصغر من 5 ميغابايت');return;}let r=new FileReader();r.onload=()=>{let im=new Image();im.onload=()=>{cropSource=im;cropZoom=1;cropX=0;cropY=0;$('cropZoom').value=1;$('cropZoomValue').textContent='100%';$('cropBox').classList.remove('hidden');drawCrop();};im.src=r.result;};r.readAsDataURL(f);}
@@ -178,6 +195,25 @@ function renderInvoice(){let root=$('items');let sum=0,profitTry=0;root.innerHTM
 function saveRates(){let t=+$('tryRate').value;let s=+$('sypRate').value;if(t<=0||s<=0){alert('أدخل أسعار صرف صحيحة');return;}tryRate=t;sypRate=s;localStorage.setItem('nadwa_try',t);localStorage.setItem('nadwa_syp',s);renderInvoice();alert('تم حفظ أسعار الصرف');}
 function clearCart(){if(confirm('تفريغ الفاتورة؟')){Object.entries(cart).forEach(([id,n])=>{let p=products.find(x=>x.id===+id);if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});cart={};save();renderProducts();renderInvoice();}}
 function share(){let a=['فاتورة بضاعة الندوة'];let sum=0;Object.entries(cart).forEach(([id,n])=>{let p=products.find(x=>x.id===+id);if(!p)return;sum+=p.price*n;a.push(p.name+' × '+n+' — $'+(p.price*n).toFixed(2)+' | '+fmt(p.price*n*tryRate)+' ل.ت'+' | '+fmt(p.price*n*sypRate)+' ل.س جديدة');});a.push('المجموع: $'+sum.toFixed(2),'بالتركي: '+fmt(sum*tryRate)+' ل.ت','بالسوري: '+fmt(sum*sypRate)+' ل.س جديدة');let t=a.join('\n');if(navigator.share){navigator.share({title:'فاتورة بضاعة الندوة',text:t}).catch(()=>{});}else if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(()=>prompt('انسخ الفاتورة',t));}else{prompt('انسخ الفاتورة',t);}}
+
+function showCloudMessage(s){$('syncMessage').textContent=s;}
+function updateAuthUI(){const on=!!cloudUser;$('authForm').classList.toggle('hidden',on);$('authActions').classList.toggle('hidden',!on);$('authStatus').textContent=on?'مسجّل الدخول: '+cloudUser.email+' — المزامنة السحابية متاحة.':'غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.';}
+async function doSignUp(){const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||password.length<6){showCloudMessage('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.');return;}showCloudMessage('جارٍ إنشاء الحساب...');const {data,error}=await cloud.auth.signUp({email,password});if(error){showCloudMessage('تعذر إنشاء الحساب: '+error.message);return;}if(data.session){cloudUser=data.user;updateAuthUI();showCloudMessage('تم إنشاء الحساب. ابدأ المزامنة.');}else showCloudMessage('تم طلب إنشاء الحساب. إذا طُلب تأكيد البريد، أكّده ثم سجّل الدخول.');}
+async function doSignIn(){const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||!password){showCloudMessage('أدخل البريد الإلكتروني وكلمة المرور.');return;}showCloudMessage('جارٍ تسجيل الدخول...');const {data,error}=await cloud.auth.signInWithPassword({email,password});if(error){showCloudMessage('تعذر تسجيل الدخول: '+error.message);return;}cloudUser=data.user;updateAuthUI();await syncCloudSafely();}
+async function doSignOut(){await cloud.auth.signOut();cloudUser=null;updateAuthUI();showCloudMessage('تم تسجيل الخروج. بيانات هذا الجهاز لم تُحذف.');}
+function toCloudProduct(p){return {user_id:cloudUser.id,name:String(p.name||'منتج'),purchase_price_usd:+p.price||0,pieces_per_package:Math.max(1,+p.pieces||1),selling_price_try:+p.sellTry||0,stock:Math.max(0,+p.stock||0),image:p.image||'',pick_count:Math.max(0,+p.pickCount||0)};}
+function fromCloudProduct(p){return {id:+p.id,name:p.name,price:+p.purchase_price_usd||0,pieces:Math.max(1,+p.pieces_per_package||1),sellTry:+p.selling_price_try||0,stock:Math.max(0,+p.stock||0),image:p.image||'',pickCount:Math.max(0,+p.pick_count||0)};}
+async function syncProductsToCloud(){if(!cloudUser||syncingCloud)return;syncingCloud=true;try{showCloudMessage('جارٍ حفظ المنتجات المحلية في السحابة...');const {data:remote,error}=await cloud.from('products').select('*').eq('user_id',cloudUser.id);if(error)throw error;const rows=remote||[];const byName=new Map(rows.map(r=>[String(r.name).trim().toLocaleLowerCase(),r]));for(const p of products){const key=String(p.name||'').trim().toLocaleLowerCase();const existing=byName.get(key);const payload=toCloudProduct(p);if(existing){const {error:updateError}=await cloud.from('products').update(payload).eq('id',existing.id).eq('user_id',cloudUser.id);if(updateError)throw updateError;}else{const {data:added,error:insertError}=await cloud.from('products').insert(payload).select('*').single();if(insertError)throw insertError;rows.push(added);byName.set(key,added);}}showCloudMessage('تم حفظ المنتجات المحلية في السحابة. جارٍ جلب المنتجات السحابية...');const {data:all,error:readError}=await cloud.from('products').select('*').eq('user_id',cloudUser.id).order('id');if(readError)throw readError;const merged=new Map();for(const p of products)merged.set(String(p.name).trim().toLocaleLowerCase(),p);for(const r of (all||[])){const key=String(r.name).trim().toLocaleLowerCase();const local=merged.get(key);const mapped=fromCloudProduct(r);if(local){mapped.pickCount=Math.max(+local.pickCount||0,mapped.pickCount);if((cart[local.id]||0)>0)cart[mapped.id]=Math.max(+cart[mapped.id]||0,+cart[local.id]||0);if(local.id!==mapped.id)delete cart[local.id];}merged.set(key,mapped);}products=Array.from(merged.values());saveLocalOnly();renderProducts();renderInvoice();showCloudMessage('اكتملت مزامنة المنتجات. تمت المحافظة على البيانات المحلية ودمج المنتجات حسب الاسم.');}finally{syncingCloud=false;}}
+function saveLocalOnly(){localStorage.setItem('nadwa_products',JSON.stringify(products));localStorage.setItem('nadwa_cart',JSON.stringify(cart));}
+async function syncSettings(){if(!cloudUser)return;const settings={tryRate,sypRate};const {data,error}=await cloud.from('app_settings').select('id,settings').eq('user_id',cloudUser.id).limit(1);if(error)throw error;if(data&&data.length){const {error:e}=await cloud.from('app_settings').update({settings,updated_at:new Date().toISOString()}).eq('id',data[0].id).eq('user_id',cloudUser.id);if(e)throw e;}else{const {error:e}=await cloud.from('app_settings').insert({user_id:cloudUser.id,settings});if(e)throw e;}}
+async function syncCloudSafely(){try{await syncProductsToCloud();await syncSettings();}catch(e){showCloudMessage('تعذرت المزامنة: '+e.message+' — بقيت بيانات الجهاز محفوظة.');}}
+$('signUpBtn').addEventListener('click',()=>doSignUp().catch(e=>showCloudMessage(e.message)));
+$('signInBtn').addEventListener('click',()=>doSignIn().catch(e=>showCloudMessage(e.message)));
+$('signOutBtn').addEventListener('click',()=>doSignOut().catch(e=>showCloudMessage(e.message)));
+$('syncBtn').addEventListener('click',()=>syncCloudSafely());
+cloud.auth.getSession().then(({data,error})=>{if(error){showCloudMessage(error.message);return;}if(data.session){cloudUser=data.session.user;updateAuthUI();}else updateAuthUI();}).catch(e=>showCloudMessage(e.message));
+cloud.auth.onAuthStateChange((_event,session)=>{cloudUser=session?.user||null;updateAuthUI();});
+
 renderProducts();renderInvoice();
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(err=>console.warn("Offline cache registration failed",err)));}
 </script>
