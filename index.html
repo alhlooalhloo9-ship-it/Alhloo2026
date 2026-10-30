@@ -285,8 +285,8 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     onAuthStateChanged 
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { 
-    getFirestore, 
-    enableIndexedDbPersistence,
+    getFirestore,
+    initializeFirestore,
     collection, 
     addDoc, 
     getDocs, 
@@ -312,11 +312,12 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
-  // فعّل التخزين المحلي الدائم لـ Firestore كي يحتفظ بالبيانات المقروءة عند انقطاع الشبكة.
-  // قد يكون التخزين مفعّلاً مسبقاً أو غير مدعوم في بعض المتصفحات؛ في الحالتين نكمل دون حذف بيانات.
-  enableIndexedDbPersistence(db).catch(error => {
-    console.warn('Firestore local persistence was not enabled:', error.code || error.message);
+  // استخدام long polling لتجاوز مشاكل WebChannel التي قد تمنع تأكيد الكتابة
+  // على بعض شبكات الهاتف أو المتصفحات. لا نفعّل التخزين المؤقت هنا كي لا تختلط
+  // حالة الاتصال الفعلية بنتائج محلية قديمة أثناء مزامنة المنتجات.
+  const db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
   });
 
   let cloudUser = null, syncingCloud = false, cloudTimer = null, fullSyncRunning = false;
@@ -991,18 +992,18 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
         jobs.push({ local, existing, ref, payload });
       }
 
-      // لا نرسل 21 منتجاً في طلب واحد كبير؛ نقسمها إلى دفعات صغيرة لتقليل احتمال انتهاء المهلة.
-      const chunkSize = 4;
+      // أرسل كل منتج بطلب مستقل لتحديد المنتج الذي يتعطل بدقة،
+      // ولتفادي تعليق دفعة كاملة إذا تعثرت إحدى عمليات الكتابة.
       const synced = [];
-      for (let offset = 0; offset < jobs.length; offset += chunkSize) {
-        const chunk = jobs.slice(offset, offset + chunkSize);
-        const batch = writeBatch(db);
-        chunk.forEach(job => batch.set(job.ref, job.payload, { merge: true }));
-        const first = offset + 1;
-        const last = Math.min(offset + chunk.length, jobs.length);
-        showCloudMessage('جارٍ حفظ المنتجات ' + first + '–' + last + ' من ' + jobs.length + '...');
-        await withCloudTimeout(batch.commit(), 'حفظ المنتجات ' + first + '–' + last, 45000);
-        synced.push(...chunk);
+      for (let index = 0; index < jobs.length; index++) {
+        const job = jobs[index];
+        showCloudMessage('جارٍ حفظ المنتج ' + (index + 1) + ' من ' + jobs.length + ': ' + (job.local.name || 'منتج') + '...');
+        await withCloudTimeout(
+          setDoc(job.ref, job.payload, { merge: true }),
+          'حفظ المنتج ' + (index + 1) + ' («' + (job.local.name || 'منتج') + '»)',
+          20000
+        );
+        synced.push(job);
       }
 
       // حافظ على القيم المحلية الأحدث، وسجّل معرّف وثيقة Firebase لكل منتج.
