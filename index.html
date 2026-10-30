@@ -286,6 +286,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import { 
     getFirestore, 
+    enableIndexedDbPersistence,
     collection, 
     addDoc, 
     getDocs, 
@@ -311,8 +312,13 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  // فعّل التخزين المحلي الدائم لـ Firestore كي يحتفظ بالبيانات المقروءة عند انقطاع الشبكة.
+  // قد يكون التخزين مفعّلاً مسبقاً أو غير مدعوم في بعض المتصفحات؛ في الحالتين نكمل دون حذف بيانات.
+  enableIndexedDbPersistence(db).catch(error => {
+    console.warn('Firestore local persistence was not enabled:', error.code || error.message);
+  });
 
-  let cloudUser = null, syncingCloud = false, cloudTimer = null;
+  let cloudUser = null, syncingCloud = false, cloudTimer = null, fullSyncRunning = false;
   const $ = id => document.getElementById(id);
 
   let products = JSON.parse(localStorage.getItem('nadwa_products') || 'null');
@@ -1061,14 +1067,40 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   }
 
   async function syncCloudSafely() {
+    if (!cloudUser || fullSyncRunning) return;
+    if (navigator.onLine === false) {
+      showCloudMessage('الجهاز غير متصل بالإنترنت حالياً. بيانات المنتجات والفاتورة محفوظة على هذا الهاتف، وستُعاد محاولة المزامنة عند عودة الاتصال.');
+      return;
+    }
+    fullSyncRunning = true;
     try {
       await syncProductsToCloud();
       await loadCartFromCloud();
       await syncSettings();
+      showCloudMessage('اكتملت المزامنة السحابية للمنتجات والفاتورة والإعدادات.');
     } catch (e) {
-      showCloudMessage('تعذرت المزامنة: ' + e.message + ' — بقيت بيانات الجهاز محفوظة.');
+      const code = String(e?.code || '');
+      const message = String(e?.message || 'خطأ غير معروف');
+      const offlineError = navigator.onLine === false || /client is offline|unavailable|failed to fetch|network/i.test(message) || code === 'unavailable';
+      showCloudMessage(offlineError
+        ? 'تعذّر الوصول إلى Firebase حالياً (' + message + '). لم تُحذف أي بيانات؛ بقيت محفوظة على هذا الهاتف، وستُعاد المحاولة تلقائياً عند عودة الاتصال.'
+        : 'تعذرت المزامنة: ' + message + ' — بقيت بيانات الجهاز محفوظة.');
+      console.error('Firestore synchronization failed:', { code, message, error: e });
+    } finally {
+      fullSyncRunning = false;
     }
   }
+
+  // إعادة المحاولة تلقائياً عند عودة الإنترنت أو الرجوع إلى التطبيق.
+  window.addEventListener('online', () => {
+    if (cloudUser) {
+      showCloudMessage('عاد اتصال الإنترنت؛ جارٍ إعادة محاولة المزامنة...');
+      syncCloudSafely();
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && cloudUser && navigator.onLine !== false) syncCloudSafely();
+  });
 
   $('signUpBtn').addEventListener('click', () => doSignUp().catch(e => showCloudMessage(e.message)));
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
