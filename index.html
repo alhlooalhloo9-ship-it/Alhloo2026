@@ -926,13 +926,25 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     return [String(p.name || '').trim().toLocaleLowerCase(), (+p.price || 0).toFixed(2), Math.max(1, +p.pieces || 1), (+p.sellTry || 0).toFixed(2)].join('|');
   }
 
+  // Firestore requests must not leave the interface stuck indefinitely.
+  function withCloudTimeout(promise, label, timeoutMs = 20000) {
+    let timer;
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('انتهت مهلة الاتصال أثناء ' + label + '. تحقق من اتصال Firebase ثم أعد المحاولة.')), timeoutMs);
+      })
+    ]).finally(() => clearTimeout(timer));
+  }
+
+
   async function syncProductsToCloud() {
     if (!cloudUser || syncingCloud) return;
     syncingCloud = true;
     try {
-      showCloudMessage('جارٍ دمج المنتجات المحلية مع السحابة دون حذف...');
+      showCloudMessage('جارٍ الاتصال بالسحابة لقراءة المنتجات...');
       const q = query(collection(db, 'products'), where('user_id', '==', cloudUser.uid));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await withCloudTimeout(getDocs(q), 'قراءة المنتجات');
       const remoteDocs = [];
       querySnapshot.forEach(docSnap => remoteDocs.push(docSnap));
 
@@ -944,19 +956,23 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
         queues.get(key).push({ docId: docSnap.id, ...r });
       }
 
+      let processed = 0;
       for (const p of products) {
+        processed++;
+        showCloudMessage('جارٍ مزامنة المنتجات (' + processed + ' من ' + products.length + ')...');
         const key = productSignature(p);
         const qList = queues.get(key) || [];
         let existing = qList.shift();
         const payload = { ...toCloudProduct(p), id: p.id };
         if (existing) {
-          await setDoc(doc(db, 'products', existing.docId), payload, { merge: true });
+          await withCloudTimeout(setDoc(doc(db, 'products', existing.docId), payload, { merge: true }), 'حفظ المنتج ' + processed);
         } else {
-          await addDoc(collection(db, 'products'), payload);
+          await withCloudTimeout(addDoc(collection(db, 'products'), payload), 'إضافة المنتج ' + processed);
         }
       }
 
-      const finalSnap = await getDocs(query(collection(db, 'products'), where('user_id', '==', cloudUser.uid)));
+      showCloudMessage('تم رفع المنتجات؛ جارٍ التحقق من النسخة السحابية...');
+      const finalSnap = await withCloudTimeout(getDocs(query(collection(db, 'products'), where('user_id', '==', cloudUser.uid))), 'التحقق من المنتجات');
       const allRemote = [];
       finalSnap.forEach(d => allRemote.push(d));
 
@@ -1026,14 +1042,14 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
       user_id: cloudUser.uid,
       items,
       updated_at: new Date().toISOString()
-    }, { merge: true });
+    }, { merge: true }), 'حفظ الفاتورة');
     showCloudMessage('تمت مزامنة الفاتورة والمنتجات المختارة مع الحساب.');
   }
 
   async function loadCartFromCloud() {
     if (!cloudUser) return;
     const cartRef = doc(db, 'user_carts', cloudUser.uid);
-    const cartSnap = await getDoc(cartRef);
+    const cartSnap = await withCloudTimeout(getDoc(cartRef), 'قراءة الفاتورة');
     if (cartSnap.exists()) {
       const savedItems = cartSnap.data().items || {};
       const restored = {};
@@ -1057,7 +1073,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     if (!cloudUser) return;
     const settings = { tryRate, sypRate };
     const q = query(collection(db, 'app_settings'), where('user_id', '==', cloudUser.uid));
-    const snap = await getDocs(q);
+    const snap = await withCloudTimeout(getDocs(q), 'قراءة الإعدادات');
     if (!snap.empty) {
       const docRef = snap.docs[0].ref;
       await setDoc(docRef, { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }, { merge: true });
