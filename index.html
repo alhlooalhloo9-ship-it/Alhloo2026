@@ -226,9 +226,11 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 <div class="tabs" role="navigation" aria-label="التنقل الرئيسي">
 <button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
 <button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
+<button id="tabAccount" onclick="page('account')">⚙️ الحساب والإعدادات</button>
 </div>
 <main>
-<section class="box" id="cloudPanel">
+<section id="accountPage" class="hidden">
+<div class="box" id="cloudPanel">
 <h3>☁️ الحساب والمزامنة</h3>
 <div id="authStatus" class="muted">غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.</div>
 <div id="authForm">
@@ -239,6 +241,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 <div id="authActions" class="hidden"><button type="button" class="primary" id="syncBtn">مزامنة المنتجات والإعدادات</button> <button type="button" id="signOutBtn">تسجيل الخروج</button></div>
 <p class="muted">لن تُحذف المنتجات المحلية تلقائياً. عند أول مزامنة، تُضاف المنتجات المحلية إلى السحابة وتُدمج مع الموجودة دون حذف سجلات السحابة. لا تُزامَن الفاتورة المفتوحة كسجل بيع.</p>
 <div id="syncMessage" role="status" class="muted"></div>
+</div>
 </section>
 <section id="productsPage">
 <div style="display:flex;justify-content:flex-start;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج</button></div>
@@ -358,8 +361,10 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     $('productsPage').classList.toggle('hidden', p !== 'products');
     $('productFormPage').classList.toggle('hidden', p !== 'add');
     $('invoicePage').classList.toggle('hidden', p !== 'invoice');
+    $('accountPage').classList.toggle('hidden', p !== 'account');
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
+    $('tabAccount').classList.toggle('primary', p === 'account');
     if (p === 'invoice') renderInvoice();
     if (p === 'products') renderProducts();
     window.scrollTo({ top: 0, behavior: 'smooth' });
