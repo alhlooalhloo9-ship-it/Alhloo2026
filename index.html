@@ -200,17 +200,23 @@ function showCloudMessage(s){$('syncMessage').textContent=s;}
 function updateAuthUI(){const on=!!cloudUser;$('authForm').classList.toggle('hidden',on);$('authActions').classList.toggle('hidden',!on);const label=cloudUser?.user_metadata?.username||cloudUser?.email||'';$('authStatus').textContent=on?'تم تسجيل الدخول باسم: '+label+' — المزامنة السحابية متاحة.':'غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.';}
 async function explainAuthError(action,error){
   const message=String(error?.message||error||'خطأ غير معروف');
+  const errorName=String(error?.name||'غير محدد');
   if(message.toLowerCase().includes('failed to fetch')||message.toLowerCase().includes('network')){
-    showCloudMessage('تعذر '+action+' بسبب فشل اتصال الشبكة. جارٍ فحص اتصال Supabase...');
+    showCloudMessage('فشل طلب '+action+'. نفحص الآن اتصال المتصفح بواجهة المصادقة باستخدام مفتاح التطبيق...');
     try{
-      const response=await fetch(SUPABASE_URL+'/auth/v1/health?apikey='+encodeURIComponent(SUPABASE_KEY),{method:'GET',cache:'no-store'});
+      const response=await fetch(SUPABASE_URL+'/auth/v1/health',{
+        method:'GET',
+        headers:{'apikey':SUPABASE_KEY,'Accept':'application/json'},
+        cache:'no-store'
+      });
+      const body=await response.text();
       if(response.ok){
-        showCloudMessage('خدمة Supabase متاحة من هذا المتصفح، لكن طلب المصادقة فشل. حدّث الصفحة تحديثاً كاملاً، وجرّب إيقاف VPN/مانع الإعلانات مؤقتاً أو تبديل الشبكة. إذا استمر الخطأ، نحتاج فحص طلب المصادقة نفسه. ('+message+')');
+        showCloudMessage('نتيجة الفحص: المتصفح وصل إلى Supabase بنجاح باستخدام ترويسة المفتاح (HTTP '+response.status+'). إذن العطل محصور بطلب المصادقة أو إعداداته، وليس انقطاع الاتصال العام. تفاصيل الخطأ الأصلي: '+errorName+' — '+message+'. لم يتم حذف أو تعديل أي بيانات.');
       }else{
-        showCloudMessage('تعذر الوصول إلى خدمة المصادقة (HTTP '+response.status+'). تحقق من حالة مشروع Supabase والشبكة ثم أعد المحاولة.');
+        showCloudMessage('نتيجة الفحص: طلب Supabase وصل لكنه رُفض (HTTP '+response.status+'). الرد: '+body.slice(0,240)+'. لم يتم حذف أو تعديل أي بيانات.');
       }
     }catch(probeError){
-      showCloudMessage('تعذر الوصول إلى Supabase من المتصفح. تحقق من الاتصال أو VPN/مانع الإعلانات أو إعدادات الشبكة. لم يتم حذف أو تعديل بياناتك.');
+      showCloudMessage('نتيجة الفحص: المتصفح لم يستطع إكمال طلب HTTP إلى واجهة Supabase باستخدام ترويسة المفتاح. نوع الخطأ: '+String(probeError?.name||'غير محدد')+'؛ التفاصيل: '+String(probeError?.message||probeError)+'. هذا يرجّح مشكلة CORS أو شبكة/حجب للطلبات، ولا يثبت وجود مشكلة بكلمة المرور. لم يتم حذف أو تعديل أي بيانات.');
     }
     return;
   }
