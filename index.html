@@ -1038,7 +1038,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
       const product = products.find(p => String(p.id) === String(id));
       if (product && +quantity > 0) items[String(product.id)] = +quantity;
     }
-    await setDoc(doc(db, 'user_carts', cloudUser.uid), {
+    await withCloudTimeout(setDoc(doc(db, 'user_carts', cloudUser.uid), {
       user_id: cloudUser.uid,
       items,
       updated_at: new Date().toISOString()
@@ -1076,9 +1076,9 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     const snap = await withCloudTimeout(getDocs(q), 'قراءة الإعدادات');
     if (!snap.empty) {
       const docRef = snap.docs[0].ref;
-      await setDoc(docRef, { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }, { merge: true });
+      await withCloudTimeout(setDoc(docRef, { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }, { merge: true }), 'حفظ الإعدادات');
     } else {
-      await addDoc(collection(db, 'app_settings'), { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() });
+      await withCloudTimeout(addDoc(collection(db, 'app_settings'), { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }), 'إضافة الإعدادات');
     }
   }
 
