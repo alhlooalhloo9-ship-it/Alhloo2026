@@ -60,6 +60,151 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 .total .totalRow:last-child{border:0}
 .total .profitBox{margin-top:10px;background:#dcefe3;padding:12px;border-radius:10px}
 .total .profitRow{display:flex;justify-content:space-between;gap:10px;padding:5px 0}
+
+/* واجهة محسّنة: تصميم عربي واضح ومتجاوب */
+:root{
+  --brand:#174c3c;
+  --brand-deep:#10382d;
+  --brand-soft:#e8f2ec;
+  --ink:#1c2b27;
+  --muted:#718078;
+  --line:#e4ebe6;
+  --surface:#ffffff;
+  --page:#f4f7f5;
+  --radius:18px;
+}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse at 90% 0%,rgba(23,76,60,.07),transparent 32rem),
+    var(--page);
+  color:var(--ink);
+  font-family:Arial,"Noto Sans Arabic",sans-serif;
+}
+.app-hero{
+  position:relative;
+  overflow:hidden;
+  padding:26px 18px 34px;
+  color:#fff;
+  text-align:right;
+  background:linear-gradient(125deg,#10382d 0%,#174c3c 55%,#287257 100%);
+  border-radius:0 0 28px 28px;
+  box-shadow:0 12px 30px rgba(16,56,45,.16);
+}
+.app-hero:before,.app-hero:after{
+  content:"";position:absolute;border:1px solid rgba(255,255,255,.10);
+  border-radius:50%;pointer-events:none
+}
+.app-hero:before{width:260px;height:260px;left:-75px;top:-145px}
+.app-hero:after{width:180px;height:180px;left:65px;bottom:-130px}
+.hero-inner{
+  position:relative;z-index:1;max-width:1060px;margin:auto;
+  display:flex;align-items:center;gap:15px
+}
+.hero-mark{
+  width:58px;height:58px;flex:0 0 58px;display:grid;place-items:center;
+  border-radius:18px;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.18);font-size:29px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12)
+}
+.hero-copy{min-width:0;flex:1}
+.hero-kicker{display:block;font-size:11px;letter-spacing:.4px;color:#c6e5d4;margin-bottom:5px}
+.app-hero h1{font-size:clamp(22px,5vw,30px);line-height:1.25;margin:0;font-weight:800}
+.app-hero p{margin:6px 0 0;color:#e1f0e7;font-size:13px}
+.hero-chip{
+  align-self:flex-start;display:flex;align-items:center;gap:7px;
+  white-space:nowrap;padding:8px 11px;border-radius:30px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);
+  font-size:11px;color:#f1faf4
+}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#9be2ad;box-shadow:0 0 0 4px rgba(155,226,173,.13)}
+main{max-width:1060px;margin:0 auto;padding:16px 14px 34px}
+.tabs{
+  position:sticky;top:8px;max-width:620px;margin:-17px auto 18px;
+  display:flex;gap:7px;padding:7px;z-index:10;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
+  border:1px solid rgba(225,234,228,.9);border-radius:16px;
+  box-shadow:0 8px 24px rgba(24,55,42,.09)
+}
+.tabs button{
+  flex:1;min-height:44px;border-radius:11px;background:transparent;
+  color:#607168;font-weight:700;transition:background .18s,color .18s,transform .18s
+}
+.tabs button.primary{background:var(--brand);color:#fff;box-shadow:0 4px 10px rgba(23,76,60,.2)}
+.tabs button:active{transform:scale(.98)}
+.box{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:17px;margin:14px 0;box-shadow:0 5px 20px rgba(30,60,44,.045)
+}
+.box h3{margin:0 0 10px;font-size:18px;color:#203c30}
+.box>p.muted{line-height:1.7}
+button{
+  border-radius:11px;padding:11px 14px;font-weight:700;
+  transition:transform .16s,box-shadow .16s,background .16s
+}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,summary:focus-visible{
+  outline:3px solid rgba(52,130,94,.28);outline-offset:2px
+}
+.primary{background:linear-gradient(135deg,#174c3c,#22664d);color:#fff;box-shadow:0 4px 11px rgba(23,76,60,.14)}
+input{
+  border:1px solid #d9e3dc;border-radius:11px;background:#fbfdfb;
+  color:var(--ink);transition:border-color .18s,box-shadow .18s
+}
+input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outline:none}
+#productsPage>div:first-child{margin:4px 0 12px!important}
+#productsPage>div:first-child button{min-height:44px;padding-inline:18px}
+#productsPage .box>h3{display:flex;align-items:center;gap:8px}
+#productsPage .box>h3:before{content:"";width:5px;height:21px;border-radius:5px;background:#2e7958}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.prod{
+  padding:11px 9px 10px;border:1px solid #e5ece7;border-radius:16px;
+  background:linear-gradient(180deg,#fff 0%,#fcfefc 100%);
+  box-shadow:0 3px 12px rgba(31,64,46,.045);
+  transition:transform .18s,border-color .18s,box-shadow .18s
+}
+.prod:active{transform:scale(.985)}
+.prod img,.prod .productPhoto{
+  width:100%;max-width:none;height:116px;object-fit:contain;
+  padding:5px;background:#f7faf8;border-radius:11px
+}
+.name{font-size:14px;min-height:2.7em;color:#263a30}
+.price{font-weight:800;font-size:16px;color:#176044;margin:7px 0}
+.prod .tapControls{margin:8px 0 5px}
+.prod .tapControls .badge{background:#f0f5f1;color:#50665a}
+.prod .undoTap{border:1px solid #e3ebe5;background:#fff;color:#68766e}
+.prod details.productDetails summary{background:#edf5ef;color:#245a40;border-radius:9px;font-weight:700}
+.prod .actions button{border-radius:9px}
+.muted{color:var(--muted);line-height:1.6}
+.badge{background:#e8f2ec;color:#245a40}
+.row{gap:10px}
+.row .info b{color:#203c30}
+.qty button{min-width:34px;padding:7px 10px}
+.total{border:1px solid #dcebe1;border-radius:14px}
+#cloudPanel{border-top:4px solid #2b7554}
+#cloudPanel h3{display:flex;align-items:center;gap:7px}
+#syncMessage{margin-top:8px}
+#invoicePage .box h3{display:flex;align-items:center;gap:8px}
+#invoicePage .box h3:before{content:"";width:5px;height:21px;border-radius:5px;background:#2e7958}
+.detailsCard,.zoomPhotoCard{border-radius:20px}
+@media(min-width:600px){
+  .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+  .prod{padding:13px}
+  .prod img,.prod .productPhoto{height:132px}
+}
+@media(min-width:900px){
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:420px){
+  .app-hero{padding:22px 14px 30px}
+  .hero-mark{width:49px;height:49px;flex-basis:49px;border-radius:15px;font-size:25px}
+  .hero-chip{font-size:10px;padding:7px 9px}
+  main{padding-inline:10px}
+  .box{padding:14px;border-radius:15px}
+  .grid{gap:8px}
+  .prod{padding:8px 6px}
+  .prod img,.prod .productPhoto{height:100px}
+}
 @media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}}
 
 @media print{header,.tabs,.no-print{display:none!important}body{background:#fff}.box{box-shadow:none}}
@@ -67,11 +212,18 @@ input{width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-
 </style>
 </head>
 <body>
-<header>
-<h1>📦 بضاعة الندوة</h1>
-<div>اضغط على المنتج لإضافته إلى الفاتورة</div>
+<header class="app-hero">
+  <div class="hero-inner">
+    <div class="hero-mark" aria-hidden="true">📦</div>
+    <div class="hero-copy">
+      <span class="hero-kicker">إدارة المبيعات والمخزون</span>
+      <h1>بضاعة الندوة</h1>
+      <p>كل منتجاتك وفواتيرك بمكان واحد</p>
+    </div>
+    <div class="hero-chip"><span class="live-dot"></span> مساحة العمل</div>
+  </div>
 </header>
-<div class="tabs">
+<div class="tabs" role="navigation" aria-label="التنقل الرئيسي">
 <button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
 <button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
 </div>
