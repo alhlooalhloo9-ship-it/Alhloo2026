@@ -353,7 +353,14 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     localStorage.setItem('nadwa_cart', JSON.stringify(cart));
     if (cloudUser && !syncingCloud) {
       clearTimeout(cloudTimer);
-      cloudTimer = setTimeout(() => syncProductsToCloud().catch(e => showCloudMessage('تعذرت المزامنة التلقائية: ' + e.message)), 1800);
+      cloudTimer = setTimeout(async () => {
+        try {
+          await syncProductsToCloud();
+          await syncCartToCloud();
+        } catch (e) {
+          showCloudMessage('تعذرت مزامنة المنتجات أو الفاتورة: ' + e.message);
+        }
+      }, 1800);
     }
   }
 
@@ -1002,6 +1009,44 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     localStorage.setItem('nadwa_cart', JSON.stringify(cart));
   }
 
+  async function syncCartToCloud() {
+    if (!cloudUser) return;
+    const items = {};
+    for (const [id, quantity] of Object.entries(cart)) {
+      const product = products.find(p => String(p.id) === String(id));
+      if (product && +quantity > 0) items[String(product.id)] = +quantity;
+    }
+    await setDoc(doc(db, 'user_carts', cloudUser.uid), {
+      user_id: cloudUser.uid,
+      items,
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+    showCloudMessage('تمت مزامنة الفاتورة والمنتجات المختارة مع الحساب.');
+  }
+
+  async function loadCartFromCloud() {
+    if (!cloudUser) return;
+    const cartRef = doc(db, 'user_carts', cloudUser.uid);
+    const cartSnap = await getDoc(cartRef);
+    if (cartSnap.exists()) {
+      const savedItems = cartSnap.data().items || {};
+      const restored = {};
+      for (const [id, quantity] of Object.entries(savedItems)) {
+        if (products.some(p => String(p.id) === String(id)) && +quantity > 0) {
+          restored[id] = +quantity;
+        }
+      }
+      cart = restored;
+      saveLocalOnly();
+      renderProducts();
+      renderInvoice();
+      showCloudMessage('تم استرجاع الفاتورة والمنتجات المختارة من الحساب.');
+    } else if (Object.keys(cart).length) {
+      // إذا كانت الفاتورة موجودة على الجهاز الأول ولم تُرفع سابقاً، ارفعها دون استبدالها بسلة فارغة من جهاز جديد.
+      await syncCartToCloud();
+    }
+  }
+
   async function syncSettings() {
     if (!cloudUser) return;
     const settings = { tryRate, sypRate };
@@ -1018,6 +1063,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   async function syncCloudSafely() {
     try {
       await syncProductsToCloud();
+      await loadCartFromCloud();
       await syncSettings();
     } catch (e) {
       showCloudMessage('تعذرت المزامنة: ' + e.message + ' — بقيت بيانات الجهاز محفوظة.');
