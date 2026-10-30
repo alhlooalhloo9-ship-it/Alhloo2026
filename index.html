@@ -202,25 +202,12 @@ async function explainAuthError(action,error){
   const message=String(error?.message||error||'خطأ غير معروف');
   const errorName=String(error?.name||'غير محدد');
   if(message.toLowerCase().includes('failed to fetch')||message.toLowerCase().includes('network')){
-    showCloudMessage('فشل طلب '+action+'. نجري فحصين منفصلين لتحديد هل المشكلة من الاتصال أم من ترويسة المفتاح...');
+    showCloudMessage('فشل طلب '+action+'. نجري الآن اختبار اتصال لا يحتاج قراءة رد الخادم، للتمييز بين حجب الشبكة ومشكلة CORS...');
     try{
-      let plainResponse;
-      try{
-        plainResponse=await fetch(SUPABASE_URL+'/auth/v1/health',{method:'GET',cache:'no-store'});
-      }catch(e){
-        showCloudMessage('الفحص الأول فشل حتى بدون أي ترويسات إضافية: '+String(e?.name||'خطأ')+' — '+String(e?.message||e)+'. هذا يرجّح حجب الاتصال أو CORS الأساسي من المتصفح إلى Supabase. لم يتم حذف أو تعديل أي بيانات.');
-        return;
-      }
-      let keyedResponse;
-      try{
-        keyedResponse=await fetch(SUPABASE_URL+'/auth/v1/health',{method:'GET',headers:{'apikey':SUPABASE_KEY,'Accept':'application/json'},cache:'no-store'});
-      }catch(e){
-        showCloudMessage('الفحص الأول نجح (HTTP '+plainResponse.status+') بدون ترويسات إضافية، لكن الفحص الثاني فشل عند إضافة ترويسة apikey. هذا يحدد الاشتباه بمشكلة CORS/preflight الخاصة بالترويسات المطلوبة لطلبات Supabase. الخطأ: '+String(e?.name||'خطأ')+' — '+String(e?.message||e)+'. لم يتم حذف أو تعديل أي بيانات.');
-        return;
-      }
-      showCloudMessage('نجح الفحصان: بدون ترويسات HTTP '+plainResponse.status+'، ومع ترويسة المفتاح HTTP '+keyedResponse.status+'. إذن الوصول الأساسي وترويسة apikey يعملان؛ نحتاج عندها فحص طلب المصادقة نفسه. الخطأ الأصلي: '+errorName+' — '+message+'. لم يتم حذف أو تعديل أي بيانات.');
+      await fetch(SUPABASE_URL+'/auth/v1/health',{method:'GET',mode:'no-cors',cache:'no-store'});
+      showCloudMessage('اختبار الاتصال نجح بوضع no-cors (الرد مخفي عن JavaScript). هذا يعني أن المتصفح استطاع إرسال الطلب إلى نطاق Supabase، لكن الطلبات العادية تُحجب بسبب سياسة CORS أو ترويسات الاستجابة. لا يمكن حل ذلك بتغيير كلمة المرور أو مفتاح النشر. نحتاج الآن التحقق من إعدادات/سياسة الوصول في مشروع Supabase أو استخدام وسيط خلفي آمن. الخطأ الأصلي: '+errorName+' — '+message+'. لم يتم حذف أو تعديل أي بيانات.');
     }catch(probeError){
-      showCloudMessage('تعذر إكمال الفحص التشخيصي: '+String(probeError?.name||'غير محدد')+' — '+String(probeError?.message||probeError)+'. لم يتم حذف أو تعديل أي بيانات.');
+      showCloudMessage('حتى اختبار no-cors فشل: '+String(probeError?.name||'غير محدد')+' — '+String(probeError?.message||probeError)+'. هذا يرجّح حجباً على مستوى الشبكة أو المتصفح أو تعذر الوصول إلى نطاق Supabase، وليس خطأ كلمة مرور. الخطأ الأصلي: '+errorName+' — '+message+'. لم يتم حذف أو تعديل أي بيانات.');
     }
     return;
   }
