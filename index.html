@@ -945,11 +945,11 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     try {
       showCloudMessage('جارٍ جلب بيانات السحابة...');
       const productsQuery = query(collection(db, 'products'), where('user_id', '==', cloudUser.uid));
-      const snapshot = await withCloudTimeout(getDocs(productsQuery), 'قراءة المنتجات');
+      const snapshot = await withCloudTimeout(getDocs(productsQuery), 'قراءة المنتجات', 25000);
       const remoteDocs = snapshot.docs;
-
-      // مطابقة المنتجات الموجودة أولاً، ثم إرسال كل الإضافات والتحديثات بدفعة واحدة.
+      const remoteById = new Map(remoteDocs.map(item => [item.id, item]));
       const remoteQueues = new Map();
+
       for (const remote of remoteDocs) {
         const data = remote.data();
         const key = productSignature({
@@ -962,48 +962,62 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
         remoteQueues.get(key).push(remote);
       }
 
-      const batch = writeBatch(db);
-      const resolved = [];
-      let processed = 0;
+      // جهّز مراجع ثابتة لكل منتج كي تكون إعادة المحاولة آمنة ولا تنشئ نسخاً مكررة.
+      const jobs = [];
       for (const local of products) {
-        processed++;
-        showCloudMessage('جارٍ تجهيز المزامنة السريعة (' + processed + ' من ' + products.length + ')...');
-        const key = productSignature(local);
-        const queue = remoteQueues.get(key) || [];
-        const existing = queue.shift();
+        let existing = local.docId ? remoteById.get(local.docId) : null;
+        if (!existing) {
+          const queue = remoteQueues.get(productSignature(local)) || [];
+          existing = queue.shift() || null;
+        } else {
+          const queue = remoteQueues.get(productSignature({
+            name: existing.data().name,
+            price: existing.data().purchase_price_usd,
+            pieces: existing.data().pieces_per_package,
+            sellTry: existing.data().selling_price_try
+          }));
+          if (queue) {
+            const index = queue.findIndex(item => item.id === existing.id);
+            if (index >= 0) queue.splice(index, 1);
+          }
+        }
+
         const ref = existing ? doc(db, 'products', existing.id) : doc(collection(db, 'products'));
         const payload = { ...toCloudProduct(local), id: local.id };
-        batch.set(ref, payload, { merge: true });
-        resolved.push({ local, existing, ref });
+        const payloadBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
+        if (payloadBytes > 850000) {
+          throw new Error('صورة المنتج «' + (local.name || '') + '» كبيرة جداً لتخزينها داخل سجل Firebase. صغّر الصورة ثم أعد المزامنة؛ لم يتم حذف بيانات الجهاز.');
+        }
+        jobs.push({ local, existing, ref, payload });
       }
 
-      if (resolved.length) {
-        showCloudMessage('جارٍ إرسال المنتجات دفعة واحدة إلى السحابة...');
-        await withCloudTimeout(batch.commit(), 'إرسال دفعة المنتجات', 30000);
+      // لا نرسل 21 منتجاً في طلب واحد كبير؛ نقسمها إلى دفعات صغيرة لتقليل احتمال انتهاء المهلة.
+      const chunkSize = 4;
+      const synced = [];
+      for (let offset = 0; offset < jobs.length; offset += chunkSize) {
+        const chunk = jobs.slice(offset, offset + chunkSize);
+        const batch = writeBatch(db);
+        chunk.forEach(job => batch.set(job.ref, job.payload, { merge: true }));
+        const first = offset + 1;
+        const last = Math.min(offset + chunk.length, jobs.length);
+        showCloudMessage('جارٍ حفظ المنتجات ' + first + '–' + last + ' من ' + jobs.length + '...');
+        await withCloudTimeout(batch.commit(), 'حفظ المنتجات ' + first + '–' + last, 45000);
+        synced.push(...chunk);
       }
 
-      // نستخدم نتائج القراءة الأولى ومعرّفات الدفعة؛ لا نعيد تنزيل كل المنتجات بعد الحفظ.
-      const nextProducts = [];
-      const nextCart = {};
-      for (const item of resolved) {
-        const { local, existing, ref } = item;
-        const mapped = existing
-          ? fromCloudProduct(existing)
-          : { ...local, docId: ref.id };
-        mapped.id = Number(existing ? existing.data().id : local.id) || local.id;
-        mapped.pickCount = Math.max(+local.pickCount || 0, +mapped.pickCount || 0);
-        nextProducts.push(mapped);
-        const quantity = +(cart[local.id] || 0);
-        if (quantity > 0) nextCart[mapped.id] = (nextCart[mapped.id] || 0) + quantity;
-      }
+      // حافظ على القيم المحلية الأحدث، وسجّل معرّف وثيقة Firebase لكل منتج.
+      const nextProducts = synced.map(({ local, ref }) => ({
+        ...local,
+        docId: ref.id
+      }));
 
-      // أضف المنتجات الموجودة بالسحابة فقط، ولا تحذف أي سجل سحابي.
-      for (const queue of remoteQueues.values()) {
-        for (const remote of queue) nextProducts.push(fromCloudProduct(remote));
+      // أضف سجلات السحابة التي لم تكن ممثلة محلياً، دون حذف أي منتج سحابي.
+      const knownDocIds = new Set(nextProducts.map(item => item.docId).filter(Boolean));
+      for (const remote of remoteDocs) {
+        if (!knownDocIds.has(remote.id)) nextProducts.push(fromCloudProduct(remote));
       }
 
       products = nextProducts;
-      cart = nextCart;
       saveLocalOnly();
       renderProducts();
       renderInvoice();
