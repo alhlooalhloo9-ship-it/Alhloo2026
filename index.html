@@ -806,6 +806,28 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     return { username, email: username + '@accounts.alhloo-login.com' };
   }
 
+  function showAuthError(action, error) {
+    const code = String(error?.code || error?.name || 'unknown');
+    const message = String(error?.message || 'لا توجد تفاصيل إضافية');
+    const known = {
+      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في إعدادات Firebase.',
+      'auth/invalid-credential': 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود.',
+      'auth/user-not-found': 'لا يوجد حساب بهذا الاسم.',
+      'auth/wrong-password': 'كلمة المرور غير صحيحة.',
+      'auth/email-already-in-use': 'اسم المستخدم مستخدم مسبقاً.',
+      'auth/weak-password': 'كلمة المرور ضعيفة؛ استخدم 6 أحرف على الأقل.',
+      'auth/invalid-email': 'صيغة بيانات الحساب التي أُرسلت إلى Firebase غير مقبولة.',
+      'auth/network-request-failed': 'تعذّر الاتصال بخوادم Firebase. جرّب شبكة أخرى وأوقف VPN أو مانع الإعلانات مؤقتاً.',
+      'auth/too-many-requests': 'تمت محاولات كثيرة؛ انتظر قليلاً ثم أعد المحاولة.',
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'مفتاح Firebase API غير صالح أو مقيّد.'
+    };
+    const explanation = known[code] || (message.includes('Failed to fetch')
+      ? 'المتصفح لم يتمكن من الوصول إلى خدمة Firebase أو تحميلها. هذا غالباً اتصال أو حجب للشبكة، وليس خطأ كلمة المرور.'
+      : message);
+    showCloudMessage('تعذّر ' + action + ': ' + explanation + ' [رمز الخطأ: ' + code + ']');
+    console.error('Firebase Authentication error:', { code, message, error });
+  }
+
   async function doSignUp() {
     const raw = $('authEmail').value, password = $('authPassword').value;
     if (password.length < 6) {
@@ -821,12 +843,11 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     }
     showCloudMessage('جارٍ إنشاء الحساب...');
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, account.email, password);
-      cloudUser = userCredential.user;
-      updateAuthUI();
-      await syncCloudSafely();
+      await createUserWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم إنشاء الحساب بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
     } catch (error) {
-      showCloudMessage('تعذر إنشاء الحساب: ' + error.message);
+      showAuthError('إنشاء الحساب', error);
     }
   }
 
@@ -845,12 +866,11 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     }
     showCloudMessage('جارٍ تسجيل الدخول...');
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, account.email, password);
-      cloudUser = userCredential.user;
-      updateAuthUI();
-      await syncCloudSafely();
+      await signInWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم تسجيل الدخول بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
     } catch (error) {
-      showCloudMessage('تعذر تسجيل الدخول: ' + error.message);
+      showAuthError('تسجيل الدخول', error);
     }
   }
 
