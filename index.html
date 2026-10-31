@@ -312,11 +312,10 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // دع Firebase يكتشف تلقائياً إن كانت الشبكة تحتاج Long Polling.
-  // فرض Long Polling دائماً قد يبطئ بعض الشبكات؛ والاكتشاف التلقائي أنسب
-  // للتبديل بين Wi-Fi وبيانات الهاتف دون تغيير أي بيانات محفوظة.
+  // توافق أعلى مع الشبكات والوسطاء الذين يقطعون WebChannel streaming.
+  // نستخدم Long Polling بشكل صريح لأن الرفع السابق كان يبقى بانتظار تأكيد الخادم.
   const db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
     useFetchStreams: false
   });
 
@@ -1040,7 +1039,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
         const batch = writeBatch(db);
         for (const job of current) batch.set(job.ref, job.payload, { merge: true });
         showCloudMessage('جارٍ رفع المنتجات: ' + completed + ' من ' + jobs.length + ' — الدفعة الحالية ' + current.length + ' منتج...');
-        await withCloudTimeout(batch.commit(), 'حفظ دفعة المنتجات (' + current.length + ' منتج)', 90000);
+        await withCloudTimeout(batch.commit(), 'تأكيد Firebase لحفظ دفعة المنتجات (' + current.length + ' منتج)', 30000);
 
         const savedIds = new Map(current.map(job => [String(job.local.id), job.ref.id]));
         products = products.map(item => savedIds.has(String(item.id))
