@@ -323,8 +323,51 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   let cloudUser = null, syncingCloud = false, cloudTimer = null, fullSyncRunning = false;
   const $ = id => document.getElementById(id);
 
-  let products = JSON.parse(localStorage.getItem('nadwa_products') || 'null');
-  let cart = JSON.parse(localStorage.getItem('nadwa_cart') || '{}');
+  // لا نحمّل منتجات أي حساب قبل اكتمال التحقق من هوية المستخدم.
+  // لكل حساب مساحة تخزين محلية مستقلة، وللزائر مساحة منفصلة.
+  let products = [];
+  let cart = {};
+  function workspaceStorageKeys(uid) {
+    const suffix = uid ? String(uid) : 'guest';
+    return {
+      products: 'nadwa_products_' + suffix,
+      cart: 'nadwa_cart_' + suffix
+    };
+  }
+  function loadWorkspace(uid) {
+    const keys = workspaceStorageKeys(uid);
+    let savedProducts = localStorage.getItem(keys.products);
+    let savedCart = localStorage.getItem(keys.cart);
+
+    // ترحيل البيانات القديمة مرة واحدة إلى أول حساب يسجّل الدخول،
+    // دون عرضها للزائر أو نقلها لاحقاً إلى حساب آخر.
+    if (uid && savedProducts === null) {
+      const legacyProducts = localStorage.getItem('nadwa_products');
+      const legacyCart = localStorage.getItem('nadwa_cart');
+      if (legacyProducts !== null) {
+        savedProducts = legacyProducts;
+        localStorage.setItem(keys.products, legacyProducts);
+      }
+      if (legacyCart !== null) {
+        savedCart = legacyCart;
+        localStorage.setItem(keys.cart, legacyCart);
+      }
+      if (legacyProducts !== null || legacyCart !== null) {
+        localStorage.removeItem('nadwa_products');
+        localStorage.removeItem('nadwa_cart');
+      }
+    }
+
+    try { products = savedProducts ? JSON.parse(savedProducts) : []; } catch (_) { products = []; }
+    try { cart = savedCart ? JSON.parse(savedCart) : {}; } catch (_) { cart = {}; }
+    if (!Array.isArray(products)) products = [];
+    if (!cart || typeof cart !== 'object' || Array.isArray(cart)) cart = {};
+  }
+  function saveWorkspaceLocal() {
+    const keys = workspaceStorageKeys(cloudUser?.uid || null);
+    localStorage.setItem(keys.products, JSON.stringify(products));
+    localStorage.setItem(keys.cart, JSON.stringify(cart));
+  }
   let tryRate = +(localStorage.getItem('nadwa_try') || 49.7);
   let sypRate = +(localStorage.getItem('nadwa_syp') || 140);
   let editId = null, newImage = null, removeImg = false, cropSource = null, cropZoom = 1, cropX = 0, cropY = 0, cropDragging = false, cropLastX = 0, cropLastY = 0;
@@ -346,19 +389,13 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     localStorage.setItem('nadwa_syp', String(sypRate));
   }
 
-  if (!products) {
-    products = [
-      ['عصير كرتون', 2], ['بيض الأرض السعيدة', 1.75], ['رامو علك', 1.5], ['بطاطا', 0.5], ['بطاطا', 0.5], ['جام جامص - راجع الاسم', 2], ['كيس نفّاخ - راجع الاسم', 1.5], ['أصابع مالح', 1.6], ['سميري - راجع الاسم', 1.8], ['طرابيش', 1.6], ['بسكوت', 2], ['بسكوت', 1.6], ['علك', 1], ['بسكوت', 1.1], ['شعر غزالة - راجع الاسم', 2.5], ['ماشيليو عودان - راجع الاسم', 1.6], ['بانتي مشي بسكوت - راجع الاسم', 2.2], ['سيارات علك', 2.2], ['بسكوت - راجع الاسم', 2.8], ['قهوة صايب - راجع الاسم', 2.2], ['كينشينو - راجع الاسم', 2]
-    ].map((x, i) => ({ id: i + 1, name: x[0], price: x[1], pieces: 1, sellTry: 5, stock: 0, image: '' }));
-    save();
-  }
+  // لا ننشئ منتجات افتراضية عند تسجيل الخروج؛ مساحة العمل الفارغة تبقى فارغة.
 
   $('tryRate').value = tryRate;
   $('sypRate').value = sypRate;
 
   function save() {
-    localStorage.setItem('nadwa_products', JSON.stringify(products));
-    localStorage.setItem('nadwa_cart', JSON.stringify(cart));
+    saveWorkspaceLocal();
     if (cloudUser && !syncingCloud) {
       clearTimeout(cloudTimer);
       cloudTimer = setTimeout(async () => {
@@ -890,10 +927,12 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   }
 
   async function doSignOut() {
+    // احفظ بيانات الحساب في مساحته الخاصة قبل إنهاء الجلسة.
+    saveWorkspaceLocal();
+    if (cloudTimer) clearTimeout(cloudTimer);
     await signOut(auth);
-    cloudUser = null;
-    updateAuthUI();
-    showCloudMessage('تم تسجيل الخروج. بيانات هذا الجهاز لم تُحذف.');
+    // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
+    showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
   }
 
   function toCloudProduct(p) {
@@ -1029,8 +1068,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   }
 
   function saveLocalOnly() {
-    localStorage.setItem('nadwa_products', JSON.stringify(products));
-    localStorage.setItem('nadwa_cart', JSON.stringify(cart));
+    saveWorkspaceLocal();
   }
 
   async function syncCartToCloud() {
@@ -1127,14 +1165,19 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
+    if (cloudTimer) clearTimeout(cloudTimer);
+    syncingCloud = false;
+    fullSyncRunning = false;
+    loadWorkspace(cloudUser?.uid || null);
     updateAuthUI();
+    renderProducts();
+    renderInvoice();
     if (cloudUser) {
       syncCloudSafely();
+    } else {
+      showCloudMessage('أنت الآن خارج الحساب. منتجات الحسابات لا تظهر إلا بعد تسجيل الدخول إلى الحساب نفسه.');
     }
   });
-
-  renderProducts();
-  renderInvoice();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Offline cache registration failed", err)));
