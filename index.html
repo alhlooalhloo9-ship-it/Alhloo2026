@@ -229,6 +229,9 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 body.drawer-open{overflow:hidden}
 @media print{.menu-toggle,.side-drawer,.drawer-backdrop{display:none!important}}
 
+.supplierSelect{width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px}
+#smartProductText{max-width:100%;min-height:110px}
+@media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}#invoicePage .no-print button{flex:1 1 46%}}
 </style>
 </head>
 <body>
@@ -619,14 +622,14 @@ body.drawer-open{overflow:hidden}
   };
 
   function applySmartFields(text) {
-    const lines=String(text||'').split(/[\\n،;|]+/).map(x=>x.trim()).filter(Boolean);
+    const lines=String(text||'').split(/[\n،;|]+/).map(x=>x.trim()).filter(Boolean);
     const joined=lines.join(' ');
-    const pick=(patterns)=>{for(const re of patterns){const m=joined.match(re);if(m)return m[1];}return '';};
-    const name=pick([/(?:اسم المنتج|المنتج|الصنف|المادة)\\s*[:：-]?\\s*([^،;|\\n]+)/i]) || lines.find(x=>!/(سعر|شراء|بيع|كمية|قطعة|عبوة|كرتون)/i.test(x)) || '';
-    const price=pick([/(?:سعر الشراء|سعر التكلفة|شراء|السعر)\\s*[:：-]?\\s*(\\d+(?:[.,]\\d+)?)/i, /\\$\\s*(\\d+(?:[.,]\\d+)?)/]);
-    const pieces=pick([/(?:عدد القطع|القطع|العبوة|بالكرتون|كرتونة)\\s*[:：-]?\\s*(\\d+)/i]);
-    const sell=pick([/(?:سعر البيع|بيع)\\s*[:：-]?\\s*(\\d+(?:[.,]\\d+)?)/i]);
-    const stock=pick([/(?:الكمية|المخزون|عدد العبوات)\\s*[:：-]?\\s*(\\d+)/i]);
+    const pick=patterns=>{for(const re of patterns){const m=joined.match(re);if(m)return m[1];}return '';};
+    const name=pick([/(?:اسم المنتج|المنتج|الصنف|المادة)\s*[:：-]?\s*([^،;|\n]+)/i]) || (lines[0]||'').split(/[-–—]/)[0].trim();
+    const price=pick([/(?:سعر الشراء|سعر التكلفة|شراء|السعر)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)/i,/\$\s*(\d+(?:[.,]\d+)?)/]);
+    const pieces=pick([/(?:عدد القطع|القطع|العبوة|بالكرتون|كرتونة)\s*[:：-]?\s*(\d+)/i]);
+    const sell=pick([/(?:سعر البيع|بيع)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)/i]);
+    const stock=pick([/(?:الكمية|المخزون|عدد العبوات)\s*[:：-]?\s*(\d+)/i]);
     if(name)$('name').value=name.trim();
     if(price)$('price').value=price.replace(',','.');
     if(pieces)$('pieces').value=pieces;
@@ -635,17 +638,17 @@ body.drawer-open{overflow:hidden}
     const missing=[];if(!name)missing.push('اسم المنتج');if(!price)missing.push('سعر الشراء');
     $('smartProductStatus').textContent='تم ملء الحقول التي أمكن التعرف عليها. '+(missing.length?'يرجى إدخال أو مراجعة: '+missing.join('، '):'راجع جميع القيم قبل حفظ المنتج.');
   }
-  $('parseSmartTextBtn').addEventListener('click',()=>{const text=$('smartProductText').value.trim();if(!text){$('smartProductStatus').textContent='الصق تفاصيل المنتج أولاً.';return;}applySmartFields(text);});
+  $('parseSmartTextBtn').addEventListener('click',()=>{const value=$('smartProductText').value.trim();if(!value){$('smartProductStatus').textContent='الصق تفاصيل المنتج أولاً.';return;}applySmartFields(value);});
   $('smartImageBtn').addEventListener('click',()=>$('smartImageFile').click());
   $('smartImageFile').addEventListener('change',async e=>{
     const file=e.target.files?.[0];if(!file)return;
     $('smartProductStatus').textContent='جارٍ محاولة قراءة النص من الصورة...';
     try{
-      if(!('TextDetector' in window))throw new Error('ميزة قراءة النصوص من الصور غير مدعومة في هذا المتصفح. يمكنك استخدام صورة واضحة ثم كتابة النص في مربع الإضافة الذكية، أو تجربة متصفح يدعم TextDetector.');
+      if(!('TextDetector' in window))throw new Error('ميزة قراءة النصوص من الصور غير مدعومة في هذا المتصفح. يمكنك استخدام النص المنسوخ أو تجربة متصفح يدعم TextDetector.');
       const bitmap=await createImageBitmap(file);const detector=new TextDetector();const blocks=await detector.detect(bitmap);const extracted=blocks.map(x=>x.rawValue).join('\n');
       if(!extracted.trim())throw new Error('لم يتم العثور على نص واضح في الصورة.');
-      $('smartProductText').value=extracted;applySmartFields(extracted);
-      $('smartProductStatus').textContent='تم استخراج النص من الصورة وملء الحقول الممكنة. هذه قراءة OCR وليست فهماً مضموناً للمنتج؛ راجع الاسم والأسعار والأرقام يدوياً قبل الحفظ.';
+      $('smartProductText').value=extracted;applySmartFields(extracted);handleSelectedImage(file);
+      $('smartProductStatus').textContent='تم استخراج النص وتجهيز الصورة لإرفاقها بالمنتج بعد حفظ القصّ. راجع الاسم والأسعار والأرقام يدوياً قبل الحفظ.';
     }catch(err){$('smartProductStatus').textContent=err.message||String(err);}
     finally{e.target.value='';}
   });
@@ -711,8 +714,9 @@ body.drawer-open{overflow:hidden}
   };
 
   window.add = function(id) {
+    let p = products.find(x => String(x.id) === String(id));
+    if (p && (p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
     cart[id] = (cart[id] || 0) + 1;
-    let p = products.find(x => x.id === id);
     if (p) p.pickCount = (+(p.pickCount || 0)) + 1;
     save();
     renderProducts();
@@ -1438,6 +1442,8 @@ body.drawer-open{overflow:hidden}
     cloudUser = user || null;
     loadWorkspace(cloudUser?.uid || null);
     updateAuthUI();
+    renderSupplierSelectors();
+    renderSupplierList();
     renderProducts();
     renderInvoice();
   });
@@ -1555,6 +1561,7 @@ body.drawer-open{overflow:hidden}
       cart = importedCart;
       if (Array.isArray(backup.suppliers)) suppliers = backup.suppliers;
       if (backup.supplierCarts && typeof backup.supplierCarts === 'object') supplierCarts = backup.supplierCarts;
+      else supplierCarts = { general: importedCart };
       if (Array.isArray(backup.invoiceArchive)) invoiceArchive = backup.invoiceArchive;
       activeSupplierId = backup.activeSupplierId || 'general';
       ensureSupplierData();
