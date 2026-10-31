@@ -339,23 +339,21 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     let savedProducts = localStorage.getItem(keys.products);
     let savedCart = localStorage.getItem(keys.cart);
 
-    // ترحيل البيانات القديمة مرة واحدة إلى أول حساب يسجّل الدخول،
-    // دون عرضها للزائر أو نقلها لاحقاً إلى حساب آخر.
-    if (uid && savedProducts === null) {
+    // تُنسب البيانات القديمة لأول حساب يسجّل الدخول فقط؛ لا تنتقل بعدها لأي حساب آخر.
+    if (uid && !localStorage.getItem('nadwa_legacy_data_owner')) {
       const legacyProducts = localStorage.getItem('nadwa_products');
       const legacyCart = localStorage.getItem('nadwa_cart');
-      if (legacyProducts !== null) {
+      if (savedProducts === null && legacyProducts !== null) {
         savedProducts = legacyProducts;
         localStorage.setItem(keys.products, legacyProducts);
       }
-      if (legacyCart !== null) {
+      if (savedCart === null && legacyCart !== null) {
         savedCart = legacyCart;
         localStorage.setItem(keys.cart, legacyCart);
       }
-      if (legacyProducts !== null || legacyCart !== null) {
-        localStorage.removeItem('nadwa_products');
-        localStorage.removeItem('nadwa_cart');
-      }
+      localStorage.setItem('nadwa_legacy_data_owner', String(uid));
+      localStorage.removeItem('nadwa_products');
+      localStorage.removeItem('nadwa_cart');
     }
 
     try { products = savedProducts ? JSON.parse(savedProducts) : []; } catch (_) { products = []; }
