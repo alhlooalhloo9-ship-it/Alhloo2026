@@ -784,113 +784,80 @@ body.drawer-open{overflow:hidden}
     return { mimeType: 'image/jpeg', data: dataUrl.split(',')[1] || '' };
   }
 
-  async function analyzeProductImageWithGemini(file) {
-    const apiKey = loadGeminiKey();
-    if (!apiKey) throw new Error('لتحليل الصورة بالذكاء الاصطناعي، احفظ مفتاح Gemini أولاً من القائمة الجانبية ← الإعدادات ونقل البيانات.');
-    const image = await prepareGeminiImage(file);
-    const prompt = [
-      'حلّل صورة المنتج أو الفاتورة بصرياً واستخراج المعلومات الظاهرة فقط.',
-      'أعد JSON فقط وفق المخطط. لا تخمّن أي سعر أو كمية أو عدد غير ظاهر بوضوح.',
-      'إذا لم تكن القيمة ظاهرة أو لم تستطع قراءتها بدقة، أعد نصاً فارغاً لهذا الحقل.',
-      'name: اسم المنتج مع الوزن أو الحجم إن كان واضحاً.',
-      'price_usd: سعر شراء العبوة بالدولار فقط إذا ظهر بوضوح.',
-      'pieces_per_pack: عدد القطع داخل العبوة فقط إذا ظهر بوضوح.',
-      'sell_price_try: سعر بيع القطعة بالليرة التركية فقط إذا ظهر بوضوح.',
-      'stock_packs: عدد العبوات في المخزون فقط إذا ظهر بوضوح.',
-      'لا تعتبر رقم الباركود أو رقم الفاتورة سعراً أو كمية. ميّز بين سعر القطعة وسعر العبوة.',
-      'notes: ملاحظة قصيرة عن أي نص أو رقم ملتبس، وإلا اتركه فارغاً.'
-    ].join('\n');
+  const geminiProductSchema = {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      price_usd: { type: 'string' },
+      pieces_per_pack: { type: 'string' },
+      sell_price_try: { type: 'string' },
+      stock_packs: { type: 'string' },
+      notes: { type: 'string' }
+    },
+    required: ['name','price_usd','pieces_per_pack','sell_price_try','stock_packs','notes']
+  };
+
+  async function callGeminiInteraction(input, apiKey) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 45000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     let response;
     try {
-      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         signal: controller.signal,
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: image.mimeType, data: image.data } }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'OBJECT',
-              properties: {
-                name: { type: 'STRING' },
-                price_usd: { type: 'STRING' },
-                pieces_per_pack: { type: 'STRING' },
-                sell_price_try: { type: 'STRING' },
-                stock_packs: { type: 'STRING' },
-                notes: { type: 'STRING' }
-              },
-              required: ['name','price_usd','pieces_per_pack','sell_price_try','stock_packs','notes']
-            },
-            temperature: 0.1,
-            maxOutputTokens: 500
-          }
+          model: 'gemini-3.8-flash',
+          input,
+          response_format: { type: 'text', mime_type: 'application/json', schema: geminiProductSchema },
+          store: false
         })
       });
     } catch (err) {
-      if (err.name === 'AbortError') throw new Error('انتهت مهلة تحليل الصورة. جرّب صورة أصغر أو أعد المحاولة.');
+      if (err.name === 'AbortError') throw new Error('انتهت مهلة تحليل Gemini بعد دقيقة. جرّب صورة أوضح أو أعد المحاولة.');
       throw new Error('تعذر الاتصال بخدمة Gemini. تحقق من الإنترنت وحاول مجدداً.');
     } finally {
       clearTimeout(timer);
     }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const apiMessage = payload.error?.message || '';
-      if (response.status === 400 || response.status === 403) throw new Error('رفضت Google المفتاح أو صلاحياته: ' + (apiMessage || 'تحقق من المفتاح وتفعيل Gemini API.'));
-      if (response.status === 429) throw new Error('تم بلوغ حد الاستخدام المجاني مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
+      const apiMessage = payload.error?.message || payload.message || '';
+      if (response.status === 400 || response.status === 403 || response.status === 401)
+        throw new Error('Gemini رفض الطلب أو المفتاح (' + response.status + '): ' + (apiMessage || 'تحقق من المفتاح وصلاحيات Gemini API.'));
+      if (response.status === 429) throw new Error('تم بلوغ حد استخدام Gemini مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
       throw new Error('فشل تحليل Gemini (' + response.status + '): ' + (apiMessage || 'خطأ غير معروف.'));
     }
-    const textPart = payload.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-    if (!textPart) throw new Error('لم يرجع Gemini بيانات قابلة للقراءة. جرّب صورة أوضح.');
-    let result;
-    try { result = JSON.parse(textPart); }
-    catch (_) { throw new Error('وصلت نتيجة غير مفهومة من الذكاء الاصطناعي. أعد المحاولة بصورة أوضح.'); }
-    return result;
+    let outputText = payload.output_text || '';
+    if (!outputText && Array.isArray(payload.output)) {
+      outputText = payload.output.flatMap(item => item.content || [])
+        .filter(part => part.type === 'text' || typeof part.text === 'string')
+        .map(part => part.text || '').join('');
+    }
+    if (!outputText) throw new Error('وصل رد من Gemini لكن بدون نص قابل للقراءة. تفاصيل الرد: ' + JSON.stringify(payload).slice(0,500));
+    try { return JSON.parse(outputText); }
+    catch (_) { throw new Error('Gemini لم يرجع بيانات JSON مفهومة. أعد المحاولة بصورة أوضح.'); }
   }
 
-  $('smartImageBtn').addEventListener('click', () => $('smartImageFile').click());
-  $('smartImageFile').addEventListener('change', async e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    handleSelectedImage(file);
-    $('smartProductStatus').textContent = 'جارٍ إرسال الصورة إلى Gemini لتحليل محتواها بصرياً...';
-    try {
-      const result = await analyzeProductImageWithGemini(file);
-      const mappings = [
-        ['name', result.name],
-        ['price', result.price_usd],
-        ['pieces', result.pieces_per_pack],
-        ['sellTry', result.sell_price_try],
-        ['stock', result.stock_packs]
-      ];
-      let filled = [];
-      for (const [field, raw] of mappings) {
-        const value = String(raw ?? '').trim();
-        if (!value) continue;
-        if (field === 'name') {
-          $(field).value = value;
-          filled.push('اسم المنتج');
-          continue;
-        }
-        const normalized = value.replace(/[,،]/g, '.').replace(/[^0-9.\-]/g, '');
-        if (!normalized || !Number.isFinite(Number(normalized))) continue;
-        $(field).value = normalized;
-        filled.push(({price:'سعر الشراء',pieces:'عدد القطع',sellTry:'سعر البيع',stock:'المخزون'})[field]);
-      }
-      const notes = String(result.notes || '').trim();
-      $('smartProductStatus').textContent = 'انتهى التحليل البصري. الحقول التي تم تعبئتها: ' +
-        (filled.length ? filled.join('، ') : 'لم تُقرأ بيانات مؤكدة') +
-        (notes ? ' — ملاحظة الذكاء الاصطناعي: ' + notes : '') +
-        '. الصورة مرفقة بالمنتج؛ راجع كل القيم قبل الحفظ.';
-    } catch (err) {
-      $('smartProductStatus').textContent = (err.message || String(err)) +
-        ' — بقيت الصورة محددة للمنتج، ويمكنك إدخال البيانات يدوياً أو استخدام استخراج النص.';
-    } finally {
-      e.target.value = '';
-    }
-  });
+  async function analyzeProductImageWithGemini(file) {
+    const apiKey = loadGeminiKey();
+    if (!apiKey) throw new Error('احفظ مفتاح Gemini أولاً من القائمة الجانبية ← الإعدادات ونقل البيانات.');
+    const image = await prepareGeminiImage(file);
+    const prompt = [
+      'أنت مساعد إدخال منتجات دقيق. افحص الصورة بصرياً، واقرأ اسم المنتج والعلامة التجارية والوزن أو الحجم والنصوص والأرقام الظاهرة.',
+      'أعد JSON مطابقاً للمخطط فقط. لا تخمّن أي سعر أو كمية أو عدد غير ظاهر بوضوح.',
+      'name: اسم المنتج كما يظهر على العبوة، مع الماركة والوزن أو الحجم إذا أمكن قراءتها.',
+      'price_usd: سعر شراء العبوة بالدولار فقط إذا ظهر بوضوح في الصورة.',
+      'pieces_per_pack: عدد القطع داخل العبوة فقط إذا ظهر بوضوح.',
+      'sell_price_try: سعر بيع القطعة بالليرة التركية فقط إذا ظهر بوضوح.',
+      'stock_packs: عدد العبوات في المخزون فقط إذا ظهر بوضوح.',
+      'لا تعتبر الباركود أو رقم التشغيلة أو رقم الفاتورة سعراً أو كمية. ميّز بين سعر القطعة وسعر العبوة.',
+      'إذا لم تظهر الأسعار أو المخزون في صورة المنتج، اتركها فارغة ولا تخترعها. ضع أي قراءة غير مؤكدة في notes.'
+    ].join('\n');
+    return await callGeminiInteraction([
+      { type: 'text', text: prompt },
+      { type: 'image', data: image.data, mime_type: image.mimeType }
+    ], apiKey);
+  }
 
   function applyGeminiProductResult(result) {
     const mappings = [
@@ -928,32 +895,14 @@ body.drawer-open{overflow:hidden}
       'أنت مساعد دقيق لإدخال بيانات المنتجات والمخزون. اقرأ النص التالي واستخرج الحقول المطلوبة ونظّمها وصحح الأخطاء الإملائية الواضحة وتنسيق الأرقام والوحدات.',
       'لا تخترع أي قيمة ولا تستنتج سعراً أو كمية غير مذكورة. إذا كان هناك أكثر من احتمال أو تعارض، اترك الحقل فارغاً واشرح التعارض في notes.',
       'price_usd هو سعر شراء العبوة بالدولار، وليس سعر القطعة.',
-      'pieces_per_pack هو عدد القطع داخل العبوة. إذا كان المنتج يباع كقطعة واحدة فقط، استخدم 1 فقط عندما يكون ذلك واضحاً من النص.',
+      'pieces_per_pack هو عدد القطع داخل العبوة. استخدم 1 فقط إذا كان واضحاً أن المنتج يباع كقطعة واحدة.',
       'sell_price_try هو سعر بيع القطعة الواحدة بالليرة التركية.',
       'stock_packs هو عدد العبوات المتوفرة في المخزون.',
-      'name اسم المنتج مع الوزن أو الحجم والنوع إن ورد.',
+      'name اسم المنتج مع الوزن أو الحجم والماركة إن وردت.',
       'حوّل الأرقام المكتوبة بالكلمات إلى أرقام فقط إذا كان معناها واضحاً. لا تحوّل العملات ولا تخلط بينها.',
-      'أعد JSON مطابقاً للمخطط فقط.',
       'النص المراد تحليله:\n' + sourceText
-    ].join('\\n');
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
-      signal:AbortSignal.timeout ? AbortSignal.timeout(45000) : undefined,
-      body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{
-        responseMimeType:'application/json',
-        responseSchema:{type:'OBJECT',properties:{
-          name:{type:'STRING'},price_usd:{type:'STRING'},pieces_per_pack:{type:'STRING'},
-          sell_price_try:{type:'STRING'},stock_packs:{type:'STRING'},notes:{type:'STRING'}
-        },required:['name','price_usd','pieces_per_pack','sell_price_try','stock_packs','notes']},
-        temperature:0.1,maxOutputTokens:500
-      }})
-    });
-    const payload=await response.json().catch(()=>({}));
-    if(!response.ok) throw new Error('فشل تحليل النص من Gemini ('+response.status+'): '+(payload.error?.message||'خطأ غير معروف'));
-    const output=payload.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-    if(!output) throw new Error('لم يرجع Gemini نتيجة مفهومة للنص.');
-    try { return JSON.parse(output); } catch(_) { throw new Error('تعذر فهم نتيجة تحليل النص. أعد صياغة النص وحاول مجدداً.'); }
+    ].join('\n');
+    return await callGeminiInteraction([{ type: 'text', text: prompt }], apiKey);
   }
 
   async function processSmartProductImage(file) {
