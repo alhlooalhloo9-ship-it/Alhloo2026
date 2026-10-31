@@ -622,10 +622,10 @@ body.drawer-open{overflow:hidden}
   };
 
   function applySmartFields(text) {
-    const lines=String(text||'').split(/[\n،;|]+/).map(x=>x.trim()).filter(Boolean);
-    const joined=lines.join(' ');
-    const pick=patterns=>{for(const re of patterns){const m=joined.match(re);if(m)return m[1];}return '';};
-    const name=pick([/(?:اسم المنتج|المنتج|الصنف|المادة)\s*[:：-]?\s*([^،;|\n]+)/i]) || (lines[0]||'').split(/[-–—]/)[0].trim();
+    const raw=String(text||'');
+    const lines=raw.split(/[\n،;|]+/).map(x=>x.trim()).filter(Boolean);
+    const pick=patterns=>{for(const re of patterns){const m=raw.match(re);if(m)return m[1];}return '';};
+    const name=pick([/(?:اسم المنتج|المنتج|الصنف|المادة)\s*[:：-]?\s*(.+?)(?=\s*(?:[-–—]|سعر|الكمية|عدد القطع|$))/i]) || (lines[0]||'').split(/[-–—]/)[0].trim();
     const price=pick([/(?:سعر الشراء|سعر التكلفة|شراء|السعر)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)/i,/\$\s*(\d+(?:[.,]\d+)?)/]);
     const pieces=pick([/(?:عدد القطع|القطع|العبوة|بالكرتون|كرتونة)\s*[:：-]?\s*(\d+)/i]);
     const sell=pick([/(?:سعر البيع|بيع)\s*[:：-]?\s*(\d+(?:[.,]\d+)?)/i]);
@@ -735,8 +735,9 @@ body.drawer-open{overflow:hidden}
   };
 
   window.undoTap = function(id) {
-    let p = products.find(x => x.id === id);
+    let p = products.find(x => String(x.id) === String(id));
     if (!p) return;
+    if ((p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
     let taps = +(p.pickCount || 0);
     if (taps <= 0) {
       alert('عدد الكبسات لهذا المنتج صفر بالفعل.');
