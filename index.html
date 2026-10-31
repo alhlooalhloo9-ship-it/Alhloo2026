@@ -230,18 +230,21 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 </div>
 <main>
 <section id="accountPage" class="hidden">
-<div class="box" id="cloudPanel">
-<h3>☁️ الحساب والمزامنة</h3>
-<div id="authStatus" class="muted">غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.</div>
-<div id="authForm">
-<label>اسم المستخدم</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="اكتب اسم المستخدم">
-<label>كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="signInBtn">تسجيل الدخول</button><button type="button" id="signUpBtn">إنشاء حساب</button></div>
+<div class="box" id="backupPanel">
+<h3>📦 نقل المنتجات والبيانات بين الهواتف</h3>
+<p class="muted">أنشئ ملفاً واحداً يحتوي المنتجات وأسعارها وكمياتها وصورها والفاتورة الحالية وأسعار الصرف. أرسله للشخص الآخر ليستورده على هاتفه. لا توجد مزامنة للبيانات مع السحابة.</p>
+<button type="button" class="primary" id="exportBackupBtn" style="width:100%;margin:8px 0">⬇️ تصدير ملف المنتجات والفاتورة</button>
+<label for="importBackupFile">استيراد ملف مرسل من هاتف آخر</label>
+<input id="importBackupFile" type="file" accept=".json,application/json" style="padding:10px;height:auto">
+<div id="backupMessage" class="muted" role="status" aria-live="polite"></div>
+<div class="box" style="background:#f7faf8;margin-top:12px">
+<b>طريقة الدمج:</b>
+<p class="muted">إذا وُجد منتج بنفس الاسم، تُحدّث بياناته وصورته دون تكرار. وإذا لم يوجد، يُضاف. المنتجات الأخرى الموجودة على الهاتف لا تُحذف. الفاتورة الحالية وأسعار الصرف تُستبدل بما في الملف المستورد.</p>
 </div>
-<div id="authActions" class="hidden"><button type="button" class="primary" id="syncBtn">مزامنة المنتجات والإعدادات</button> <button type="button" id="connectionTestBtn">🔎 فحص اتصال Firebase</button> <button type="button" id="signOutBtn">تسجيل الخروج</button></div>
-<div id="connectionDiagnostics" class="box hidden" style="margin-top:12px" aria-live="polite"><h3>نتيجة فحص الاتصال</h3><pre id="connectionDiagnosticsText" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:0"></pre></div>
-<p class="muted">لن تُحذف المنتجات المحلية تلقائياً. عند أول مزامنة، تُضاف المنتجات المحلية إلى السحابة وتُدمج مع الموجودة دون حذف سجلات السحابة. لا تُزامَن الفاتورة المفتوحة كسجل بيع.</p>
-<div id="syncMessage" role="status" class="muted"></div>
+<div id="authStatus" class="muted hidden"></div>
+<div id="authForm" class="hidden"></div><div id="authActions" class="hidden"></div>
+<div id="connectionDiagnostics" class="hidden"></div><pre id="connectionDiagnosticsText" class="hidden"></pre>
+<div id="syncMessage" class="hidden"></div>
 </div>
 </section>
 <section id="productsPage">
@@ -393,19 +396,9 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   $('tryRate').value = tryRate;
   $('sypRate').value = sypRate;
 
+  // حفظ محلي فقط: لا تُرفع المنتجات أو الفاتورة إلى أي خدمة سحابية.
   function save() {
     saveWorkspaceLocal();
-    if (cloudUser && !syncingCloud) {
-      clearTimeout(cloudTimer);
-      cloudTimer = setTimeout(async () => {
-        try {
-          await syncProductsToCloud();
-          await syncCartToCloud();
-        } catch (e) {
-          showCloudMessage('تعذرت مزامنة المنتجات أو الفاتورة: ' + e.message);
-        }
-      }, 1800);
-    }
   }
 
   window.page = function(p) {
@@ -1217,36 +1210,109 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     }
   }
 
-  // إعادة المحاولة تلقائياً عند عودة الإنترنت أو الرجوع إلى التطبيق.
-  window.addEventListener('online', () => {
-    if (cloudUser) {
-      showCloudMessage('عاد اتصال الإنترنت؛ جارٍ إعادة محاولة المزامنة...');
-      syncCloudSafely();
-    }
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && cloudUser && navigator.onLine !== false) syncCloudSafely();
-  });
-
-  $('signUpBtn').addEventListener('click', () => doSignUp().catch(e => showCloudMessage(e.message)));
-  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
-  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
-  $('syncBtn').addEventListener('click', () => syncCloudSafely());
-  $('connectionTestBtn').addEventListener('click', () => runFirebaseConnectionTest());
-
+  // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
-    if (cloudTimer) clearTimeout(cloudTimer);
-    syncingCloud = false;
-    fullSyncRunning = false;
     loadWorkspace(cloudUser?.uid || null);
-    updateAuthUI();
     renderProducts();
     renderInvoice();
-    if (cloudUser) {
-      syncCloudSafely();
-    } else {
-      showCloudMessage('أنت الآن خارج الحساب. منتجات الحسابات لا تظهر إلا بعد تسجيل الدخول إلى الحساب نفسه.');
+  });
+
+  // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
+  function normalizedProductName(value) {
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\\s\\u0640]+/g, ' ');
+  }
+  function downloadJsonFile(data, filename) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  $('exportBackupBtn').addEventListener('click', () => {
+    try {
+      const backup = {
+        format: 'alhloo-nadwa-portable-backup',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        products: products,
+        cart: cart,
+        rates: { tryRate, sypRate }
+      };
+      const stamp = new Date().toISOString().slice(0,10);
+      downloadJsonFile(backup, 'bidaat-alnadwa-backup-' + stamp + '.json');
+      $('backupMessage').textContent = 'تم تجهيز ملف النسخة الاحتياطية. أرسله للشخص الآخر عبر واتساب أو تيليغرام.';
+    } catch (error) {
+      $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
+    }
+  });
+  $('importBackupFile').addEventListener('change', async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      if (file.size > 40 * 1024 * 1024) throw new Error('حجم الملف أكبر من 40 ميغابايت.');
+      const raw = await file.text();
+      const backup = JSON.parse(raw);
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 || !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object') {
+        throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
+      }
+      const currentProducts = Array.isArray(products) ? products : [];
+      const merged = currentProducts.map(p => ({ ...p }));
+      const currentByName = new Map();
+      merged.forEach(p => {
+        const key = normalizedProductName(p.name);
+        if (key && !currentByName.has(key)) currentByName.set(key, p);
+      });
+      const idMap = new Map();
+      let updated = 0, added = 0;
+      backup.products.forEach((incoming, index) => {
+        if (!incoming || !String(incoming.name || '').trim()) return;
+        const key = normalizedProductName(incoming.name);
+        const existing = currentByName.get(key);
+        if (existing) {
+          const keepId = existing.id;
+          Object.assign(existing, incoming, { id: keepId });
+          idMap.set(String(incoming.id), keepId);
+          updated++;
+        } else {
+          let newId = incoming.id;
+          if (merged.some(p => String(p.id) === String(newId))) newId = Date.now() + index + 1;
+          const fresh = { ...incoming, id: newId };
+          merged.push(fresh);
+          currentByName.set(key, fresh);
+          idMap.set(String(incoming.id), newId);
+          added++;
+        }
+      });
+      const importedCart = {};
+      for (const [oldId, quantity] of Object.entries(backup.cart)) {
+        const mappedId = idMap.get(String(oldId));
+        if (mappedId !== undefined && Number(quantity) > 0) importedCart[String(mappedId)] = Number(quantity);
+      }
+      const nextTry = Number(backup.rates?.tryRate);
+      const nextSyp = Number(backup.rates?.sypRate);
+      const previous = { products, cart, tryRate, sypRate };
+      products = merged;
+      cart = importedCart;
+      if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
+      if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
+      try {
+        saveWorkspaceLocal();
+        localStorage.setItem('nadwa_try', String(tryRate));
+        localStorage.setItem('nadwa_syp', String(sypRate));
+      } catch (storageError) {
+        products = previous.products; cart = previous.cart; tryRate = previous.tryRate; sypRate = previous.sypRate;
+        throw new Error('مساحة التخزين على الهاتف غير كافية لحفظ الصور والبيانات. لم نعتمد الاستيراد. ' + storageError.message);
+      }
+      $('tryRate').value = tryRate;
+      $('sypRate').value = sypRate;
+      renderProducts();
+      renderInvoice();
+      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد. المنتجات الأخرى بقيت كما هي، وتم استبدال الفاتورة الحالية وأسعار الصرف بمحتوى الملف.';
+    } catch (error) {
+      $('backupMessage').textContent = 'فشل الاستيراد: ' + (error.message || error);
+    } finally {
+      event.target.value = '';
     }
   });
 
