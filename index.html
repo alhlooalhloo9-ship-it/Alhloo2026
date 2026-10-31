@@ -300,7 +300,7 @@ body.drawer-open{overflow:hidden}
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
 <div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
-<div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
+<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لنقله إلى مخزن آخر.</p><div id="products" class="grid"></div></div>
 </section>
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <div class="box" style="background:#f7faf8"><h3>🤖 الإضافة الذكية للمنتجات</h3><p class="muted">الصق وصف المنتج أو بياناته، ثم استخرج الحقول تلقائياً وراجعها قبل الحفظ.</p><p class="muted">ملاحظة: استخراج الصورة يعتمد على دعم المتصفح لتقنية قراءة النصوص OCR؛ لا يضمن التعرّف على صور المنتجات التي لا تحتوي نصاً أو فهمها بصرياً. راجع جميع النتائج قبل الحفظ.</p><textarea id="smartProductText" rows="5" style="width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font:inherit" placeholder="مثال: سكر 1 كغ - سعر الشراء 2.5 دولار - 10 قطع بالكرتونة - سعر البيع 150 ليرة تركية"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="parseSmartTextBtn">استخراج البيانات من النص</button><button type="button" id="smartImageBtn">قراءة بيانات من صورة أو فاتورة</button></div><input id="smartImageFile" type="file" accept="image/*" hidden><div id="smartProductStatus" class="muted" role="status" aria-live="polite"></div></div>
@@ -888,7 +888,8 @@ body.drawer-open{overflow:hidden}
     sortByPopularityIfDue();
     let root = $('products');
     root.innerHTML = '';
-    products.forEach(p => {
+    const filterId = $('productSupplierFilter')?.value || 'all';
+    products.filter(p => filterId === 'all' || (p.supplierId || 'general') === filterId).forEach(p => {
       let el = document.createElement('div');
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
@@ -974,6 +975,12 @@ body.drawer-open{overflow:hidden}
       $('invoiceSupplier').innerHTML = options;
       $('invoiceSupplier').value = activeSupplierId;
     }
+    if ($('productSupplierFilter')) {
+      const filter = $('productSupplierFilter');
+      const current = filter.value || activeSupplierId || 'all';
+      filter.innerHTML = '<option value="all">كل المخازن</option>' + options;
+      filter.value = (current === 'all' || suppliers.some(x => x.id === current)) ? current : 'all';
+    }
   }
   function renderSupplierList() {
     if (!$('supplierList')) return;
@@ -1007,6 +1014,7 @@ body.drawer-open{overflow:hidden}
     renderProducts();
   }
   $('invoiceSupplier').addEventListener('change', e => switchSupplier(e.target.value));
+  $('productSupplierFilter').addEventListener('change', () => renderProducts());
   function invoiceSnapshot(issueNow) {
     const entries = Object.entries(cart).filter(([id,n]) => +n > 0 && products.some(p => String(p.id) === String(id) && (p.supplierId || 'general') === activeSupplierId));
     let sum = 0;
