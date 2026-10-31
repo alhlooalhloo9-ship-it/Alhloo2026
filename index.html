@@ -298,7 +298,7 @@ body.drawer-open{overflow:hidden}
 </div>
 </section>
 <section id="productsPage">
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
 <div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
 <div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
 </section>
