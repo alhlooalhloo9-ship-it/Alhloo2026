@@ -797,36 +797,63 @@ body.drawer-open{overflow:hidden}
     required: ['name','price_usd','pieces_per_pack','sell_price_try','stock_packs','notes']
   };
 
-  async function callGeminiInteraction(input, apiKey) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000);
-    let response;
-    try {
-      response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: 'gemini-3.8-flash',
-          input,
-          response_format: { type: 'text', mime_type: 'application/json', schema: geminiProductSchema },
-          store: false
-        })
-      });
-    } catch (err) {
-      if (err.name === 'AbortError') throw new Error('انتهت مهلة تحليل Gemini بعد دقيقة. جرّب صورة أوضح أو أعد المحاولة.');
-      throw new Error('تعذر الاتصال بخدمة Gemini. تحقق من الإنترنت وحاول مجدداً.');
-    } finally {
-      clearTimeout(timer);
-    }
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
+  async function callGeminiInteraction(input, apiKey, onRetry) {
+    const maxAttempts = 4;
+    let response, payload = {};
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90000);
+      try {
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: 'gemini-3.8-flash',
+            input,
+            response_format: { type: 'text', mime_type: 'application/json', schema: geminiProductSchema },
+            store: false
+          })
+        });
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          if (attempt < maxAttempts) {
+            if (onRetry) onRetry(attempt, 'انتهت مهلة الاتصال');
+            await new Promise(resolve => setTimeout(resolve, attempt * 2500));
+            continue;
+          }
+          throw new Error('انتهت مهلة الاتصال بـ Gemini بعد عدة محاولات. بقيت الصورة مرفقة؛ أعد المحاولة لاحقاً.');
+        }
+        if (attempt < maxAttempts) {
+          if (onRetry) onRetry(attempt, 'انقطع الاتصال');
+          await new Promise(resolve => setTimeout(resolve, attempt * 2500));
+          continue;
+        }
+        throw new Error('تعذر الاتصال بخدمة Gemini بعد عدة محاولات. تحقق من الإنترنت وحاول مجدداً.');
+      } finally {
+        clearTimeout(timer);
+      }
+
+      payload = await response.json().catch(() => ({}));
+      if (response.ok) break;
+
       const apiMessage = payload.error?.message || payload.message || '';
+      const temporary = [429, 500, 502, 503, 504].includes(response.status);
+      if (temporary && attempt < maxAttempts) {
+        const retryAfter = Number(response.headers.get('Retry-After'));
+        const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, 20000)
+          : [2500, 5000, 9000][attempt - 1];
+        if (onRetry) onRetry(attempt, response.status === 503 ? 'ضغط مرتفع على Gemini' : 'الخدمة مشغولة (' + response.status + ')');
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        continue;
+      }
       if (response.status === 400 || response.status === 403 || response.status === 401)
         throw new Error('Gemini رفض الطلب أو المفتاح (' + response.status + '): ' + (apiMessage || 'تحقق من المفتاح وصلاحيات Gemini API.'));
-      if (response.status === 429) throw new Error('تم بلوغ حد استخدام Gemini مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
-      throw new Error('فشل تحليل Gemini (' + response.status + '): ' + (apiMessage || 'خطأ غير معروف.'));
+      if (response.status === 429) throw new Error('Gemini ما زال تحت ضغط أو تم بلوغ حد الاستخدام بعد 4 محاولات. الصورة بقيت مرفقة؛ حاول مجدداً بعد قليل.');
+      throw new Error('فشل تحليل Gemini (' + response.status + ') بعد ' + attempt + ' محاولات: ' + (apiMessage || 'خطأ غير معروف.'));
     }
+
     let outputText = payload.output_text || '';
     if (!outputText && Array.isArray(payload.output)) {
       outputText = payload.output.flatMap(item => item.content || [])
@@ -902,7 +929,7 @@ body.drawer-open{overflow:hidden}
       'حوّل الأرقام المكتوبة بالكلمات إلى أرقام فقط إذا كان معناها واضحاً. لا تحوّل العملات ولا تخلط بينها.',
       'النص المراد تحليله:\n' + sourceText
     ].join('\n');
-    return await callGeminiInteraction([{ type: 'text', text: prompt }], apiKey);
+    return await callGeminiInteraction([{ type: 'text', text: prompt }], apiKey, (attempt, reason) => { $('smartProductStatus').textContent = 'Gemini مشغول (' + reason + '). إعادة المحاولة تلقائياً ' + (attempt + 1) + ' من 4...'; });
   }
 
   async function processSmartProductImage(file) {
