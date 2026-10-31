@@ -272,7 +272,7 @@ body.drawer-open{overflow:hidden}
 <section id="accountPage" class="hidden">
 <div class="box" id="backupPanel">
 <h3>📦 نقل المنتجات والبيانات بين الهواتف</h3>
-<p class="muted">أنشئ ملفاً واحداً يحتوي المنتجات وأسعارها وكمياتها وصورها والفاتورة الحالية وأسعار الصرف. أرسله للشخص الآخر ليستورده على هاتفه. لا توجد مزامنة للبيانات مع السحابة.</p>
+<p class="muted">أنشئ نسخة كاملة من منتجات هذا الحساب بأسمائها وأسعارها وكمياتها وصورها والمخازن والفواتير وأسعار الصرف، ثم استوردها في الحساب الآخر لنقل البيانات كما هي. لا توجد مزامنة للبيانات مع السحابة.</p>
 <label for="backupFileName">اسم الملف قبل التصدير</label>
 <input id="backupFileName" type="text" value="نسخة-بضاعة-الندوة" maxlength="80" placeholder="اكتب اسم الملف الذي تريده">
 <p class="muted" style="margin:4px 0 8px">سيُحفظ الملف على جهازك ضمن التنزيلات بالاسم الذي تكتبه، وامتداده .json سيُضاف تلقائياً.</p>
@@ -282,7 +282,7 @@ body.drawer-open{overflow:hidden}
 <div id="backupMessage" class="muted" role="status" aria-live="polite"></div>
 <div class="box" style="background:#f7faf8;margin-top:12px">
 <b>طريقة الدمج:</b>
-<p class="muted">إذا وُجد منتج بنفس الاسم، تُحدّث بياناته وصورته دون تكرار. وإذا لم يوجد، يُضاف. المنتجات الأخرى الموجودة على الهاتف لا تُحذف. الفاتورة الحالية وأسعار الصرف تُستبدل بما في الملف المستورد.</p>
+<p class="muted">الاستيراد ينقل نسخة الحساب المصدر كاملة كما هي، ويحافظ على المنتجات المتكررة بالاسم وعلى الصور والأسعار. إذا كان بالحساب المستهدف بيانات سابقة، سيطلب الموقع تأكيد استبدالها قبل المتابعة.</p>
 </div>
 <hr class="drawer-divider">
 <h3>👤 الحساب</h3>
@@ -1526,19 +1526,17 @@ body.drawer-open{overflow:hidden}
   $('importBackupFile').addEventListener('change', async event => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
+    const uid = cloudUser?.uid || 'guest';
     const storageKeys = [
-      'nadwa_products_' + (cloudUser?.uid || 'guest'),
-      'nadwa_cart_' + (cloudUser?.uid || 'guest'),
-      'nadwa_suppliers_' + (cloudUser?.uid || 'guest'),
-      'nadwa_supplier_carts_' + (cloudUser?.uid || 'guest'),
-      'nadwa_invoice_archive_' + (cloudUser?.uid || 'guest'),
-      'nadwa_active_supplier_' + (cloudUser?.uid || 'guest'),
+      'nadwa_products_' + uid, 'nadwa_cart_' + uid,
+      'nadwa_suppliers_' + uid, 'nadwa_supplier_carts_' + uid,
+      'nadwa_invoice_archive_' + uid, 'nadwa_active_supplier_' + uid,
       'nadwa_try','nadwa_syp'
     ];
     const storageSnapshot = new Map(storageKeys.map(key => [key, localStorage.getItem(key)]));
     const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
     try {
-      if (file.size > 40 * 1024 * 1024) throw new Error('حجم الملف أكبر من 40 ميغابايت.');
+      if (file.size > 100 * 1024 * 1024) throw new Error('حجم الملف أكبر من 100 ميغابايت.');
       const backup = JSON.parse(await file.text());
       if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 ||
           !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object' || Array.isArray(backup.cart)) {
@@ -1547,100 +1545,71 @@ body.drawer-open{overflow:hidden}
       if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
         throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
       }
-      const incomingSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers : [{id:'general',name:'مخزن عام'}];
-      if (incomingSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
+      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'general',name:'مخزن عام'}];
+      if (sourceSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
         throw new Error('قائمة المخازن داخل الملف غير صالحة.');
       }
-
-      const merged = (Array.isArray(products) ? products : []).map(p => ({ ...p }));
-      const nextSuppliers = Array.isArray(suppliers) ? suppliers.map(x => ({...x})) : [];
-      if (!nextSuppliers.some(x => x.id === 'general')) nextSuppliers.unshift({id:'general',name:'مخزن عام'});
-      const normalizeStoreName = value => String(value || '').trim().toLocaleLowerCase('ar').replace(/[\\s\\u0640]+/g,' ');
-      const supplierIdMap = new Map([['general','general']]);
-      for (const incomingStore of incomingSuppliers) {
-        if (String(incomingStore.id) === 'general') continue;
-        const nameKey = normalizeStoreName(incomingStore.name);
-        let localStore = nextSuppliers.find(x => normalizeStoreName(x.name) === nameKey);
-        if (!localStore) {
-          let id = String(incomingStore.id);
-          if (nextSuppliers.some(x => String(x.id) === id)) id = 'sup-import-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
-          localStore = { ...incomingStore, id };
-          nextSuppliers.push(localStore);
-        }
-        supplierIdMap.set(String(incomingStore.id), localStore.id);
-      }
-
-      const currentByName = new Map();
-      merged.forEach(p => {
-        const key = normalizedProductName(p.name);
-        if (key && !currentByName.has(key)) currentByName.set(key, p);
+      if (!sourceSuppliers.some(x => String(x.id) === 'general')) sourceSuppliers.unshift({id:'general',name:'مخزن عام'});
+      const supplierIds = new Set(sourceSuppliers.map(x => String(x.id)));
+      const sourceIdMap = new Map();
+      const usedProductIds = new Set();
+      backup.products.forEach((p, index) => {
+        const originalId = String(p.id);
+        let targetId = p.id;
+        if (usedProductIds.has(originalId)) targetId = 'restored-' + Date.now() + '-' + index;
+        usedProductIds.add(String(targetId));
+        sourceIdMap.set(originalId, targetId);
       });
-      const productIdMap = new Map();
-      let updated = 0, added = 0;
-      backup.products.forEach((incoming, index) => {
-        const key = normalizedProductName(incoming.name);
-        const mappedSupplierId = supplierIdMap.get(String(incoming.supplierId || 'general')) || 'general';
-        const existing = currentByName.get(key);
-        if (existing) {
-          const keepId = existing.id;
-          Object.assign(existing, incoming, { id: keepId, supplierId: mappedSupplierId });
-          productIdMap.set(String(incoming.id), keepId);
-          updated++;
-        } else {
-          let newId = incoming.id;
-          if (merged.some(p => String(p.id) === String(newId))) newId = 'import-' + Date.now() + '-' + index;
-          const fresh = { ...incoming, id: newId, supplierId: mappedSupplierId };
-          merged.push(fresh);
-          currentByName.set(key, fresh);
-          productIdMap.set(String(incoming.id), newId);
-          added++;
-        }
-      });
+      const restoredProducts = backup.products.map((p, index) => ({
+        ...p,
+        id: sourceIdMap.get(String(p.id)),
+        supplierId: supplierIds.has(String(p.supplierId || 'general')) ? (p.supplierId || 'general') : 'general'
+      }));
 
       const remapCart = sourceCart => {
         const result = {};
         if (!sourceCart || typeof sourceCart !== 'object' || Array.isArray(sourceCart)) return result;
         for (const [oldId, quantity] of Object.entries(sourceCart)) {
-          const mappedId = productIdMap.get(String(oldId));
+          const mappedId = sourceIdMap.get(String(oldId));
           const qty = Number(quantity);
           if (mappedId !== undefined && Number.isSafeInteger(qty) && qty > 0) result[String(mappedId)] = qty;
         }
         return result;
       };
-      const nextSupplierCarts = supplierCarts && typeof supplierCarts === 'object' && !Array.isArray(supplierCarts)
-        ? { ...supplierCarts } : {};
+      const restoredSupplierCarts = {};
       if (backup.supplierCarts && typeof backup.supplierCarts === 'object' && !Array.isArray(backup.supplierCarts)) {
-        for (const [sourceStoreId, sourceCart] of Object.entries(backup.supplierCarts)) {
-          const targetStoreId = supplierIdMap.get(String(sourceStoreId)) || 'general';
-          nextSupplierCarts[targetStoreId] = remapCart(sourceCart);
+        for (const [storeId, sourceCart] of Object.entries(backup.supplierCarts)) {
+          restoredSupplierCarts[String(storeId)] = remapCart(sourceCart);
         }
       }
-      const importedCart = remapCart(backup.cart);
-      const sourceActive = String(backup.activeSupplierId || 'general');
-      const nextActiveSupplierId = supplierIdMap.get(sourceActive) || 'general';
-      if (!backup.supplierCarts || !Object.prototype.hasOwnProperty.call(backup.supplierCarts, sourceActive)) {
-        nextSupplierCarts[nextActiveSupplierId] = importedCart;
+      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'general'))
+        ? String(backup.activeSupplierId || 'general') : 'general';
+      if (!Object.prototype.hasOwnProperty.call(restoredSupplierCarts, restoredActiveSupplierId)) {
+        restoredSupplierCarts[restoredActiveSupplierId] = remapCart(backup.cart);
       }
-      const nextArchive = Array.isArray(invoiceArchive) ? [...invoiceArchive] : [];
-      if (Array.isArray(backup.invoiceArchive)) {
-        const knownInvoiceIds = new Set(nextArchive.map(x => String(x.id)));
-        backup.invoiceArchive.forEach(inv => {
-          if (!inv || !inv.id || knownInvoiceIds.has(String(inv.id))) return;
-          const targetStoreId = supplierIdMap.get(String(inv.supplierId || 'general')) || 'general';
-          nextArchive.push({ ...inv, supplierId: targetStoreId, supplierName: nextSuppliers.find(x => x.id === targetStoreId)?.name || inv.supplierName });
-          knownInvoiceIds.add(String(inv.id));
-        });
-      }
-
+      const restoredCart = restoredSupplierCarts[restoredActiveSupplierId] || remapCart(backup.cart);
       const nextTry = Number(backup.rates?.tryRate);
       const nextSyp = Number(backup.rates?.sypRate);
-      products = merged;
-      suppliers = nextSuppliers;
-      supplierCarts = nextSupplierCarts;
-      invoiceArchive = nextArchive;
-      activeSupplierId = nextActiveSupplierId;
+      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.startsWith('data:image/')).length;
+
+      const hasExistingData = (Array.isArray(products) && products.length > 0) ||
+        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
+        (Array.isArray(invoiceArchive) && invoiceArchive.length > 0);
+      const warning = 'سيتم نقل نسخة الحساب المصدر كما هي إلى هذا الحساب. ' +
+        (hasExistingData ? 'سيتم استبدال المنتجات والمخازن والفواتير الموجودة حالياً في الحساب المستهدف.' : 'سيتم تحميل المنتجات والمخازن والفواتير من الملف.') +
+        '\\n\\nعدد المنتجات: ' + restoredProducts.length +
+        '\\nعدد المنتجات التي تحتوي صوراً داخل الملف: ' + imageCount +
+        '\\n\\nهل تريد المتابعة؟';
+      if (!window.confirm(warning)) return;
+
+      // استعادة كاملة مطابقة للملف: لا دمج حسب الاسم حتى لا تختفي المنتجات المتكررة بالاسم.
+      products = restoredProducts;
+      suppliers = sourceSuppliers;
+      supplierCarts = restoredSupplierCarts;
+      invoiceArchive = Array.isArray(backup.invoiceArchive) ? backup.invoiceArchive.map(x => ({...x})) : [];
+      activeSupplierId = restoredActiveSupplierId;
       ensureSupplierData();
-      cart = supplierCarts[activeSupplierId] || importedCart;
+      cart = supplierCarts[activeSupplierId] || restoredCart;
       if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
       if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
 
@@ -1650,7 +1619,12 @@ body.drawer-open{overflow:hidden}
       $('tryRate').value = tryRate;
       $('sypRate').value = sypRate;
       renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
-      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد، مع دمج المخازن وفواتيرها دون تكرار. المنتجات والمخازن الأخرى بقيت كما هي.';
+      $('backupMessage').textContent = 'اكتمل نقل نسخة الحساب: تم استيراد ' + products.length +
+        ' منتجاً كما هي، بما فيها المنتجات المتكررة بالاسم، و' + imageCount +
+        ' صورة مضمّنة، مع الأسعار والمخازن والفواتير وأسعار الصرف.';
+      if (imageCount < products.length) {
+        $('backupMessage').textContent += ' تنبيه: بعض المنتجات لا تحتوي صورة داخل ملف المصدر، لذلك لا يمكن استعادتها من هذا الملف.';
+      }
     } catch (error) {
       products=previous.products; cart=previous.cart; tryRate=previous.tryRate; sypRate=previous.sypRate;
       suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
