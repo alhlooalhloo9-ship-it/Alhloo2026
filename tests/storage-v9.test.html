@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اختبارات AlhlooStorage V9 المعزولة</title>
+<style>body{font:16px system-ui;max-width:850px;margin:24px auto;padding:0 14px}li{margin:8px 0}.ok{color:green}.bad{color:#b00}pre{white-space:pre-wrap;background:#f4f4f4;padding:12px}</style>
+<h1>اختبارات محرك التخزين — قاعدة مستقلة</h1>
+<p>هذه الصفحة تستخدم IndexedDB باسم اختباري منفصل، ولا تتصل بـ Firebase ولا بقاعدة المتجر الإنتاجية.</p>
+<button id="run">تشغيل الاختبارات</button><ol id="results"></ol><pre id="summary"></pre>
+<script type="module">
+import {AlhlooStorageV9} from "../storage.js";
+const out=document.querySelector("#results"),summary=document.querySelector("#summary");
+const db=new AlhlooStorageV9({dbName:"Alhloo2026_V9_TEST_ONLY_"+Date.now()});
+const results=[];
+function assert(ok,msg){if(!ok)throw new Error(msg);}
+async function test(name,fn){
+ const li=document.createElement("li");li.textContent="قيد التنفيذ: "+name;out.append(li);
+ try{await fn();li.className="ok";li.textContent="نجح: "+name;results.push({name,ok:true});}
+ catch(e){li.className="bad";li.textContent="فشل: "+name+" — "+e.message;results.push({name,ok:false,error:e.message});}
+}
+document.querySelector("#run").onclick=async()=>{
+ out.innerHTML="";results.length=0;document.querySelector("#run").disabled=true;
+ const product=(id,stock=5)=>({id,name:"اختبار "+id,price:1,pieces:10,sellTry:4,stock,image:"",pickCount:0});
+ await test("فتح قاعدة اختبار منفصلة",async()=>{await db.open();assert(db.db.name.startsWith("Alhloo2026_V9_TEST_ONLY_"),"قاعدة الاختبار غير معزولة");});
+ await test("حفظ واسترجاع معرّف رقمي/نصي",async()=>{await db.saveWorkspace("user-A",[product(101),product("SKU-X")],{"101":2,"SKU-X":1});const w=await db.getWorkspace("user-A");assert(w.products.length===2,"عدد المنتجات غير صحيح");assert(w.cart["101"]===2,"السلة لم تُحفظ");assert(w.products.some(p=>String(p.id)==="101"),"المعرّف الرقمي فُقد");});
+ await test("عزل بيانات المستخدمين",async()=>{await db.saveWorkspace("user-B",[product(101,2)],{});const a=await db.getWorkspace("user-A"),b=await db.getWorkspace("user-B");assert(a.products.length===2&&b.products.length===1,"تداخل بين UID");});
+ await test("عدم حذف منتج عند غيابه من لقطة جزئية",async()=>{await db.saveWorkspace("user-A",[product(101)],{"101":1});const w=await db.getWorkspace("user-A");assert(w.products.length===2,"تم حذف منتج غائب من اللقطة");});
+ await test("عدم تكرار طابور المزامنة عند عدم تغير المنتج",async()=>{await db.saveWorkspace("user-A",[product(101),product("SKU-X")],{"101":1,"SKU-X":1});const first=await db.getPendingSyncItems("user-A",200);await db.updateSyncStatus("user-A","product-upsert:101","synced");await db.saveWorkspace("user-A",[product(101),product("SKU-X")],{"101":1,"SKU-X":1});const second=await db.getPendingSyncItems("user-A",200);assert(!second.some(x=>x.syncId==="product-upsert:101"),"أُعيد إدراج منتج لم يتغير في الطابور");});
+ await test("ترحيل بيانات قديمة مع marker بعد نجاحها",async()=>{const r=await db.migrateLegacyWorkspace("legacy-user",[product("old-1")],{"old-1":2});assert(r.migrated&&r.importedProducts===1,"لم يكتمل الترحيل");const again=await db.migrateLegacyWorkspace("legacy-user",[product("old-1")],{"old-1":2});assert(!again.migrated&&again.reason==="already-migrated","علامة الترحيل غير فعالة");});
+ await test("رفض ترحيل ناقص دون وضع marker",async()=>{let failed=false;try{await db.migrateLegacyWorkspace("bad-user",[product("x")],{"missing":1});}catch(_){failed=true;}assert(failed,"لم يُرفض cart غير المتطابق");const r=await db.migrateLegacyWorkspace("bad-user",[product("x")],{});assert(r.migrated,"تم وضع marker رغم فشل الترحيل السابق");});
+ await test("بيع ذري وخصم المخزون مرة واحدة",async()=>{await db.saveWorkspace("sale-user",[product(7,4)],{"7":2});const sale=await db.completeSale("sale-user",{"7":2},"invoice-fixed");assert(sale.invoice.totalTry===8,"إجمالي الفاتورة خاطئ");const again=await db.completeSale("sale-user",{"7":2},"invoice-fixed");assert(again.alreadyCompleted,"لم تُكتشف إعادة العملية");const w=await db.getWorkspace("sale-user");assert(w.products[0].stock===2,"المخزون خُصم أكثر من مرة");assert(Object.keys(w.cart).length===0,"لم تُفرغ السلة");});
+ await test("رفض بيع كمية أكبر من المخزون دون خصم جزئي",async()=>{await db.saveWorkspace("short-user",[product("a",3),product("b",1)],{});let failed=false;try{await db.completeSale("short-user",{"a":1,"b":2},"invoice-fail");}catch(_){failed=true;}assert(failed,"لم يُرفض البيع");const w=await db.getWorkspace("short-user");assert(w.products.find(p=>p.id==="a").stock===3,"حصل خصم جزئي رغم فشل الفاتورة");assert(w.products.find(p=>p.id==="b").stock===1,"تغير مخزون المنتج غير المتاح");});
+ await test("منع الضيف ورفض المعرّفات غير الصالحة",async()=>{let a=false,b=false;try{await db.getWorkspace("guest");}catch(_){a=true;}try{await db.saveWorkspace("user-C",[product(1),product("1")],{});}catch(_){b=true;}assert(a&&b,"لم تُرفض هوية guest أو تصادم المعرفات");});
+ const passed=results.filter(x=>x.ok).length,failed=results.length-passed;
+ summary.textContent="النتيجة: "+passed+" ناجح / "+failed+" فاشل من "+results.length+" اختبار.\n"+JSON.stringify(results,null,2);
+ db.close();document.querySelector("#run").disabled=false;
+};
+</script></html>
