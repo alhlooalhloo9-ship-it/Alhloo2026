@@ -312,11 +312,11 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // استخدام long polling لتجاوز مشاكل WebChannel التي قد تمنع تأكيد الكتابة
-  // على بعض شبكات الهاتف أو المتصفحات. لا نفعّل التخزين المؤقت هنا كي لا تختلط
-  // حالة الاتصال الفعلية بنتائج محلية قديمة أثناء مزامنة المنتجات.
+  // دع Firebase يكتشف تلقائياً إن كانت الشبكة تحتاج Long Polling.
+  // فرض Long Polling دائماً قد يبطئ بعض الشبكات؛ والاكتشاف التلقائي أنسب
+  // للتبديل بين Wi-Fi وبيانات الهاتف دون تغيير أي بيانات محفوظة.
   const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
     useFetchStreams: false
   });
 
@@ -983,7 +983,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     try {
       showCloudMessage('جارٍ جلب بيانات السحابة...');
       const productsQuery = query(collection(db, 'products'), where('user_id', '==', cloudUser.uid));
-      const snapshot = await withCloudTimeout(getDocs(productsQuery), 'قراءة المنتجات', 25000);
+      const snapshot = await withCloudTimeout(getDocs(productsQuery), 'قراءة المنتجات', 60000);
       const remoteDocs = snapshot.docs;
       const remoteById = new Map(remoteDocs.map(item => [item.id, item]));
       const remoteQueues = new Map();
