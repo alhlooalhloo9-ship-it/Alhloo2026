@@ -285,6 +285,18 @@ body.drawer-open{overflow:hidden}
 <b>طريقة الدمج:</b>
 <p class="muted">الاستيراد ينقل نسخة الحساب المصدر كاملة كما هي، ويحافظ على المنتجات المتكررة بالاسم وعلى الصور والأسعار. إذا كان بالحساب المستهدف بيانات سابقة، سيطلب الموقع تأكيد استبدالها قبل المتابعة.</p>
 </div>
+<div class="box" style="background:#f7faf8;margin:12px 0">
+<h3>🤖 إعداد الذكاء الاصطناعي لتحليل الصور</h3>
+<p class="muted">أدخل مفتاح Gemini API ليتمكن التطبيق من فهم صور المنتجات والفواتير بصرياً وتعبئة الحقول المقروءة فقط. المفتاح يُحفظ محلياً على هذا المتصفح لهذا الحساب، ولا يُضاف إلى النسخ الاحتياطية أو ملفات GitHub.</p>
+<label for="geminiApiKey">مفتاح Gemini API</label>
+<input id="geminiApiKey" type="password" autocomplete="off" placeholder="الصق مفتاح Gemini API هنا">
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button type="button" class="primary" id="saveGeminiKeyBtn">حفظ المفتاح على هذا الجهاز</button>
+<button type="button" id="clearGeminiKeyBtn">حذف المفتاح من هذا الجهاز</button>
+</div>
+<div id="geminiKeyStatus" class="muted" role="status" aria-live="polite"></div>
+<p class="muted">تنبيه أمني: التخزين المحلي أفضل من نشر المفتاح في GitHub، لكنه ليس حماية كاملة؛ أي شخص يستخدم هذا المتصفح والحساب قد يتمكن من الوصول إليه. للاستخدام العام أو على عدة أجهزة، الأفضل وسيط خادم آمن.</p>
+</div>
 <hr class="drawer-divider">
 <h3>👤 الحساب</h3>
 <div id="authStatus" class="muted" role="status">جارٍ التحقق من الحساب...</div>
@@ -713,18 +725,172 @@ body.drawer-open{overflow:hidden}
     $('smartProductStatus').textContent='تم ملء الحقول التي أمكن التعرف عليها. '+(missing.length?'يرجى إدخال أو مراجعة: '+missing.join('، '):'راجع جميع القيم قبل حفظ المنتج.');
   }
   $('parseSmartTextBtn').addEventListener('click',()=>{const value=$('smartProductText').value.trim();if(!value){$('smartProductStatus').textContent='الصق تفاصيل المنتج أولاً.';return;}applySmartFields(value);});
-  $('smartImageBtn').addEventListener('click',()=>$('smartImageFile').click());
-  $('smartImageFile').addEventListener('change',async e=>{
-    const file=e.target.files?.[0];if(!file)return;
-    $('smartProductStatus').textContent='جارٍ محاولة قراءة النص من الصورة...';
-    try{
-      if(!('TextDetector' in window))throw new Error('ميزة قراءة النصوص من الصور غير مدعومة في هذا المتصفح. يمكنك استخدام النص المنسوخ أو تجربة متصفح يدعم TextDetector.');
-      const bitmap=await createImageBitmap(file);const detector=new TextDetector();const blocks=await detector.detect(bitmap);const extracted=blocks.map(x=>x.rawValue).join('\n');
-      if(!extracted.trim())throw new Error('لم يتم العثور على نص واضح في الصورة.');
-      $('smartProductText').value=extracted;applySmartFields(extracted);handleSelectedImage(file);
-      $('smartProductStatus').textContent='تم استخراج النص وتجهيز الصورة لإرفاقها بالمنتج بعد حفظ القصّ. راجع الاسم والأسعار والأرقام يدوياً قبل الحفظ.';
-    }catch(err){$('smartProductStatus').textContent=err.message||String(err);}
-    finally{e.target.value='';}
+  function geminiKeyStorageName() {
+    return 'nadwa_gemini_api_key_' + (cloudUser?.uid || 'guest');
+  }
+  function loadGeminiKey() {
+    try { return localStorage.getItem(geminiKeyStorageName()) || ''; } catch (_) { return ''; }
+  }
+  function refreshGeminiKeyUI() {
+    const input = $('geminiApiKey');
+    if (!input) return;
+    input.value = loadGeminiKey();
+    $('geminiKeyStatus').textContent = input.value
+      ? 'يوجد مفتاح محفوظ محلياً لهذا الحساب على هذا الجهاز.'
+      : 'لم يتم حفظ مفتاح بعد. أضفه هنا لتفعيل الفهم البصري للصور.';
+  }
+  $('saveGeminiKeyBtn').addEventListener('click', () => {
+    const value = $('geminiApiKey').value.trim();
+    if (!value) { $('geminiKeyStatus').textContent = 'الصق مفتاح Gemini أولاً.'; return; }
+    try {
+      localStorage.setItem(geminiKeyStorageName(), value);
+      $('geminiApiKey').value = value;
+      $('geminiKeyStatus').textContent = 'تم حفظ المفتاح محلياً على هذا الجهاز فقط.';
+    } catch (err) {
+      $('geminiKeyStatus').textContent = 'تعذر حفظ المفتاح في مساحة التخزين المحلية: ' + (err.message || err);
+    }
+  });
+  $('clearGeminiKeyBtn').addEventListener('click', () => {
+    try {
+      localStorage.removeItem(geminiKeyStorageName());
+      $('geminiApiKey').value = '';
+      $('geminiKeyStatus').textContent = 'تم حذف المفتاح من هذا الجهاز.';
+    } catch (err) {
+      $('geminiKeyStatus').textContent = 'تعذر حذف المفتاح: ' + (err.message || err);
+    }
+  });
+  refreshGeminiKeyUI();
+
+  async function prepareGeminiImage(file) {
+    if (!file || !file.type || !file.type.startsWith('image/')) throw new Error('الملف المختار ليس صورة صالحة.');
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('تعذر تجهيز الصورة للتحليل.');
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.84));
+    if (!blob) throw new Error('تعذر ضغط الصورة.');
+    if (blob.size > 8 * 1024 * 1024) throw new Error('حجم الصورة بعد التجهيز أكبر من الحد المسموح.');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('تعذرت قراءة الصورة.'));
+      reader.readAsDataURL(blob);
+    });
+    return { mimeType: 'image/jpeg', data: dataUrl.split(',')[1] || '' };
+  }
+
+  async function analyzeProductImageWithGemini(file) {
+    const apiKey = loadGeminiKey();
+    if (!apiKey) throw new Error('لتحليل الصورة بالذكاء الاصطناعي، احفظ مفتاح Gemini أولاً من القائمة الجانبية ← الإعدادات ونقل البيانات.');
+    const image = await prepareGeminiImage(file);
+    const prompt = [
+      'حلّل صورة المنتج أو الفاتورة بصرياً واستخراج المعلومات الظاهرة فقط.',
+      'أعد JSON فقط وفق المخطط. لا تخمّن أي سعر أو كمية أو عدد غير ظاهر بوضوح.',
+      'إذا لم تكن القيمة ظاهرة أو لم تستطع قراءتها بدقة، أعد نصاً فارغاً لهذا الحقل.',
+      'name: اسم المنتج مع الوزن أو الحجم إن كان واضحاً.',
+      'price_usd: سعر شراء العبوة بالدولار فقط إذا ظهر بوضوح.',
+      'pieces_per_pack: عدد القطع داخل العبوة فقط إذا ظهر بوضوح.',
+      'sell_price_try: سعر بيع القطعة بالليرة التركية فقط إذا ظهر بوضوح.',
+      'stock_packs: عدد العبوات في المخزون فقط إذا ظهر بوضوح.',
+      'لا تعتبر رقم الباركود أو رقم الفاتورة سعراً أو كمية. ميّز بين سعر القطعة وسعر العبوة.',
+      'notes: ملاحظة قصيرة عن أي نص أو رقم ملتبس، وإلا اتركه فارغاً.'
+    ].join('\n');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000);
+    let response;
+    try {
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: image.mimeType, data: image.data } }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                name: { type: 'STRING' },
+                price_usd: { type: 'STRING' },
+                pieces_per_pack: { type: 'STRING' },
+                sell_price_try: { type: 'STRING' },
+                stock_packs: { type: 'STRING' },
+                notes: { type: 'STRING' }
+              },
+              required: ['name','price_usd','pieces_per_pack','sell_price_try','stock_packs','notes']
+            },
+            temperature: 0.1,
+            maxOutputTokens: 500
+          }
+        })
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('انتهت مهلة تحليل الصورة. جرّب صورة أصغر أو أعد المحاولة.');
+      throw new Error('تعذر الاتصال بخدمة Gemini. تحقق من الإنترنت وحاول مجدداً.');
+    } finally {
+      clearTimeout(timer);
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const apiMessage = payload.error?.message || '';
+      if (response.status === 400 || response.status === 403) throw new Error('رفضت Google المفتاح أو صلاحياته: ' + (apiMessage || 'تحقق من المفتاح وتفعيل Gemini API.'));
+      if (response.status === 429) throw new Error('تم بلوغ حد الاستخدام المجاني مؤقتاً. انتظر قليلاً ثم أعد المحاولة.');
+      throw new Error('فشل تحليل Gemini (' + response.status + '): ' + (apiMessage || 'خطأ غير معروف.'));
+    }
+    const textPart = payload.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    if (!textPart) throw new Error('لم يرجع Gemini بيانات قابلة للقراءة. جرّب صورة أوضح.');
+    let result;
+    try { result = JSON.parse(textPart); }
+    catch (_) { throw new Error('وصلت نتيجة غير مفهومة من الذكاء الاصطناعي. أعد المحاولة بصورة أوضح.'); }
+    return result;
+  }
+
+  $('smartImageBtn').addEventListener('click', () => $('smartImageFile').click());
+  $('smartImageFile').addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleSelectedImage(file);
+    $('smartProductStatus').textContent = 'جارٍ إرسال الصورة إلى Gemini لتحليل محتواها بصرياً...';
+    try {
+      const result = await analyzeProductImageWithGemini(file);
+      const mappings = [
+        ['name', result.name],
+        ['price', result.price_usd],
+        ['pieces', result.pieces_per_pack],
+        ['sellTry', result.sell_price_try],
+        ['stock', result.stock_packs]
+      ];
+      let filled = [];
+      for (const [field, raw] of mappings) {
+        const value = String(raw ?? '').trim();
+        if (!value) continue;
+        if (field === 'name') {
+          $(field).value = value;
+          filled.push('اسم المنتج');
+          continue;
+        }
+        const normalized = value.replace(/[,،]/g, '.').replace(/[^0-9.\-]/g, '');
+        if (!normalized || !Number.isFinite(Number(normalized))) continue;
+        $(field).value = normalized;
+        filled.push(({price:'سعر الشراء',pieces:'عدد القطع',sellTry:'سعر البيع',stock:'المخزون'})[field]);
+      }
+      const notes = String(result.notes || '').trim();
+      $('smartProductStatus').textContent = 'انتهى التحليل البصري. الحقول التي تم تعبئتها: ' +
+        (filled.length ? filled.join('، ') : 'لم تُقرأ بيانات مؤكدة') +
+        (notes ? ' — ملاحظة الذكاء الاصطناعي: ' + notes : '') +
+        '. الصورة مرفقة بالمنتج؛ راجع كل القيم قبل الحفظ.';
+    } catch (err) {
+      $('smartProductStatus').textContent = (err.message || String(err)) +
+        ' — بقيت الصورة محددة للمنتج، ويمكنك إدخال البيانات يدوياً أو استخدام استخراج النص.';
+    } finally {
+      e.target.value = '';
+    }
   });
 
   $('form').addEventListener('submit', e => {
