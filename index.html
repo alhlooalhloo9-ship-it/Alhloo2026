@@ -320,6 +320,14 @@ body.drawer-open{overflow:hidden}
 </div><hr><h3>📚 سجل الفواتير الصادرة</h3><div id="invoiceArchiveList" class="muted"></div></div>
 </section>
 <div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>
+<div id="moveProductModal" class="detailsPanel hidden" role="dialog" aria-modal="true" aria-labelledby="moveProductTitle">
+  <div class="detailsCard"><h3 id="moveProductTitle">خيارات المنتج</h3>
+    <label for="moveProductSupplier">نقل المنتج إلى مخزن</label>
+    <select id="moveProductSupplier" class="supplierSelect" style="width:100%;margin:8px 0 14px"></select>
+    <button type="button" class="primary" id="moveProductConfirm" style="width:100%">نقل المنتج</button>
+    <button type="button" onclick="closeMoveProduct()" style="width:100%;margin-top:8px">إلغاء</button>
+  </div>
+</div>
 <div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
 <div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><button class="primary" style="width:100%;margin-top:12px" onclick="closeDetails()">إغلاق</button></div>
 </div>
@@ -833,10 +841,40 @@ body.drawer-open{overflow:hidden}
       '<div>ربح العبوة بالسوري الجديد: <b>' + fmt(packProfit * sypRate) + ' ل.س</b></div>' +
       '<hr><div>المخزون: ' + fmt(p.stock || 0) + ' عبوة</div>' +
       '<div>الكمية بالفاتورة: ' + fmt(cart[p.id] || 0) + ' عبوة</div>' +
-      '<button type="button" class="primary" style="width:100%;margin-top:14px" onclick="editProductFromDetails(' + p.id + ')">✏️ تعديل المنتج</button>';
+      (p.image ? '' : '<button type="button" class="primary" style="width:100%;margin-top:10px" onclick="addPhotoFromDetails(' + p.id + ')">⬆️ تحميل صورة للمنتج</button>') + '<button type="button" class="primary" style="width:100%;margin-top:14px" onclick="editProductFromDetails(' + p.id + ')">✏️ تعديل المنتج</button>';
     $('detailsModal').classList.remove('hidden');
   };
 
+  window.openProductActions = function(id) {
+    const p = products.find(x => String(x.id) === String(id));
+    if (!p) return;
+    const select = $('moveProductSupplier');
+    select.innerHTML = suppliers.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>').join('');
+    select.value = p.supplierId || 'general';
+    $('moveProductTitle').textContent = 'خيارات المنتج: ' + p.name;
+    $('moveProductModal').dataset.productId = String(p.id);
+    $('moveProductModal').classList.remove('hidden');
+  };
+  window.closeMoveProduct = function() { $('moveProductModal').classList.add('hidden'); };
+  $('moveProductConfirm').addEventListener('click', () => {
+    const id = $('moveProductModal').dataset.productId;
+    const p = products.find(x => String(x.id) === id);
+    if (!p) return closeMoveProduct();
+    const destination = $('moveProductSupplier').value;
+    if (!suppliers.some(s => s.id === destination)) return alert('اختر مخزناً صحيحاً.');
+    const previous = p.supplierId || 'general';
+    if (previous === destination) { closeMoveProduct(); return alert('المنتج موجود أصلاً بهذا المخزن.'); }
+    if (supplierCarts[previous]) delete supplierCarts[previous][p.id];
+    if (previous === activeSupplierId) cart = supplierCarts[activeSupplierId] || {};
+    p.supplierId = destination;
+    if (!supplierCarts[destination]) supplierCarts[destination] = {};
+    save(); closeMoveProduct(); renderSupplierList(); renderProducts(); renderInvoice();
+    alert('تم نقل المنتج «' + p.name + '» إلى مخزن «' + supplierName(destination) + '».');
+  });
+
+  window.addPhotoFromDetails = function(id) {
+    closeDetails(); editProduct(id); setTimeout(() => $('image').click(), 120);
+  };
   window.editProductFromDetails = function(id) {
     closeDetails();
     editProduct(id);
@@ -855,47 +893,42 @@ body.drawer-open{overflow:hidden}
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="font-size:42px;margin:12px">📦</div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
-        let holdTimer = null, openedByHold = false;
         photo.style.touchAction = 'pan-y';
-        photo.addEventListener('pointerdown', e => {
-          e.stopPropagation();
-          openedByHold = false;
-          holdTimer = setTimeout(() => {
-            openedByHold = true;
-            openZoomPhoto(p.image);
-          }, 500);
-        });
-        const cancelHold = () => {
-          if (holdTimer !== null) {
-            clearTimeout(holdTimer);
-            holdTimer = null;
-          }
-        };
-        photo.addEventListener('pointerup', cancelHold);
-        photo.addEventListener('pointercancel', cancelHold);
-        photo.addEventListener('pointerleave', cancelHold);
-        photo.addEventListener('contextmenu', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!openedByHold) {
-            openedByHold = true;
-            cancelHold();
-            openZoomPhoto(p.image);
-          }
-        });
         photo.addEventListener('click', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (openedByHold) {
-            openedByHold = false;
-            return;
-          }
-          add(p.id);
+          e.preventDefault(); e.stopPropagation(); add(p.id);
+        });
+        photo.addEventListener('contextmenu', e => {
+          e.preventDefault(); e.stopPropagation(); openProductActions(p.id);
         });
       }
+      // ضغطة مطوّلة على بطاقة المنتج تفتح خيارات النقل، والضغط العادي يبقى للإضافة للفاتورة.
+      let productHoldTimer = null, productHoldTriggered = false, productStartX = 0, productStartY = 0;
+      el.addEventListener('pointerdown', e => {
+        if (e.target.closest('button,summary,details,input,select,a')) return;
+        productHoldTriggered = false; productStartX = e.clientX; productStartY = e.clientY;
+        productHoldTimer = setTimeout(() => {
+          productHoldTriggered = true;
+          openProductActions(p.id);
+        }, 650);
+      });
+      const cancelProductHold = () => { if (productHoldTimer) clearTimeout(productHoldTimer); productHoldTimer = null; };
+      el.addEventListener('pointermove', e => {
+        if (Math.abs(e.clientX-productStartX)>12 || Math.abs(e.clientY-productStartY)>12) cancelProductHold();
+      });
+      el.addEventListener('pointerup', cancelProductHold);
+      el.addEventListener('pointercancel', cancelProductHold);
+      el.addEventListener('pointerleave', cancelProductHold);
+      el.addEventListener('click', e => {
+        if (productHoldTriggered) { e.preventDefault(); e.stopPropagation(); productHoldTriggered=false; }
+      }, true);
+      const missingPhotoBtn = el.querySelector('.uploadProductPhoto');
+      if (missingPhotoBtn) missingPhotoBtn.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation(); editProduct(p.id);
+        setTimeout(() => $('image').click(), 120);
+      });
       el.querySelector('.name').title = 'اضغط على اسم المنتج لإضافته إلى الفاتورة';
       el.querySelector('.name').onclick = e => {
         e.preventDefault();
