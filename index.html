@@ -300,7 +300,19 @@ body.drawer-open{overflow:hidden}
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
 <div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
-<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لنقله إلى مخزن آخر.</p><div id="products" class="grid"></div></div>
+<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لخيارات المنتج. ويمكنك تحديد عدة منتجات ونقلها دفعة واحدة.</p>
+<div id="bulkMoveToolbar" style="border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button type="button" id="selectVisibleProducts">☑️ تحديد منتجات المخزن الظاهر</button>
+    <button type="button" id="clearSelectedProducts">إلغاء التحديد</button>
+    <span id="selectedProductsCount" class="badge">المحدد: 0</span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+    <select id="bulkMoveDestination" style="flex:1;min-width:160px;padding:10px;border:1px solid #ccd5d9;border-radius:8px" aria-label="المخزن المستهدف للنقل"></select>
+    <button type="button" class="primary" id="bulkMoveConfirm">نقل المنتجات المحددة</button>
+  </div>
+</div>
+<div id="products" class="grid"></div></div>
 </section>
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <div class="box" style="background:#f7faf8"><h3>🤖 الإضافة الذكية للمنتجات</h3><p class="muted">الصق وصف المنتج أو بياناته، ثم استخرج الحقول تلقائياً وراجعها قبل الحفظ.</p><p class="muted">ملاحظة: استخراج الصورة يعتمد على دعم المتصفح لتقنية قراءة النصوص OCR؛ لا يضمن التعرّف على صور المنتجات التي لا تحتوي نصاً أو فهمها بصرياً. راجع جميع النتائج قبل الحفظ.</p><textarea id="smartProductText" rows="5" style="width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font:inherit" placeholder="مثال: سكر 1 كغ - سعر الشراء 2.5 دولار - 10 قطع بالكرتونة - سعر البيع 150 ليرة تركية"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="parseSmartTextBtn">استخراج البيانات من النص</button><button type="button" id="smartImageBtn">قراءة بيانات من صورة أو فاتورة</button></div><input id="smartImageFile" type="file" accept="image/*" hidden><div id="smartProductStatus" class="muted" role="status" aria-live="polite"></div></div>
@@ -845,6 +857,57 @@ body.drawer-open{overflow:hidden}
     $('detailsModal').classList.remove('hidden');
   };
 
+  // تحديد مجموعة منتجات ونقلها دفعة واحدة بين المخازن.
+  const selectedProductIds = new Set();
+  function updateBulkSelectionUI() {
+    const count = $('selectedProductsCount');
+    if (count) count.textContent = 'المحدد: ' + selectedProductIds.size;
+    const visible = Array.from(document.querySelectorAll('#products .bulkProductSelect'));
+    if ($('selectVisibleProducts')) {
+      const allChecked = visible.length > 0 && visible.every(x => x.checked);
+      $('selectVisibleProducts').textContent = allChecked ? '☑️ إلغاء تحديد الظاهر' : '☑️ تحديد منتجات المخزن الظاهر';
+    }
+  }
+  $('selectVisibleProducts').addEventListener('click', () => {
+    const visible = Array.from(document.querySelectorAll('#products .bulkProductSelect'));
+    const shouldClear = visible.length > 0 && visible.every(x => x.checked);
+    visible.forEach(box => {
+      box.checked = !shouldClear;
+      if (shouldClear) selectedProductIds.delete(box.value);
+      else selectedProductIds.add(box.value);
+    });
+    updateBulkSelectionUI();
+  });
+  $('clearSelectedProducts').addEventListener('click', () => {
+    selectedProductIds.clear();
+    document.querySelectorAll('#products .bulkProductSelect').forEach(x => x.checked = false);
+    updateBulkSelectionUI();
+  });
+  $('bulkMoveConfirm').addEventListener('click', () => {
+    const ids = Array.from(selectedProductIds);
+    if (!ids.length) return alert('حدد منتجاً واحداً على الأقل أولاً.');
+    const destination = $('bulkMoveDestination').value;
+    if (!suppliers.some(s => s.id === destination)) return alert('اختر المخزن المستهدف.');
+    const moving = products.filter(p => ids.includes(String(p.id)) && (p.supplierId || 'general') !== destination);
+    if (!moving.length) return alert('كل المنتجات المحددة موجودة أصلاً في هذا المخزن.');
+    const targetName = supplierName(destination);
+    if (!confirm('سيتم نقل ' + moving.length + ' منتج إلى مخزن «' + targetName + '». هل تريد المتابعة؟')) return;
+    moving.forEach(p => {
+      const previous = p.supplierId || 'general';
+      if (supplierCarts[previous]) delete supplierCarts[previous][p.id];
+      p.supplierId = destination;
+      if (!supplierCarts[destination]) supplierCarts[destination] = {};
+    });
+    if (moving.some(p => !products.some(x => String(x.id) === String(p.id) && (x.supplierId || 'general') === activeSupplierId))) {
+      cart = supplierCarts[activeSupplierId] || {};
+    } else {
+      cart = supplierCarts[activeSupplierId] || cart;
+    }
+    selectedProductIds.clear();
+    save(); renderSupplierList(); renderProducts(); renderInvoice(); updateBulkSelectionUI();
+    alert('تم نقل ' + moving.length + ' منتج إلى مخزن «' + targetName + '» بنجاح.');
+  });
+
   window.openProductActions = function(id) {
     const p = products.find(x => String(x.id) === String(id));
     if (!p) return;
@@ -894,7 +957,7 @@ body.drawer-open{overflow:hidden}
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:flex;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
@@ -905,6 +968,13 @@ body.drawer-open{overflow:hidden}
           e.preventDefault(); e.stopPropagation(); openProductActions(p.id);
         });
       }
+      const bulkBox = el.querySelector('.bulkProductSelect');
+      bulkBox.checked = selectedProductIds.has(String(p.id));
+      bulkBox.addEventListener('change', () => {
+        if (bulkBox.checked) selectedProductIds.add(String(p.id));
+        else selectedProductIds.delete(String(p.id));
+        updateBulkSelectionUI();
+      });
       // ضغطة مطوّلة على بطاقة المنتج تفتح خيارات النقل، والضغط العادي يبقى للإضافة للفاتورة.
       let productHoldTimer = null, productHoldTriggered = false, productStartX = 0, productStartY = 0;
       el.addEventListener('pointerdown', e => {
@@ -960,6 +1030,7 @@ body.drawer-open{overflow:hidden}
       };
       root.appendChild(el);
     });
+    updateBulkSelectionUI();
     $('count').textContent = Object.values(cart).reduce((a, b) => a + b, 0);
   }
 
@@ -980,6 +1051,11 @@ body.drawer-open{overflow:hidden}
       const current = filter.value || activeSupplierId || 'all';
       filter.innerHTML = '<option value="all">كل المخازن</option>' + options;
       filter.value = (current === 'all' || suppliers.some(x => x.id === current)) ? current : 'all';
+    }
+    if ($('bulkMoveDestination')) {
+      const destination = $('bulkMoveDestination').value || activeSupplierId || 'general';
+      $('bulkMoveDestination').innerHTML = options;
+      $('bulkMoveDestination').value = suppliers.some(x => x.id === destination) ? destination : (suppliers[0]?.id || 'general');
     }
   }
   function renderSupplierList() {
