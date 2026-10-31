@@ -1517,8 +1517,14 @@ body.drawer-open{overflow:hidden}
         activeSupplierId: activeSupplierId,
         rates: { tryRate, sypRate }
       };
+      const exportedImages = products.filter(p => typeof p.image === 'string' && p.image.trim()).length;
       downloadJsonFile(backup, filename);
-      $('backupMessage').textContent = 'تم تصدير الملف باسم: ' + filename + ' — ستجده في مجلد التنزيلات على جهازك.';
+      $('backupMessage').textContent = 'تم تصدير ' + products.length + ' منتجاً، منها ' + exportedImages +
+        ' منتجاً يحتوي صورة محفوظة، باسم: ' + filename + ' — ستجده في مجلد التنزيلات.';
+      if (exportedImages < products.length) {
+        $('backupMessage').textContent += ' تنبيه: ' + (products.length - exportedImages) +
+          ' منتجاً لا توجد له صورة محفوظة في بيانات هذا الحساب، لذلك لن تظهر له صورة بعد النقل.';
+      }
     } catch (error) {
       $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
     }
@@ -1590,7 +1596,7 @@ body.drawer-open{overflow:hidden}
       const restoredCart = restoredSupplierCarts[restoredActiveSupplierId] || remapCart(backup.cart);
       const nextTry = Number(backup.rates?.tryRate);
       const nextSyp = Number(backup.rates?.sypRate);
-      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.startsWith('data:image/')).length;
+      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.trim()).length;
 
       const hasExistingData = (Array.isArray(products) && products.length > 0) ||
         (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
