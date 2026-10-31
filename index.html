@@ -270,6 +270,9 @@ body.drawer-open{overflow:hidden}
 <div class="box" id="backupPanel">
 <h3>📦 نقل المنتجات والبيانات بين الهواتف</h3>
 <p class="muted">أنشئ ملفاً واحداً يحتوي المنتجات وأسعارها وكمياتها وصورها والفاتورة الحالية وأسعار الصرف. أرسله للشخص الآخر ليستورده على هاتفه. لا توجد مزامنة للبيانات مع السحابة.</p>
+<label for="backupFileName">اسم الملف قبل التصدير</label>
+<input id="backupFileName" type="text" value="نسخة-بضاعة-الندوة" maxlength="80" placeholder="اكتب اسم الملف الذي تريده">
+<p class="muted" style="margin:4px 0 8px">سيُحفظ الملف على جهازك ضمن التنزيلات بالاسم الذي تكتبه، وامتداده .json سيُضاف تلقائياً.</p>
 <button type="button" class="primary" id="exportBackupBtn" style="width:100%;margin:8px 0">⬇️ تصدير ملف المنتجات والفاتورة</button>
 <label for="importBackupFile">استيراد ملف مرسل من هاتف آخر</label>
 <input id="importBackupFile" type="file" accept=".json,application/json" style="padding:10px;height:auto">
@@ -1300,8 +1303,16 @@ body.drawer-open{overflow:hidden}
     a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
+  function safeBackupFilename(value) {
+    let name = String(value || '').trim();
+    name = name.replace(/[\\/:*?"<>|\\u0000-\\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
+    name = name.replace(/\\.json$/i, '').trim();
+    if (!name) throw new Error('اكتب اسماً للملف قبل التصدير.');
+    return name.slice(0, 80) + '.json';
+  }
   $('exportBackupBtn').addEventListener('click', () => {
     try {
+      const filename = safeBackupFilename($('backupFileName').value);
       const backup = {
         format: 'alhloo-nadwa-portable-backup',
         version: 1,
@@ -1310,9 +1321,8 @@ body.drawer-open{overflow:hidden}
         cart: cart,
         rates: { tryRate, sypRate }
       };
-      const stamp = new Date().toISOString().slice(0,10);
-      downloadJsonFile(backup, 'bidaat-alnadwa-backup-' + stamp + '.json');
-      $('backupMessage').textContent = 'تم تجهيز ملف النسخة الاحتياطية. أرسله للشخص الآخر عبر واتساب أو تيليغرام.';
+      downloadJsonFile(backup, filename);
+      $('backupMessage').textContent = 'تم تصدير الملف باسم: ' + filename + ' — ستجده في مجلد التنزيلات على جهازك.';
     } catch (error) {
       $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
     }
