@@ -295,23 +295,26 @@ body.drawer-open{overflow:hidden}
 </div>
 </section>
 <section id="productsPage">
-<div style="display:flex;justify-content:flex-start;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج</button></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
+<div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
 <div class="box"><h3>المنتجات</h3><p class="muted">اضغط على بطاقة المنتج لإضافته للفاتورة. زر التعديل لا يضيفه للفاتورة.</p><div id="products" class="grid"></div></div>
 </section>
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
+<div class="box" style="background:#f7faf8"><h3>🤖 الإضافة الذكية للمنتجات</h3><p class="muted">الصق وصف المنتج أو بياناته، ثم استخرج الحقول تلقائياً وراجعها قبل الحفظ.</p><textarea id="smartProductText" rows="5" style="width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font:inherit" placeholder="مثال: سكر 1 كغ - سعر الشراء 2.5 دولار - 10 قطع بالكرتونة - سعر البيع 150 ليرة تركية"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="parseSmartTextBtn">استخراج البيانات من النص</button><button type="button" id="smartImageBtn">قراءة بيانات من صورة أو فاتورة</button></div><input id="smartImageFile" type="file" accept="image/*" hidden><div id="smartProductStatus" class="muted" role="status" aria-live="polite"></div></div>
 <label>اسم المادة</label><input id="name" required placeholder="اسم المنتج">
 <label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50">
 <label>عدد القطع داخل العبوة</label><input id="pieces" required type="number" min="1" step="1" value="1">
 <label>سعر بيع القطعة بالليرة التركية</label><input id="sellTry" required type="number" min="0" step="0.1" value="5">
 <label>كمية المخزون (عدد العبوات)</label><input id="stock" required type="number" min="0" step="1" value="0">
+<label>المخزن / صاحب المحل</label><select id="productSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select>
 <label>صورة المنتج (اختيارية)</label><div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px"><button type="button" class="primary" onclick="openCamera()">📷 تصوير المنتج بالكاميرا</button><button type="button" onclick="document.getElementById('image').click()">🖼️ اختيار صورة من الجهاز</button></div><input id="image" type="file" accept="image/*" hidden><input id="cameraImage" type="file" accept="image/*" capture="environment" hidden><p class="muted">يمكنك تصوير المنتج مباشرة بالكاميرا أو اختيار صورة محفوظة.</p><div id="preview"></div><div id="cropBox" class="cropBox hidden"><b>قصّ الصورة وتكبير المنتج</b><p class="muted">اسحب الصورة داخل الإطار لتحديد الجزء المطلوب، واستخدم شريط التكبير.</p><div class="cropStage" id="cropStage"><canvas id="cropCanvas" width="600" height="600"></canvas></div><div class="cropControls"><label for="cropZoom">تكبير</label><input id="cropZoom" type="range" min="0.2" max="3" step="0.05" value="1"><span id="cropZoomValue">100%</span></div><button type="button" class="primary" onclick="applyCrop()">حفظ القصّ</button><button type="button" onclick="cancelCrop()">إلغاء القصّ</button></div>
 <button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm();page('products')">إلغاء</button>
 </form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
 <section id="invoicePage" class="hidden">
-<div class="box"><h3>🧾 ملخص الفاتورة</h3><div id="items"></div><div id="totals"></div>
+<div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-<button class="primary" onclick="share()">مشاركة الفاتورة</button><button onclick="print()">طباعة / حفظ PDF</button><button class="danger" onclick="clearCart()">تفريغ الفاتورة</button>
-</div></div>
+<button class="primary" id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
+</div><hr><h3>📚 سجل الفواتير الصادرة</h3><div id="invoiceArchiveList" class="muted"></div></div>
 </section>
 <div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>
 <div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
@@ -378,6 +381,19 @@ body.drawer-open{overflow:hidden}
   // لكل حساب مساحة تخزين محلية مستقلة، وللزائر مساحة منفصلة.
   let products = [];
   let cart = {};
+  let suppliers = [];
+  let supplierCarts = {};
+  let invoiceArchive = [];
+  let activeSupplierId = 'general';
+  function ensureSupplierData() {
+    if (!Array.isArray(suppliers)) suppliers = [];
+    if (!suppliers.some(x => x.id === 'general')) suppliers.unshift({id:'general',name:'مخزن عام'});
+    if (!supplierCarts || typeof supplierCarts !== 'object' || Array.isArray(supplierCarts)) supplierCarts = {};
+    if (!supplierCarts.general) supplierCarts.general = cart && typeof cart === 'object' ? cart : {};
+    if (!Array.isArray(invoiceArchive)) invoiceArchive = [];
+    if (!suppliers.some(x => x.id === activeSupplierId)) activeSupplierId = suppliers[0]?.id || 'general';
+    cart = supplierCarts[activeSupplierId] || (supplierCarts[activeSupplierId] = {});
+  }
   function workspaceStorageKeys(uid) {
     const suffix = uid ? String(uid) : 'guest';
     return {
@@ -411,11 +427,22 @@ body.drawer-open{overflow:hidden}
     try { cart = savedCart ? JSON.parse(savedCart) : {}; } catch (_) { cart = {}; }
     if (!Array.isArray(products)) products = [];
     if (!cart || typeof cart !== 'object' || Array.isArray(cart)) cart = {};
+    try { suppliers = JSON.parse(localStorage.getItem('nadwa_suppliers_' + (uid || 'guest')) || '[]'); } catch (_) { suppliers = []; }
+    try { supplierCarts = JSON.parse(localStorage.getItem('nadwa_supplier_carts_' + (uid || 'guest')) || '{}'); } catch (_) { supplierCarts = {}; }
+    try { invoiceArchive = JSON.parse(localStorage.getItem('nadwa_invoice_archive_' + (uid || 'guest')) || '[]'); } catch (_) { invoiceArchive = []; }
+    activeSupplierId = localStorage.getItem('nadwa_active_supplier_' + (uid || 'guest')) || 'general';
+    ensureSupplierData();
   }
   function saveWorkspaceLocal() {
+    const suffix = cloudUser?.uid || 'guest';
     const keys = workspaceStorageKeys(cloudUser?.uid || null);
+    supplierCarts[activeSupplierId] = cart;
     localStorage.setItem(keys.products, JSON.stringify(products));
     localStorage.setItem(keys.cart, JSON.stringify(cart));
+    localStorage.setItem('nadwa_suppliers_' + suffix, JSON.stringify(suppliers));
+    localStorage.setItem('nadwa_supplier_carts_' + suffix, JSON.stringify(supplierCarts));
+    localStorage.setItem('nadwa_invoice_archive_' + suffix, JSON.stringify(invoiceArchive));
+    localStorage.setItem('nadwa_active_supplier_' + suffix, activeSupplierId);
   }
   let tryRate = +(localStorage.getItem('nadwa_try') || 49.7);
   let sypRate = +(localStorage.getItem('nadwa_syp') || 140);
@@ -456,8 +483,8 @@ body.drawer-open{overflow:hidden}
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
-    if (p === 'invoice') renderInvoice();
-    if (p === 'products') renderProducts();
+    if (p === 'invoice') { renderSupplierSelectors(); renderInvoice(); }
+    if (p === 'products') { renderSupplierSelectors(); renderSupplierList(); renderProducts(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -468,6 +495,9 @@ body.drawer-open{overflow:hidden}
     removeImg = false;
     $('preview').innerHTML = '';
     $('formTitle').textContent = '➕ إضافة منتج';
+    $('smartProductText').value = '';
+    $('smartProductStatus').textContent = '';
+    renderSupplierSelectors();
   };
 
   function handleSelectedImage(f) {
@@ -588,6 +618,38 @@ body.drawer-open{overflow:hidden}
     $('preview').textContent = 'ستزال الصورة عند الحفظ';
   };
 
+  function applySmartFields(text) {
+    const lines=String(text||'').split(/[\\n،;|]+/).map(x=>x.trim()).filter(Boolean);
+    const joined=lines.join(' ');
+    const pick=(patterns)=>{for(const re of patterns){const m=joined.match(re);if(m)return m[1];}return '';};
+    const name=pick([/(?:اسم المنتج|المنتج|الصنف|المادة)\\s*[:：-]?\\s*([^،;|\\n]+)/i]) || lines.find(x=>!/(سعر|شراء|بيع|كمية|قطعة|عبوة|كرتون)/i.test(x)) || '';
+    const price=pick([/(?:سعر الشراء|سعر التكلفة|شراء|السعر)\\s*[:：-]?\\s*(\\d+(?:[.,]\\d+)?)/i, /\\$\\s*(\\d+(?:[.,]\\d+)?)/]);
+    const pieces=pick([/(?:عدد القطع|القطع|العبوة|بالكرتون|كرتونة)\\s*[:：-]?\\s*(\\d+)/i]);
+    const sell=pick([/(?:سعر البيع|بيع)\\s*[:：-]?\\s*(\\d+(?:[.,]\\d+)?)/i]);
+    const stock=pick([/(?:الكمية|المخزون|عدد العبوات)\\s*[:：-]?\\s*(\\d+)/i]);
+    if(name)$('name').value=name.trim();
+    if(price)$('price').value=price.replace(',','.');
+    if(pieces)$('pieces').value=pieces;
+    if(sell)$('sellTry').value=sell.replace(',','.');
+    if(stock)$('stock').value=stock;
+    const missing=[];if(!name)missing.push('اسم المنتج');if(!price)missing.push('سعر الشراء');
+    $('smartProductStatus').textContent='تم ملء الحقول التي أمكن التعرف عليها. '+(missing.length?'يرجى إدخال أو مراجعة: '+missing.join('، '):'راجع جميع القيم قبل حفظ المنتج.');
+  }
+  $('parseSmartTextBtn').addEventListener('click',()=>{const text=$('smartProductText').value.trim();if(!text){$('smartProductStatus').textContent='الصق تفاصيل المنتج أولاً.';return;}applySmartFields(text);});
+  $('smartImageBtn').addEventListener('click',()=>$('smartImageFile').click());
+  $('smartImageFile').addEventListener('change',async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    $('smartProductStatus').textContent='جارٍ محاولة قراءة النص من الصورة...';
+    try{
+      if(!('TextDetector' in window))throw new Error('ميزة قراءة النصوص من الصور غير مدعومة في هذا المتصفح. يمكنك استخدام صورة واضحة ثم كتابة النص في مربع الإضافة الذكية، أو تجربة متصفح يدعم TextDetector.');
+      const bitmap=await createImageBitmap(file);const detector=new TextDetector();const blocks=await detector.detect(bitmap);const extracted=blocks.map(x=>x.rawValue).join('\n');
+      if(!extracted.trim())throw new Error('لم يتم العثور على نص واضح في الصورة.');
+      $('smartProductText').value=extracted;applySmartFields(extracted);
+      $('smartProductStatus').textContent='تم استخراج النص من الصورة وملء الحقول الممكنة. هذه قراءة OCR وليست فهماً مضموناً للمنتج؛ راجع الاسم والأسعار والأرقام يدوياً قبل الحفظ.';
+    }catch(err){$('smartProductStatus').textContent=err.message||String(err);}
+    finally{e.target.value='';}
+  });
+
   $('form').addEventListener('submit', e => {
     e.preventDefault();
     let n = $('name').value.trim();
@@ -595,6 +657,7 @@ body.drawer-open{overflow:hidden}
     let s = +$('stock').value;
     let pc = Math.max(1, +$('pieces').value || 1);
     let st = Math.max(0, +$('sellTry').value || 0);
+    let supplierId = $('productSupplier').value || 'general';
     if (!n || p < 0 || s < 0) return;
     if (editId !== null) {
       let x = products.find(z => z.id === editId);
@@ -603,10 +666,11 @@ body.drawer-open{overflow:hidden}
       x.stock = s;
       x.pieces = pc;
       x.sellTry = st;
+      x.supplierId = supplierId;
       if (newImage) x.image = newImage;
       if (removeImg) x.image = '';
     } else {
-      products.push({ id: Date.now(), name: n, price: p, pieces: pc, sellTry: st, stock: s, image: newImage || '' });
+      products.push({ id: Date.now(), name: n, price: p, pieces: pc, sellTry: st, stock: s, image: newImage || '', supplierId });
     }
     save();
     resetForm();
@@ -625,6 +689,8 @@ body.drawer-open{overflow:hidden}
     $('stock').value = p.stock;
     $('pieces').value = p.pieces || 1;
     $('sellTry').value = p.sellTry ?? 5;
+    renderSupplierSelectors();
+    $('productSupplier').value = p.supplierId || 'general';
     $('formTitle').textContent = '✏️ تعديل المنتج';
     $('preview').innerHTML = p.image ? '<img style="width:110px;height:110px;object-fit:contain;border-radius:8px" src="' + p.image + '" alt="معاينة الصورة"><br><button type="button" onclick="startRecrop()">تعديل القصّ والتكبير</button> <button type="button" onclick="removeImage()">إزالة الصورة</button>' : '<p class="muted">لا توجد صورة محفوظة.</p>';
     $('cropBox').classList.add('hidden');
@@ -729,7 +795,8 @@ body.drawer-open{overflow:hidden}
       let el = document.createElement('div');
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
-      el.innerHTML = (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="font-size:42px;margin:12px">📦</div>') + '<div class="name">' + esc(p.name) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
+      el.innerHTML = (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="font-size:42px;margin:12px">📦</div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         let holdTimer = null, openedByHold = false;
@@ -803,36 +870,143 @@ body.drawer-open{overflow:hidden}
     $('count').textContent = Object.values(cart).reduce((a, b) => a + b, 0);
   }
 
-  function renderInvoice() {
-    let root = $('items');
-    let sum = 0, profitTry = 0;
-    root.innerHTML = '';
-    let entries = Object.entries(cart).filter(([id, n]) => n > 0 && products.some(p => p.id === +id));
-    if (!entries.length) {
-      root.innerHTML = '<p>الفاتورة فارغة. ارجع إلى المنتجات واضغط على المواد المطلوبة.</p>';
-      $('totals').innerHTML = '';
-      $('count').textContent = '0';
-      return;
+  function supplierName(id) { return suppliers.find(x => x.id === id)?.name || 'مخزن عام'; }
+  function renderSupplierSelectors() {
+    const options = suppliers.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
+    if ($('productSupplier')) {
+      const current = $('productSupplier').value || 'general';
+      $('productSupplier').innerHTML = options;
+      $('productSupplier').value = suppliers.some(x => x.id === current) ? current : activeSupplierId;
     }
-    entries.forEach(([id, n]) => {
-      let p = products.find(x => x.id === +id);
-      let line = (+p.price || 0) * n;
-      let pieces = Math.max(1, +p.pieces || 1);
-      let lineProfit = ((+p.sellTry || 0) * pieces - (+p.price || 0) * tryRate) * n;
-      sum += line;
-      profitTry += lineProfit;
-      let el = document.createElement('div');
-      el.className = 'row';
-      el.innerHTML = '<div class="info"><b>' + esc(p.name) + '</b>' + '<small>عدد القطع بالعبوة: ' + pieces + ' | الكمية: ' + n + ' عبوة</small>' + '<small>سعر العبوة: $' + (+p.price).toFixed(2) + ' | إجمالي السطر: $' + line.toFixed(2) + '</small></div>' + '<div class="qty"><button class="minus">−</button><b>' + n + '</b><button class="plus">+</button></div>';
-      el.querySelector('.minus').onclick = () => qty(+id, -1);
-      el.querySelector('.plus').onclick = () => qty(+id, 1);
-      root.appendChild(el);
-    });
-    let profitUsd = profitTry / tryRate;
-    $('totals').innerHTML = '<div class="total">' + '<div class="totalTitle">💳 إجمالي الفاتورة</div>' + '<div class="totalRow"><span>المجموع بالدولار</span><b>$' + sum.toFixed(2) + '</b></div>' + '<div class="totalRow"><span>المجموع بالليرة التركية</span><b>' + fmt(sum * tryRate) + ' ل.ت</b></div>' + '<div class="totalRow"><span>المجموع بالسوري الجديد</span><b>' + fmt(sum * sypRate) + ' ل.س</b></div>' + '<div class="profitBox">' + '<div class="totalTitle">📈 الربح المتوقع لكل المواد</div>' + '<div class="profitRow"><span>بالتركي</span><b>' + fmt(profitTry) + ' ل.ت</b></div>' + '<div class="profitRow"><span>بالدولار</span><b>$' + profitUsd.toFixed(2) + '</b></div>' + '<div class="profitRow"><span>بالسوري الجديد</span><b>' + fmt(profitUsd * sypRate) + ' ل.س</b></div>' + '</div>' + '<p class="muted">الربح محسوب على أساس بيع كل قطع العبوات المختارة بالسعر المحدد، وليس إثباتاً لمبيعات تمت فعلياً.</p>' + '</div>';
-    $('count').textContent = Object.values(cart).reduce((a, b) => a + b, 0);
+    if ($('invoiceSupplier')) {
+      $('invoiceSupplier').innerHTML = options;
+      $('invoiceSupplier').value = activeSupplierId;
+    }
   }
-
+  function renderSupplierList() {
+    if (!$('supplierList')) return;
+    $('supplierList').innerHTML = suppliers.map(x => '<div class="row"><div class="info"><b>' + esc(x.name) + '</b><small>' + products.filter(p => (p.supplierId || 'general') === x.id).length + ' منتج</small></div>' + (x.id === 'general' ? '' : '<button type="button" onclick="renameSupplier(\'' + esc(x.id) + '\')">تعديل الاسم</button>') + '</div>').join('');
+  }
+  window.renameSupplier = function(id) {
+    const item = suppliers.find(x => x.id === id);
+    if (!item) return;
+    const name = prompt('اكتب الاسم الجديد للمخزن:', item.name);
+    if (!name || !name.trim()) return;
+    item.name = name.trim().slice(0,80); save(); renderSupplierList(); renderSupplierSelectors(); renderProducts(); renderInvoice();
+  };
+  $('addSupplierBtn').addEventListener('click', () => {
+    const name = $('newSupplierName').value.trim();
+    if (!name) { alert('اكتب اسم صاحب المخزن أولاً.'); return; }
+    if (suppliers.some(x => x.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) { alert('هذا المخزن موجود مسبقاً.'); return; }
+    const id = 'sup-' + Date.now();
+    suppliers.push({id,name:name.slice(0,80)});
+    supplierCarts[id] = {};
+    $('newSupplierName').value = '';
+    save(); renderSupplierSelectors(); renderSupplierList(); $('productSupplier').value = id;
+  });
+  function switchSupplier(id) {
+    if (!suppliers.some(x => x.id === id)) id = 'general';
+    supplierCarts[activeSupplierId] = cart;
+    activeSupplierId = id;
+    cart = supplierCarts[id] || (supplierCarts[id] = {});
+    save();
+    if ($('invoiceSupplier')) $('invoiceSupplier').value = id;
+    renderInvoice();
+    renderProducts();
+  }
+  $('invoiceSupplier').addEventListener('change', e => switchSupplier(e.target.value));
+  function invoiceSnapshot(issueNow) {
+    const entries = Object.entries(cart).filter(([id,n]) => +n > 0 && products.some(p => String(p.id) === String(id) && (p.supplierId || 'general') === activeSupplierId));
+    let sum = 0;
+    const lines = entries.map(([id,n]) => {
+      const p = products.find(x => String(x.id) === String(id));
+      const line = (+p.price || 0) * +n; sum += line;
+      return {productId:p.id,name:p.name,quantity:+n,pieces:Math.max(1,+p.pieces||1),unitPrice:+p.price||0,lineTotal:line,image:p.image||''};
+    });
+    if (!lines.length) throw new Error('فاتورة هذا المخزن فارغة.');
+    return {id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),supplierId:activeSupplierId,supplierName:supplierName(activeSupplierId),issuedAt:issueNow?new Date().toISOString():null,lines,totalUsd:sum,totalTry:sum*tryRate,totalSyp:sum*sypRate,rates:{tryRate,sypRate}};
+  }
+  function invoiceText(inv) {
+    const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير صادر بعد';
+    return ['فاتورة بضاعة الندوة','المخزن: '+inv.supplierName,'تاريخ ووقت الإصدار: '+date,'--------------------------------',...inv.lines.map((x,i)=>(i+1)+'. '+x.name+' × '+x.quantity+' عبوة | '+x.pieces+' قطعة/عبوة | $'+x.unitPrice.toFixed(2)+' | الإجمالي $'+x.lineTotal.toFixed(2)),'--------------------------------','المجموع بالدولار: $'+inv.totalUsd.toFixed(2),'بالليرة التركية: '+fmt(inv.totalTry)+' ل.ت','بالليرة السورية الجديدة: '+fmt(inv.totalSyp)+' ل.س'].join('\n');
+  }
+  function issueCurrentInvoice() {
+    const inv = invoiceSnapshot(true);
+    invoiceArchive.unshift(inv);
+    if (invoiceArchive.length > 300) invoiceArchive = invoiceArchive.slice(0,300);
+    save();
+    return inv;
+  }
+  function invoiceHtml(inv) {
+    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
+  }
+  function downloadTextFile(text, filename, mime='text/plain;charset=utf-8') {
+    const blob = new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+  function safeInvoiceName(inv,ext) { return ('فاتورة-'+inv.supplierName+'-'+new Date(inv.issuedAt).toISOString().slice(0,10)).replace(/[\\/:*?"<>|]/g,'-')+'.'+ext; }
+  window.renderInvoice = function() {
+    const root=$('items'); let sum=0,profitTry=0; root.innerHTML='';
+    const entries=Object.entries(cart).filter(([id,n])=>+n>0&&products.some(p=>String(p.id)===String(id)&&(p.supplierId||'general')===activeSupplierId));
+    $('invoiceSupplierInfo').textContent='فاتورة مستقلة للمخزن: '+supplierName(activeSupplierId)+' — لم يُسجّل تاريخ إصدار حتى يتم التصدير أو المشاركة.';
+    if(!entries.length){root.innerHTML='<p>فاتورة هذا المخزن فارغة. أضف منتجاته من صفحة المنتجات.</p>';$('totals').innerHTML='';$('count').textContent='0';}
+    else {
+      entries.forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));const line=(+p.price||0)*n;const pieces=Math.max(1,+p.pieces||1);sum+=line;profitTry+=((+p.sellTry||0)*pieces-(+p.price||0)*tryRate)*n;
+        const el=document.createElement('div');el.className='row';el.innerHTML='<div class="info"><b>'+esc(p.name)+'</b><small>المخزن: '+esc(supplierName(p.supplierId||'general'))+' | عدد القطع بالعبوة: '+pieces+' | الكمية: '+n+' عبوة</small><small>سعر العبوة: $'+(+p.price).toFixed(2)+' | إجمالي السطر: $'+line.toFixed(2)+'</small></div><div class="qty"><button class="minus">−</button><b>'+n+'</b><button class="plus">+</button></div>';el.querySelector('.minus').onclick=()=>qty(+id,-1);el.querySelector('.plus').onclick=()=>qty(+id,1);root.appendChild(el);
+      });
+      const profitUsd=profitTry/tryRate;
+      $('totals').innerHTML='<div class="total"><div class="totalTitle">💳 إجمالي فاتورة '+esc(supplierName(activeSupplierId))+'</div><div class="totalRow"><span>المجموع بالدولار</span><b>$'+sum.toFixed(2)+'</b></div><div class="totalRow"><span>المجموع بالليرة التركية</span><b>'+fmt(sum*tryRate)+' ل.ت</b></div><div class="totalRow"><span>المجموع بالسوري الجديد</span><b>'+fmt(sum*sypRate)+' ل.س</b></div><div class="profitBox"><div class="totalTitle">📈 الربح المتوقع</div><div class="profitRow"><span>بالتركي</span><b>'+fmt(profitTry)+' ل.ت</b></div><div class="profitRow"><span>بالدولار</span><b>$'+profitUsd.toFixed(2)+'</b></div><div class="profitRow"><span>بالسوري الجديد</span><b>'+fmt(profitUsd*sypRate)+' ل.س</b></div></div></div>';
+      $('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);
+    }
+    renderInvoiceArchive();
+  };
+  function renderInvoiceArchive() {
+    const root=$('invoiceArchiveList'); if(!root)return;
+    const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
+    root.innerHTML=list.length?list.map(inv=>'<div class="row"><div class="info"><b>'+esc(inv.supplierName)+'</b><small>'+new Date(inv.issuedAt).toLocaleString('ar')+' | '+inv.lines.length+' منتج | $'+(+inv.totalUsd).toFixed(2)+'</small></div><button type="button" onclick="shareArchivedInvoice(\''+inv.id+'\')">مشاركة</button></div>').join(''):'لا توجد فواتير صادرة لهذا المخزن بعد.';
+  }
+  window.shareArchivedInvoice = async function(id) {
+    const inv=invoiceArchive.find(x=>x.id===id); if(!inv)return;
+    const txt=invoiceText(inv);
+    if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt}).catch(()=>{});
+    else prompt('انسخ الفاتورة',txt);
+  };
+  async function shareInvoiceAsImage(inv) {
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const width=1000,rowH=64,top=300;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+280;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#174c3c';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,65);
+    ctx.fillStyle='#222';ctx.font='26px Arial';ctx.textAlign='right';ctx.fillText('المخزن: '+inv.supplierName,930,125);ctx.fillText('تاريخ الإصدار: '+new Date(inv.issuedAt).toLocaleString('ar'),930,175);
+    ctx.font='bold 24px Arial';ctx.fillText('المنتج',930,245);ctx.fillText('الكمية',500,245);ctx.fillText('الإجمالي',170,245);
+    inv.lines.forEach((x,i)=>{const y=top+i*rowH;ctx.font='23px Arial';ctx.fillText(x.name,930,y);ctx.fillText(String(x.quantity),500,y);ctx.fillText('$'+x.lineTotal.toFixed(2),170,y);ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(50,y+18);ctx.lineTo(950,y+18);ctx.stroke();});
+    const y=top+inv.lines.length*rowH+60;ctx.font='bold 28px Arial';ctx.fillText('الإجمالي: $'+inv.totalUsd.toFixed(2),930,y);ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',930,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',930,y+100);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
+    const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
+    if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
+    else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
+  }
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice();await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة مع تاريخ الإصدار.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  window.saveRates = function() {
+    let t = +$('tryRate').value;
+    let s = +$('sypRate').value;
+    if (t <= 0 || s <= 0) { alert('أدخل أسعار صرف صحيحة'); return; }
+    tryRate = t; sypRate = s;
+    localStorage.setItem('nadwa_try', t); localStorage.setItem('nadwa_syp', s);
+    renderInvoice(); alert('تم حفظ أسعار الصرف');
+  };
+  window.clearCart = function() {
+    if (confirm('تفريغ فاتورة هذا المخزن؟')) {
+      Object.entries(cart).forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});
+      cart={};supplierCarts[activeSupplierId]=cart;save();renderProducts();renderInvoice();
+    }
+  };
+  window.share = function(){ $('invoiceShareBtn').click(); };
   window.saveRates = function() {
     let t = +$('tryRate').value;
     let s = +$('sypRate').value;
@@ -1319,6 +1493,10 @@ body.drawer-open{overflow:hidden}
         createdAt: new Date().toISOString(),
         products: products,
         cart: cart,
+        suppliers: suppliers,
+        supplierCarts: supplierCarts,
+        invoiceArchive: invoiceArchive,
+        activeSupplierId: activeSupplierId,
         rates: { tryRate, sypRate }
       };
       downloadJsonFile(backup, filename);
@@ -1372,9 +1550,14 @@ body.drawer-open{overflow:hidden}
       }
       const nextTry = Number(backup.rates?.tryRate);
       const nextSyp = Number(backup.rates?.sypRate);
-      const previous = { products, cart, tryRate, sypRate };
+      const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
       products = merged;
       cart = importedCart;
+      if (Array.isArray(backup.suppliers)) suppliers = backup.suppliers;
+      if (backup.supplierCarts && typeof backup.supplierCarts === 'object') supplierCarts = backup.supplierCarts;
+      if (Array.isArray(backup.invoiceArchive)) invoiceArchive = backup.invoiceArchive;
+      activeSupplierId = backup.activeSupplierId || 'general';
+      ensureSupplierData();
       if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
       if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
       try {
@@ -1382,14 +1565,14 @@ body.drawer-open{overflow:hidden}
         localStorage.setItem('nadwa_try', String(tryRate));
         localStorage.setItem('nadwa_syp', String(sypRate));
       } catch (storageError) {
-        products = previous.products; cart = previous.cart; tryRate = previous.tryRate; sypRate = previous.sypRate;
+        products = previous.products; cart = previous.cart; tryRate = previous.tryRate; sypRate = previous.sypRate; suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
         throw new Error('مساحة التخزين على الهاتف غير كافية لحفظ الصور والبيانات. لم نعتمد الاستيراد. ' + storageError.message);
       }
       $('tryRate').value = tryRate;
       $('sypRate').value = sypRate;
-      renderProducts();
+      renderSupplierSelectors(); renderSupplierList(); renderProducts();
       renderInvoice();
-      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد. المنتجات الأخرى بقيت كما هي، وتم استبدال الفاتورة الحالية وأسعار الصرف بمحتوى الملف.';
+      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد، مع استيراد المخازن وفواتيرها إن وجدت. المنتجات الأخرى بقيت كما هي.';
     } catch (error) {
       $('backupMessage').textContent = 'فشل الاستيراد: ' + (error.message || error);
     } finally {
