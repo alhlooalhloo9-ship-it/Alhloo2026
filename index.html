@@ -422,8 +422,7 @@ body.drawer-open{overflow:hidden}
         localStorage.setItem(keys.cart, legacyCart);
       }
       localStorage.setItem('nadwa_legacy_data_owner', String(uid));
-      localStorage.removeItem('nadwa_products');
-      localStorage.removeItem('nadwa_cart');
+      // نحتفظ بالمفاتيح القديمة كنسخة احتياطية؛ لا نحذف بيانات المستخدم أثناء الترحيل.
     }
 
     try { products = savedProducts ? JSON.parse(savedProducts) : []; } catch (_) { products = []; }
@@ -1534,74 +1533,138 @@ body.drawer-open{overflow:hidden}
   $('importBackupFile').addEventListener('change', async event => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
+    const storageKeys = [
+      'nadwa_products_' + (cloudUser?.uid || 'guest'),
+      'nadwa_cart_' + (cloudUser?.uid || 'guest'),
+      'nadwa_suppliers_' + (cloudUser?.uid || 'guest'),
+      'nadwa_supplier_carts_' + (cloudUser?.uid || 'guest'),
+      'nadwa_invoice_archive_' + (cloudUser?.uid || 'guest'),
+      'nadwa_active_supplier_' + (cloudUser?.uid || 'guest'),
+      'nadwa_try','nadwa_syp'
+    ];
+    const storageSnapshot = new Map(storageKeys.map(key => [key, localStorage.getItem(key)]));
+    const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
     try {
       if (file.size > 40 * 1024 * 1024) throw new Error('حجم الملف أكبر من 40 ميغابايت.');
-      const raw = await file.text();
-      const backup = JSON.parse(raw);
-      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 || !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object') {
+      const backup = JSON.parse(await file.text());
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 ||
+          !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object' || Array.isArray(backup.cart)) {
         throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
       }
-      const currentProducts = Array.isArray(products) ? products : [];
-      const merged = currentProducts.map(p => ({ ...p }));
+      if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
+        throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
+      }
+      const incomingSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers : [{id:'general',name:'مخزن عام'}];
+      if (incomingSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
+        throw new Error('قائمة المخازن داخل الملف غير صالحة.');
+      }
+
+      const merged = (Array.isArray(products) ? products : []).map(p => ({ ...p }));
+      const nextSuppliers = Array.isArray(suppliers) ? suppliers.map(x => ({...x})) : [];
+      if (!nextSuppliers.some(x => x.id === 'general')) nextSuppliers.unshift({id:'general',name:'مخزن عام'});
+      const normalizeStoreName = value => String(value || '').trim().toLocaleLowerCase('ar').replace(/[\\s\\u0640]+/g,' ');
+      const supplierIdMap = new Map([['general','general']]);
+      for (const incomingStore of incomingSuppliers) {
+        if (String(incomingStore.id) === 'general') continue;
+        const nameKey = normalizeStoreName(incomingStore.name);
+        let localStore = nextSuppliers.find(x => normalizeStoreName(x.name) === nameKey);
+        if (!localStore) {
+          let id = String(incomingStore.id);
+          if (nextSuppliers.some(x => String(x.id) === id)) id = 'sup-import-' + Date.now() + '-' + Math.random().toString(36).slice(2,7);
+          localStore = { ...incomingStore, id };
+          nextSuppliers.push(localStore);
+        }
+        supplierIdMap.set(String(incomingStore.id), localStore.id);
+      }
+
       const currentByName = new Map();
       merged.forEach(p => {
         const key = normalizedProductName(p.name);
         if (key && !currentByName.has(key)) currentByName.set(key, p);
       });
-      const idMap = new Map();
+      const productIdMap = new Map();
       let updated = 0, added = 0;
       backup.products.forEach((incoming, index) => {
-        if (!incoming || !String(incoming.name || '').trim()) return;
         const key = normalizedProductName(incoming.name);
+        const mappedSupplierId = supplierIdMap.get(String(incoming.supplierId || 'general')) || 'general';
         const existing = currentByName.get(key);
         if (existing) {
           const keepId = existing.id;
-          Object.assign(existing, incoming, { id: keepId });
-          idMap.set(String(incoming.id), keepId);
+          Object.assign(existing, incoming, { id: keepId, supplierId: mappedSupplierId });
+          productIdMap.set(String(incoming.id), keepId);
           updated++;
         } else {
           let newId = incoming.id;
-          if (merged.some(p => String(p.id) === String(newId))) newId = Date.now() + index + 1;
-          const fresh = { ...incoming, id: newId };
+          if (merged.some(p => String(p.id) === String(newId))) newId = 'import-' + Date.now() + '-' + index;
+          const fresh = { ...incoming, id: newId, supplierId: mappedSupplierId };
           merged.push(fresh);
           currentByName.set(key, fresh);
-          idMap.set(String(incoming.id), newId);
+          productIdMap.set(String(incoming.id), newId);
           added++;
         }
       });
-      const importedCart = {};
-      for (const [oldId, quantity] of Object.entries(backup.cart)) {
-        const mappedId = idMap.get(String(oldId));
-        if (mappedId !== undefined && Number(quantity) > 0) importedCart[String(mappedId)] = Number(quantity);
+
+      const remapCart = sourceCart => {
+        const result = {};
+        if (!sourceCart || typeof sourceCart !== 'object' || Array.isArray(sourceCart)) return result;
+        for (const [oldId, quantity] of Object.entries(sourceCart)) {
+          const mappedId = productIdMap.get(String(oldId));
+          const qty = Number(quantity);
+          if (mappedId !== undefined && Number.isSafeInteger(qty) && qty > 0) result[String(mappedId)] = qty;
+        }
+        return result;
+      };
+      const nextSupplierCarts = supplierCarts && typeof supplierCarts === 'object' && !Array.isArray(supplierCarts)
+        ? { ...supplierCarts } : {};
+      if (backup.supplierCarts && typeof backup.supplierCarts === 'object' && !Array.isArray(backup.supplierCarts)) {
+        for (const [sourceStoreId, sourceCart] of Object.entries(backup.supplierCarts)) {
+          const targetStoreId = supplierIdMap.get(String(sourceStoreId)) || 'general';
+          nextSupplierCarts[targetStoreId] = remapCart(sourceCart);
+        }
       }
+      const importedCart = remapCart(backup.cart);
+      const sourceActive = String(backup.activeSupplierId || 'general');
+      const nextActiveSupplierId = supplierIdMap.get(sourceActive) || 'general';
+      if (!backup.supplierCarts || !Object.prototype.hasOwnProperty.call(backup.supplierCarts, sourceActive)) {
+        nextSupplierCarts[nextActiveSupplierId] = importedCart;
+      }
+      const nextArchive = Array.isArray(invoiceArchive) ? [...invoiceArchive] : [];
+      if (Array.isArray(backup.invoiceArchive)) {
+        const knownInvoiceIds = new Set(nextArchive.map(x => String(x.id)));
+        backup.invoiceArchive.forEach(inv => {
+          if (!inv || !inv.id || knownInvoiceIds.has(String(inv.id))) return;
+          const targetStoreId = supplierIdMap.get(String(inv.supplierId || 'general')) || 'general';
+          nextArchive.push({ ...inv, supplierId: targetStoreId, supplierName: nextSuppliers.find(x => x.id === targetStoreId)?.name || inv.supplierName });
+          knownInvoiceIds.add(String(inv.id));
+        });
+      }
+
       const nextTry = Number(backup.rates?.tryRate);
       const nextSyp = Number(backup.rates?.sypRate);
-      const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
       products = merged;
-      cart = importedCart;
-      if (Array.isArray(backup.suppliers)) suppliers = backup.suppliers;
-      if (backup.supplierCarts && typeof backup.supplierCarts === 'object') supplierCarts = backup.supplierCarts;
-      else supplierCarts = { general: importedCart };
-      if (Array.isArray(backup.invoiceArchive)) invoiceArchive = backup.invoiceArchive;
-      activeSupplierId = backup.activeSupplierId || 'general';
+      suppliers = nextSuppliers;
+      supplierCarts = nextSupplierCarts;
+      invoiceArchive = nextArchive;
+      activeSupplierId = nextActiveSupplierId;
       ensureSupplierData();
+      cart = supplierCarts[activeSupplierId] || importedCart;
       if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
       if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
-      try {
-        saveWorkspaceLocal();
-        localStorage.setItem('nadwa_try', String(tryRate));
-        localStorage.setItem('nadwa_syp', String(sypRate));
-      } catch (storageError) {
-        products = previous.products; cart = previous.cart; tryRate = previous.tryRate; sypRate = previous.sypRate; suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
-        throw new Error('مساحة التخزين على الهاتف غير كافية لحفظ الصور والبيانات. لم نعتمد الاستيراد. ' + storageError.message);
-      }
+
+      saveWorkspaceLocal();
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
       $('tryRate').value = tryRate;
       $('sypRate').value = sypRate;
-      renderSupplierSelectors(); renderSupplierList(); renderProducts();
-      renderInvoice();
-      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد، مع استيراد المخازن وفواتيرها إن وجدت. المنتجات الأخرى بقيت كما هي.';
+      renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد، مع دمج المخازن وفواتيرها دون تكرار. المنتجات والمخازن الأخرى بقيت كما هي.';
     } catch (error) {
-      $('backupMessage').textContent = 'فشل الاستيراد: ' + (error.message || error);
+      products=previous.products; cart=previous.cart; tryRate=previous.tryRate; sypRate=previous.sypRate;
+      suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
+      for (const [key,value] of storageSnapshot) {
+        try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } catch (_) {}
+      }
+      $('backupMessage').textContent = 'فشل الاستيراد ولم نعتمد البيانات: ' + (error.message || error);
     } finally {
       event.target.value = '';
     }
