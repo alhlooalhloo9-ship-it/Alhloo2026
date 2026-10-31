@@ -40,13 +40,13 @@ function numericIdForUI(id) {
 }
 
 class AlhlooStorageV9 {
-  constructor(){ this.db=null; this.opening=null; }
+  constructor(options={}){ this.db=null; this.opening=null; this.dbName=options.dbName||DB_NAME; this.dbVersion=options.dbVersion||DB_VERSION; }
   async open(){
     if(this.db) return this.db;
     if(this.opening) return this.opening;
     if(!globalThis.indexedDB) throw new Error("IndexedDB غير مدعوم بهذا المتصفح");
     this.opening=new Promise((resolve,reject)=>{
-      const r=indexedDB.open(DB_NAME,DB_VERSION);
+      const r=indexedDB.open(this.dbName,this.dbVersion);
       r.onupgradeneeded=()=>{
         const db=r.result, tx=r.transaction;
         if(!db.objectStoreNames.contains(STORE.products)){
