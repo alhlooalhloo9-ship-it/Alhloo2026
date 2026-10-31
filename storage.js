@@ -222,9 +222,28 @@ class AlhlooStorageV9 {
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(STORE.syncQueue,"readwrite"),s=tx.objectStore(STORE.syncQueue),r=s.get([uid,String(syncId)]),finished=done(tx); let found=false;
       r.onsuccess=()=>{if(r.result){found=true;const row=r.result;row.status=status;row.updatedAt=Date.now();if(status==="syncing")row.attempts=(row.attempts||0)+1;
-        if("error" in extra)row.error=String(extra.error||"");if("nextRetryAt" in extra)row.nextRetryAt=Number(extra.nextRetryAt)||0;s.put(row);}};
+        if("error" in extra)row.error=String(extra.error||"");if("nextRetryAt" in extra)row.nextRetryAt=Number(extra.nextRetryAt)||0;if("remoteId" in extra)row.remoteId=String(extra.remoteId||"");s.put(row);}};
       r.onerror=()=>{try{tx.abort();}catch(_){}reject(r.error);};
       finished.then(()=>resolve(found)).catch(reject);
+    });
+  }
+
+  async deleteProduct(userId,productId){
+    const uid=requireUserId(userId),id=normalizeProductId(productId),db=await this.open();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction([STORE.products,STORE.syncQueue],"readwrite");
+      const ps=tx.objectStore(STORE.products),qs=tx.objectStore(STORE.syncQueue),finished=done(tx);
+      const r=ps.get([uid,id]); let existed=false;
+      r.onsuccess=()=>{
+        if(r.result){
+          existed=true; ps.delete([uid,id]);
+          const syncId="product-delete:"+id, q=qs.get([uid,syncId]);
+          q.onsuccess=()=>{const old=q.result;qs.put({userId:uid,syncId,entity:"product",entityId:id,operation:"delete",status:"pending",attempts:old?.attempts||0,createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()});};
+          q.onerror=()=>{try{tx.abort();}catch(_){}reject(q.error);};
+        }
+      };
+      r.onerror=()=>{try{tx.abort();}catch(_){}reject(r.error);};
+      finished.then(()=>resolve({deleted:existed,queued:existed})).catch(reject);
     });
   }
 
