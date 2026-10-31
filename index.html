@@ -669,6 +669,11 @@ body.drawer-open{overflow:hidden}
       x.stock = s;
       x.pieces = pc;
       x.sellTry = st;
+      const previousSupplierId = x.supplierId || 'general';
+      if (previousSupplierId !== supplierId) {
+        if (supplierCarts[previousSupplierId]) delete supplierCarts[previousSupplierId][x.id];
+        if (previousSupplierId === activeSupplierId) cart = supplierCarts[activeSupplierId] || {};
+      }
       x.supplierId = supplierId;
       if (newImage) x.image = newImage;
       if (removeImg) x.image = '';
@@ -706,7 +711,8 @@ body.drawer-open{overflow:hidden}
     const product = products.find(p => p.id === id);
     if (!product) return;
     if (!confirm('⚠️ تأكيد حذف المنتج\n\nهل أنت متأكد أنك تريد حذف «' + product.name + '» نهائيًا؟\nلن يمكن التراجع عن هذا الحذف.')) return;
-    products = products.filter(p => p.id !== id);
+    products = products.filter(p => String(p.id) !== String(id));
+    Object.values(supplierCarts).forEach(items => { if (items) delete items[id]; });
     delete cart[id];
     save();
     renderProducts();
