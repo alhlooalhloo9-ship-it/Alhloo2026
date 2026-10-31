@@ -1,0 +1,39 @@
+name: Build isolated V9 preview artifact
+on:
+  workflow_dispatch:
+  push:
+    branches: ["storage-v9-hardening-test"]
+    paths:
+      - "storage.js"
+      - "preview-v9/**"
+      - ".github/workflows/v9-preview-artifact.yml"
+permissions:
+  contents: read
+  actions: write
+jobs:
+  package-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated preview files
+        run: |
+          test -f storage.js
+          test -f preview-v9/index.html
+          ! grep -q "firebase" preview-v9/index.html
+          ! grep -q "localStorage" preview-v9/index.html
+      - name: Package preview
+        run: |
+          mkdir -p dist
+          cp storage.js dist/storage.js
+          cp -r preview-v9 dist/preview-v9
+          cat > dist/README.txt <<'EOF'
+          Alhloo V9 isolated browser preview.
+          Open preview-v9/index.html from a local static server.
+          This preview uses a separate IndexedDB database and has no Firebase connection.
+          It does not validate Firebase Auth, Firestore rules, cloud synchronization, or production UI integration.
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alhloo-v9-isolated-preview
+          path: dist/
+          retention-days: 14
