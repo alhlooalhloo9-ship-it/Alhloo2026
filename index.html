@@ -257,6 +257,7 @@ body.drawer-open{overflow:hidden}
   </div>
   <nav class="drawer-nav">
     <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
+    <button type="button" onclick="page('suppliers');closeDrawer()">🏬 المخازن وأصحابها</button>
     <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
     <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
   </nav>
@@ -298,8 +299,7 @@ body.drawer-open{overflow:hidden}
 </div>
 </section>
 <section id="productsPage">
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
-<div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
 <div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لخيارات المنتج. ويمكنك تحديد عدة منتجات ونقلها دفعة واحدة.</p>
 <button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
 <div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
@@ -314,6 +314,9 @@ body.drawer-open{overflow:hidden}
   </div>
 </div>
 <div id="products" class="grid"></div></div>
+</section>
+<section id="supplierPage" class="hidden">
+<div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
 </section>
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <div class="box" style="background:#f7faf8"><h3>🤖 الإضافة الذكية للمنتجات</h3><p class="muted">الصق وصف المنتج أو بياناته، ثم استخرج الحقول تلقائياً وراجعها قبل الحفظ.</p><p class="muted">ملاحظة: استخراج الصورة يعتمد على دعم المتصفح لتقنية قراءة النصوص OCR؛ لا يضمن التعرّف على صور المنتجات التي لا تحتوي نصاً أو فهمها بصرياً. راجع جميع النتائج قبل الحفظ.</p><textarea id="smartProductText" rows="5" style="width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font:inherit" placeholder="مثال: سكر 1 كغ - سعر الشراء 2.5 دولار - 10 قطع بالكرتونة - سعر البيع 150 ليرة تركية"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="parseSmartTextBtn">استخراج البيانات من النص</button><button type="button" id="smartImageBtn">قراءة بيانات من صورة أو فاتورة</button></div><input id="smartImageFile" type="file" accept="image/*" hidden><div id="smartProductStatus" class="muted" role="status" aria-live="polite"></div></div>
@@ -504,6 +507,7 @@ body.drawer-open{overflow:hidden}
 
   function showAppPage(p) {
     $('productsPage').classList.toggle('hidden', p !== 'products');
+    $('supplierPage').classList.toggle('hidden', p !== 'suppliers');
     $('productFormPage').classList.toggle('hidden', p !== 'add');
     $('invoicePage').classList.toggle('hidden', p !== 'invoice');
     $('accountPage').classList.toggle('hidden', p !== 'account');
@@ -512,12 +516,13 @@ body.drawer-open{overflow:hidden}
     $('tabAccount').classList.toggle('primary', p === 'account');
     currentAppPage = p;
     if (p === 'invoice') { renderSupplierSelectors(); renderInvoice(); }
-    if (p === 'products') { renderSupplierSelectors(); renderSupplierList(); renderProducts(); }
+    if (p === 'products') { renderSupplierSelectors(); renderProducts(); }
+    if (p === 'suppliers') { renderSupplierSelectors(); renderSupplierList(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   window.page = function(p) {
-    if (!['products', 'add', 'invoice', 'account'].includes(p)) return;
+    if (!['products', 'suppliers', 'add', 'invoice', 'account'].includes(p)) return;
     if (!handlingAppPopState && p !== currentAppPage) {
       history.pushState({ nadwaApp: true, page: p }, '', location.pathname + location.search);
     }
