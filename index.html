@@ -477,7 +477,14 @@ body.drawer-open{overflow:hidden}
     saveWorkspaceLocal();
   }
 
-  window.page = function(p) {
+  // إدارة الرجوع داخل التطبيق: لا نسمح لزر الرجوع بإغلاق الموقع من صفحاته الداخلية.
+  let currentAppPage = 'products';
+  let handlingAppPopState = false;
+  let homeBackPresses = 0;
+  let homeBackTimer = null;
+  const HOME_BACK_WINDOW_MS = 1800;
+
+  function showAppPage(p) {
     $('productsPage').classList.toggle('hidden', p !== 'products');
     $('productFormPage').classList.toggle('hidden', p !== 'add');
     $('invoicePage').classList.toggle('hidden', p !== 'invoice');
@@ -485,10 +492,61 @@ body.drawer-open{overflow:hidden}
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
+    currentAppPage = p;
     if (p === 'invoice') { renderSupplierSelectors(); renderInvoice(); }
     if (p === 'products') { renderSupplierSelectors(); renderSupplierList(); renderProducts(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  window.page = function(p) {
+    if (!['products', 'add', 'invoice', 'account'].includes(p)) return;
+    if (!handlingAppPopState && p !== currentAppPage) {
+      history.pushState({ nadwaApp: true, page: p }, '', location.pathname + location.search);
+    }
+    showAppPage(p);
   };
+
+  // حالة حارسة فوق الصفحة الرئيسية. الرجوع من أي صفحة داخلية يرجع صفحةً واحدة.
+  history.replaceState({ nadwaApp: true, page: 'products', homeBase: true }, '', location.pathname + location.search);
+  history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
+
+  window.addEventListener('popstate', function(event) {
+    // إذا كانت القائمة الجانبية مفتوحة، فالرجوع الأول يغلقها فقط.
+    if ($('sideDrawer') && $('sideDrawer').classList.contains('open')) {
+      closeDrawer();
+      history.pushState({ nadwaApp: true, page: currentAppPage, homeGuard: currentAppPage === 'products' }, '', location.pathname + location.search);
+      return;
+    }
+
+    const targetPage = event.state && event.state.nadwaApp && event.state.page
+      ? event.state.page : 'products';
+
+    // وصلنا للواجهة الرئيسية: امنع مغادرة الموقع واطلب ثلاث ضغطات سريعة للخروج.
+    if (currentAppPage === 'products' && targetPage === 'products') {
+      homeBackPresses += 1;
+      clearTimeout(homeBackTimer);
+      homeBackTimer = setTimeout(() => { homeBackPresses = 0; }, HOME_BACK_WINDOW_MS);
+      history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
+
+      if (homeBackPresses >= 3) {
+        homeBackPresses = 0;
+        clearTimeout(homeBackTimer);
+        if (window.confirm('هل تريد الخروج من التطبيق؟')) {
+          // المتصفحات قد تمنع window.close للتبويبات التي لم يفتحها JavaScript.
+          window.close();
+        }
+      }
+      return;
+    }
+
+    handlingAppPopState = true;
+    showAppPage(targetPage);
+    handlingAppPopState = false;
+    if (targetPage === 'products') {
+      homeBackPresses = 0;
+      clearTimeout(homeBackTimer);
+    }
+  });
 
   window.resetForm = function() {
     $('form').reset();
