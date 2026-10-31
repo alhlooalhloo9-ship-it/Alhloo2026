@@ -1753,6 +1753,7 @@ body.drawer-open{overflow:hidden}
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
     loadWorkspace(cloudUser?.uid || null);
+    refreshGeminiKeyUI();
     updateAuthUI();
     renderSupplierSelectors();
     renderSupplierList();
