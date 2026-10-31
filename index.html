@@ -1305,8 +1305,8 @@ body.drawer-open{overflow:hidden}
   }
   function safeBackupFilename(value) {
     let name = String(value || '').trim();
-    name = name.replace(/[\\/:*?"<>|\\u0000-\\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
-    name = name.replace(/\\.json$/i, '').trim();
+    name = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
+    name = name.replace(/\.json$/i, '').trim();
     if (!name) throw new Error('اكتب اسماً للملف قبل التصدير.');
     return name.slice(0, 80) + '.json';
   }
