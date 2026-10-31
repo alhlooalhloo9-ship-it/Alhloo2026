@@ -1,4 +1,4 @@
-const CACHE_NAME = "nadwa-offline-v36";
+const CACHE_NAME = "nadwa-offline-v37";
 const APP_SHELL = ["./", "./index.html", "./manifest.json"];
 
 self.addEventListener("install", event => {
