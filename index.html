@@ -975,13 +975,23 @@ body.drawer-open{overflow:hidden}
   function renderInvoiceArchive() {
     const root=$('invoiceArchiveList'); if(!root)return;
     const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
-    root.innerHTML=list.length?list.map(inv=>'<div class="row"><div class="info"><b>'+esc(inv.supplierName)+'</b><small>'+new Date(inv.issuedAt).toLocaleString('ar')+' | '+inv.lines.length+' منتج | $'+(+inv.totalUsd).toFixed(2)+'</small></div><button type="button" onclick="shareArchivedInvoice(\''+inv.id+'\')">مشاركة</button></div>').join(''):'لا توجد فواتير صادرة لهذا المخزن بعد.';
+    root.innerHTML=list.length?list.map(inv=>'<div class="row"><div class="info"><b>'+esc(inv.supplierName)+'</b><small>'+new Date(inv.issuedAt).toLocaleString('ar')+' | '+inv.lines.length+' منتج | $'+(+inv.totalUsd).toFixed(2)+'</small></div><div class="actions"><button type="button" onclick="exportArchivedInvoice(\\''+inv.id+'\\',\\'text\\')">نص</button><button type="button" onclick="exportArchivedInvoice(\\''+inv.id+'\\',\\'image\\')">صورة</button><button type="button" onclick="exportArchivedInvoice(\\''+inv.id+'\\',\\'pdf\\')">PDF</button></div></div>').join(''):'لا توجد فواتير صادرة لهذا المخزن بعد.';
   }
   window.shareArchivedInvoice = async function(id) {
     const inv=invoiceArchive.find(x=>x.id===id); if(!inv)return;
     const txt=invoiceText(inv);
     if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt}).catch(()=>{});
     else prompt('انسخ الفاتورة',txt);
+  };
+  window.exportArchivedInvoice = async function(id,format) {
+    const inv=invoiceArchive.find(x=>x.id===id);if(!inv)return;
+    try {
+      if(format==='image') return await shareInvoiceAsImage(inv);
+      if(format==='pdf') { const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);return; }
+      const txt=invoiceText(inv);
+      if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});
+      else prompt('انسخ نص الفاتورة',txt);
+    } catch(e) { alert(e.message||e); }
   };
   async function shareInvoiceAsImage(inv) {
     const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const width=1000,rowH=64,top=300;
