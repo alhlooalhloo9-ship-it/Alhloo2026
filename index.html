@@ -1220,7 +1220,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
   // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
   function normalizedProductName(value) {
-    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\\s\\u0640]+/g, ' ');
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\s\u0640]+/g, ' ');
   }
   function downloadJsonFile(data, filename) {
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
