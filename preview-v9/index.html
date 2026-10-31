@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alhloo V9 — بيئة المعاينة المعزولة</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#17212b;background:#f3f6fa}*{box-sizing:border-box}body{margin:0;padding:20px}.wrap{max-width:980px;margin:auto}.card{background:white;border:1px solid #dce4ed;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 3px 12px #14243a0a}h1{font-size:24px}h2{font-size:18px;margin-top:0}.muted{color:#637487;font-size:14px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}button,select,input{font:inherit;padding:10px;border:1px solid #cbd5e1;border-radius:9px}button{background:#173d62;color:white;cursor:pointer}button.secondary{background:#eef3f8;color:#173d62}button:disabled{opacity:.5}input{min-width:0;max-width:100%}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.status{padding:10px;border-radius:9px;background:#edf7f0;color:#185b32;white-space:pre-wrap}.danger{background:#fff3e8;color:#85420c}table{width:100%;border-collapse:collapse}td,th{text-align:right;padding:8px;border-bottom:1px solid #e7edf3}code{overflow-wrap:anywhere}.pill{display:inline-block;background:#edf2f7;border-radius:20px;padding:4px 9px;font-size:12px}
+</style></head>
+<body><main class="wrap">
+<h1>معاينة محرك التخزين V9</h1>
+<p class="muted">بيئة محلية معزولة للاختبار فقط — لا تتصل بـ Firebase ولا تقرأ بيانات المشروع أو localStorage القديم.</p>
+<div class="card"><div class="grid">
+<div><b>قاعدة البيانات</b><p><code>Alhloo2026_Preview_V9_Isolated</code></p></div>
+<div><b>المستخدم الحالي</b><p><select id="uid"><option value="preview-user-a">حساب تجريبي A</option><option value="preview-user-b">حساب تجريبي B</option></select></p></div>
+<div><b>حالة المحرك</b><p id="engine" class="pill">جارٍ الفتح…</p></div>
+</div><div id="status" class="status">يتم تهيئة قاعدة الاختبار…</div></div>
+<section class="card"><h2>إضافة منتج تجريبي</h2><div class="row">
+<input id="name" value="منتج تجريبي" aria-label="اسم المنتج"><input id="stock" type="number" min="0" value="10" aria-label="المخزون"><input id="price" type="number" min="0" value="25" aria-label="سعر البيع"><button id="add">إضافة وحفظ</button>
+</div></section>
+<section class="card"><div class="row" style="justify-content:space-between"><h2>المنتجات</h2><button class="secondary" id="refresh">تحديث العرض</button></div><div id="products"></div></section>
+<section class="card"><h2>السلة وإتمام البيع</h2><div id="cart"></div><div class="row"><button id="sale">إتمام بيع تجريبي</button><span class="muted">الخصم والفاتورة ضمن معاملة IndexedDB واحدة.</span></div></section>
+<section class="card"><h2>طابور المزامنة المحلي</h2><p class="muted">يعرض العمليات المنتظرة فقط؛ لا توجد مزامنة سحابية في هذه المعاينة.</p><div id="queue"></div></section>
+<section class="card"><h2>فحص عزل الحسابات</h2><button id="isolation" class="secondary">اختبار عزل A و B</button><div id="isolationResult" class="muted"></div></section>
+</main>
+<script type="module">
+import {AlhlooStorageV9} from "../storage.js";
+const DB="Alhloo2026_Preview_V9_Isolated";
+const storage=new AlhlooStorageV9({dbName:DB});
+const $=id=>document.getElementById(id);
+let products=[],cart={};
+const uid=()=>$("uid").value;
+const say=(s,bad=false)=>{$("status").textContent=s;$("status").className="status"+(bad?" danger":"");};
+const safe=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function load(){try{const w=await storage.getWorkspace(uid());products=w.products;cart=w.cart;$("engine").textContent="مفتوح — IndexedDB معزول";render();await queue();say("تم تحميل مساحة الحساب بنجاح.");}catch(e){say(e.message,true);}}
+function render(){
+ $("products").innerHTML=products.length?'<table><thead><tr><th>المنتج</th><th>المخزون</th><th>السعر</th><th>إضافة للسلة</th><th>حذف</th></tr></thead><tbody>'+products.map(p=>'<tr><td>'+safe(p.name)+'</td><td>'+p.stock+'</td><td>'+p.sellTry+'</td><td><button data-cart="'+safe(p.id)+'">+</button></td><td><button class="secondary" data-del="'+safe(p.id)+'">حذف</button></td></tr>').join("")+'</tbody></table>':"<p class='muted'>لا توجد منتجات بهذا الحساب بعد.</p>";
+ $("cart").innerHTML=Object.keys(cart).length?Object.entries(cart).map(([id,q])=>{const p=products.find(x=>String(x.id)===id);return p?safe(p.name)+" × "+q+" — "+(q*p.sellTry)+" ل.ت":""}).join("<br>"):"السلة فارغة";
+ $("products").querySelectorAll("[data-cart]").forEach(b=>b.onclick=async()=>{const id=b.dataset.cart;cart[id]=(cart[id]||0)+1;await persist();});
+ $("products").querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{await storage.deleteProduct(uid(),b.dataset.del);products=products.filter(p=>String(p.id)!==b.dataset.del);delete cart[b.dataset.del];await persist();});
+}
+async function persist(){await storage.saveWorkspace(uid(),products,cart);render();await queue();say("تم الحفظ محلياً بنجاح.");}
+async function queue(){const q=await storage.getPendingSyncItems(uid(),200);$("queue").innerHTML=q.length?'<table><thead><tr><th>العملية</th><th>العنصر</th><th>الحالة</th></tr></thead><tbody>'+q.map(x=>'<tr><td>'+safe(x.operation)+'</td><td>'+safe(x.entityId)+'</td><td>'+safe(x.status)+'</td></tr>').join("")+'</tbody></table>':"<p class='muted'>لا توجد عمليات معلّقة.</p>";}
+$("add").onclick=async()=>{try{const id="preview-"+crypto.randomUUID();products.push({id,name:$("name").value.trim()||"منتج",stock:Number($("stock").value),sellTry:Number($("price").value),pieces:1});await persist();}catch(e){say(e.message,true);}};
+$("refresh").onclick=load;
+$("uid").onchange=()=>{cart={};load();};
+$("sale").onclick=async()=>{try{if(!Object.keys(cart).length)throw Error("أضف منتجاً إلى السلة أولاً.");const result=await storage.completeSale(uid(),cart,"preview-invoice-"+crypto.randomUUID());say("اكتملت الفاتورة: "+result.invoice.invoiceId+" — الإجمالي "+result.invoice.totalTry+" ل.ت");await load();}catch(e){say(e.message,true);}};
+$("isolation").onclick=async()=>{try{const a=await storage.getWorkspace("preview-user-a"),b=await storage.getWorkspace("preview-user-b");const overlap=a.products.some(x=>b.products.some(y=>String(x.id)===String(y.id)));$("isolationResult").textContent=overlap?"فشل: تم العثور على تداخل IDs.":"نجح الفحص البنيوي: قراءات كل UID محصورة بمفتاح المستخدم؛ هذا اختبار IndexedDB محلي وليس اختبار Firebase Security Rules."; }catch(e){$("isolationResult").textContent=e.message;}};
+await load();
+</script></body></html>
