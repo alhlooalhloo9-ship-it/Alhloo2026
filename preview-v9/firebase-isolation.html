@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اختبار عزل Firebase — Alhloo V9</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#f3f6fa;color:#17212b;font:16px system-ui,sans-serif}.wrap{max-width:850px;margin:auto}.card{background:white;border:1px solid #dce4ed;border-radius:14px;padding:18px;margin:14px 0}label{display:block;margin:10px 0 5px}input{display:block;width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}button{padding:10px 14px;border:0;border-radius:8px;background:#173d62;color:white;font:inherit;margin:5px 3px;cursor:pointer}.secondary{background:#e9eff5;color:#173d62}.status{white-space:pre-wrap;background:#edf7f0;padding:12px;border-radius:9px;line-height:1.8}.warn{background:#fff4e5;color:#75430a}code{overflow-wrap:anywhere}
+</style></head>
+<body><main class="wrap">
+<h1>اختبار عزل الحسابات A وB — Firebase التجريبي</h1>
+<p>هذه الصفحة تتصل حصراً بالمشروع <code>nad-66cc2</code>. تستخدم مستندات اختبار عشوائية في مجموعة <code>products</code> ولا تقرأ أو تعدّل بيانات الإنتاج.</p>
+<section class="card">
+<h2>بيانات حساب الاختبار</h2>
+<label>البريد الإلكتروني للحساب A</label><input id="emailA" type="email" autocomplete="off">
+<label>كلمة مرور الحساب A</label><input id="passA" type="password" autocomplete="new-password">
+<label>البريد الإلكتروني للحساب B</label><input id="emailB" type="email" autocomplete="off">
+<label>كلمة مرور الحساب B</label><input id="passB" type="password" autocomplete="new-password">
+<p class="status warn">استخدم حسابين تجريبيين فقط. لا تدخل بيانات حساب الإنتاج أو كلمات مروره. لا تُحفظ كلمات المرور في هذه الصفحة.</p>
+<button id="run">تشغيل اختبار العزل A ثم B</button>
+<button id="clear" class="secondary">مسح سجل النتائج</button>
+</section>
+<section class="card"><h2>النتائج</h2><div id="status" class="status">بانتظار تشغيل الاختبار.</div></section>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { firebaseConfig } from "../firebase.test.config.js";
+
+const app=initializeApp(firebaseConfig,"alhloo-isolation-test");
+const auth=getAuth(app), db=getFirestore(app);
+const $=id=>document.getElementById(id);
+const lines=[];
+function log(s){lines.push(s);$("status").textContent=lines.join("\n");}
+function expectDenied(label,error){
+  if(error?.code==="permission-denied"||error?.code==="firestore/permission-denied"){log("نجح المنع: "+label+" — permission-denied");return true;}
+  log("فشل التحقق: "+label+" — كان متوقعاً permission-denied، والنتيجة: "+(error?.code||error?.message||"unknown"));
+  return false;
+}
+async function login(email,password){
+  try{return (await signInWithEmailAndPassword(auth,email,password)).user;}
+  catch(e){if(e.code==="auth/user-not-found"||e.code==="auth/invalid-credential"){
+    try{return (await createUserWithEmailAndPassword(auth,email,password)).user;}
+    catch(createError){throw new Error("تعذر الدخول/إنشاء حساب الاختبار: "+createError.code+" — "+createError.message);}
+  }throw e;}
+}
+async function ownWrite(uid,id){
+  const ref=doc(db,"products",id);
+  await setDoc(ref,{user_id:uid,id,name:"اختبار عزل V9",purchase_price_usd:1,pieces_per_package:1,selling_price_try:2,stock:1,image:"",pick_count:0,test_marker:true,created_at:serverTimestamp()});
+  return ref;
+}
+async function run(){
+  $("run").disabled=true;lines.length=0;$("status").textContent="بدء الاختبار...";
+  const emailA=$("emailA").value.trim(),passA=$("passA").value,emailB=$("emailB").value.trim(),passB=$("passB").value;
+  if(!emailA||!passA||!emailB||!passB||emailA===emailB){log("أدخل بريدين وكلمتي مرور مختلفتين للحسابين A وB.");$("run").disabled=false;return;}
+  const suffix=crypto.randomUUID().replaceAll("-","");
+  let refA=null,refB=null,ok=true;
+  try{
+    const a=await login(emailA,passA),uidA=a.uid;
+    log("الحساب A: تم تسجيل الدخول. UID="+uidA);
+    refA=await ownWrite(uidA,"v9_test_A_"+suffix);
+    const ownA=await getDoc(refA);
+    if(!ownA.exists())throw Error("A لم يستطع قراءة مستنده.");
+    log("A: إنشاء وقراءة مستنده الخاص نجح.");
+    await signOut(auth);
+
+    const b=await login(emailB,passB),uidB=b.uid;
+    log("الحساب B: تم تسجيل الدخول. UID="+uidB);
+    if(uidA===uidB)throw Error("الحسابان أعادا UID نفسه؛ لا يمكن اختبار العزل.");
+    refB=await ownWrite(uidB,"v9_test_B_"+suffix);
+    const ownB=await getDoc(refB);
+    if(!ownB.exists())throw Error("B لم يستطع قراءة مستنده.");
+    log("B: إنشاء وقراءة مستنده الخاص نجح.");
+
+    try{await getDoc(refA);ok=expectDenied("B يقرأ مستند A",null)&&ok;}
+    catch(e){ok=expectDenied("B يقرأ مستند A",e)&&ok;}
+
+    try{await getDocs(query(collection(db,"products"),where("user_id","==",uidA)));ok=expectDenied("B يستعلم عن منتجات A",null)&&ok;}
+    catch(e){ok=expectDenied("B يستعلم عن منتجات A",e)&&ok;}
+
+    try{await setDoc(doc(db,"products","v9_test_spoof_"+suffix),{user_id:uidA,id:"spoof",name:"spoof"});ok=expectDenied("B ينشئ مستنداً باسم UID الخاص بـ A",null)&&ok;}
+    catch(e){ok=expectDenied("B ينشئ مستنداً باسم UID الخاص بـ A",e)&&ok;}
+    await signOut(auth);
+
+    await signInWithEmailAndPassword(auth,emailA,passA);
+    try{await getDoc(refB);ok=expectDenied("A يقرأ مستند B",null)&&ok;}
+    catch(e){ok=expectDenied("A يقرأ مستند B",e)&&ok;}
+    try{await deleteDoc(refA);log("A: حذف مستند الاختبار الخاص به نجح.");}
+    catch(e){ok=false;log("فشل تنظيف مستند A: "+e.code+" — "+e.message);}
+    await signOut(auth);
+
+    await signInWithEmailAndPassword(auth,emailB,passB);
+    try{await deleteDoc(refB);log("B: حذف مستند الاختبار الخاص به نجح.");}
+    catch(e){ok=false;log("فشل تنظيف مستند B: "+e.code+" — "+e.message);}
+    await signOut(auth);
+    log(ok?"النتيجة النهائية: نجحت اختبارات العزل التي نُفذت.":"النتيجة النهائية: فشل اختبار واحد أو أكثر؛ لا تعتمد القواعد.");
+  }catch(e){log("توقف الاختبار: "+(e.code||e.name)+" — "+e.message);try{await signOut(auth);}catch(_){}}
+  finally{$("run").disabled=false;}
+}
+$("run").onclick=()=>run().catch(e=>log("خطأ غير متوقع: "+e.message));
+$("clear").onclick=()=>{$("status").textContent="بانتظار تشغيل الاختبار.";lines.length=0;};
+</script></body></html>
