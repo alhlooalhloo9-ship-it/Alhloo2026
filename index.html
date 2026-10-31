@@ -1038,7 +1038,7 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
         await withCloudTimeout(
           setDoc(job.ref, job.payload, { merge: true }),
           'حفظ المنتج ' + (index + 1) + ' («' + (job.local.name || 'منتج') + '»)',
-          20000
+          60000
         );
         synced.push(job);
       }
