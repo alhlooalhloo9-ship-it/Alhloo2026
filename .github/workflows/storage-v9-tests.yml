@@ -1,0 +1,23 @@
+name: Storage V9 isolated browser tests
+on:
+  push:
+    branches: [storage-v9-hardening-test]
+  workflow_dispatch:
+jobs:
+  indexeddb-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test runner
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Start isolated static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/storage-test-server.log 2>&1 &
+          echo $! >/tmp/storage-test-server.pid
+      - name: Run IndexedDB browser tests
+        run: node tests/run-browser-tests.mjs
