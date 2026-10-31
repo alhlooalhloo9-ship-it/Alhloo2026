@@ -209,10 +209,31 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 
 @media print{header,.tabs,.no-print{display:none!important}body{background:#fff}.box{box-shadow:none}}
 
+/* قائمة جانبية للهاتف والكمبيوتر */
+.menu-toggle{position:absolute;right:14px;top:14px;width:46px;height:44px;background:#ffffff18;color:#fff;border:1px solid #ffffff55;font-size:27px;line-height:1;padding:5px;z-index:5}
+.app-hero{position:relative}
+.tabs{display:none!important}
+.drawer-backdrop{position:fixed;inset:0;background:#0008;z-index:20;opacity:0;visibility:hidden;transition:.2s}
+.drawer-backdrop.open{opacity:1;visibility:visible}
+.side-drawer{position:fixed;top:0;right:0;width:min(330px,86vw);height:100dvh;background:#fff;z-index:21;transform:translateX(105%);transition:transform .25s ease;box-shadow:-8px 0 30px #0002;padding:18px;overflow-y:auto;direction:rtl}
+.side-drawer.open{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e9e7;padding-bottom:14px;margin-bottom:14px}
+.drawer-head h2{font-size:19px;margin:0;color:#174c3c}
+.drawer-close{font-size:24px;background:#f0f4f1;padding:5px 12px}
+.drawer-account{background:#f1f6f3;border-radius:12px;padding:13px;margin-bottom:14px;overflow-wrap:anywhere}
+.drawer-account strong{display:block;color:#174c3c;margin-bottom:5px}
+.drawer-nav{display:grid;gap:8px}
+.drawer-nav button{width:100%;text-align:right;padding:13px 14px;background:#f5f7f6;color:#26352e}
+.drawer-nav button:active,.drawer-nav button:hover{background:#e1eee7}
+.drawer-divider{border:0;border-top:1px solid #e7ece9;margin:14px 0}
+body.drawer-open{overflow:hidden}
+@media print{.menu-toggle,.side-drawer,.drawer-backdrop{display:none!important}}
+
 </style>
 </head>
 <body>
 <header class="app-hero">
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="فتح القائمة" aria-expanded="false">☰</button>
   <div class="hero-inner">
     <div class="hero-mark" aria-hidden="true">📦</div>
     <div class="hero-copy">
@@ -223,6 +244,22 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     <div class="hero-chip"><span class="live-dot"></span> مساحة العمل</div>
   </div>
 </header>
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
+<aside class="side-drawer" id="sideDrawer" aria-label="القائمة الرئيسية" aria-hidden="true">
+  <div class="drawer-head"><h2>☰ القائمة الرئيسية</h2><button type="button" class="drawer-close" id="drawerClose" aria-label="إغلاق القائمة">×</button></div>
+  <div class="drawer-account">
+    <strong>الحساب الحالي</strong>
+    <span id="drawerAccountName">جارٍ التحقق من الحساب...</span>
+    <div class="muted" style="font-size:12px;margin-top:5px">بيانات المنتجات محفوظة محلياً على هذا الجهاز، ولا توجد مزامنة سحابية.</div>
+  </div>
+  <nav class="drawer-nav">
+    <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
+    <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
+    <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
+  </nav>
+  <hr class="drawer-divider">
+  <button type="button" id="drawerSignOut" style="width:100%">تسجيل الخروج من الحساب</button>
+</aside>
 <div class="tabs" role="navigation" aria-label="التنقل الرئيسي">
 <button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
 <button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
@@ -230,18 +267,28 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
 </div>
 <main>
 <section id="accountPage" class="hidden">
-<div class="box" id="cloudPanel">
-<h3>☁️ الحساب والمزامنة</h3>
-<div id="authStatus" class="muted">غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.</div>
-<div id="authForm">
-<label>اسم المستخدم</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="اكتب اسم المستخدم">
-<label>كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="signInBtn">تسجيل الدخول</button><button type="button" id="signUpBtn">إنشاء حساب</button></div>
+<div class="box" id="backupPanel">
+<h3>📦 نقل المنتجات والبيانات بين الهواتف</h3>
+<p class="muted">أنشئ ملفاً واحداً يحتوي المنتجات وأسعارها وكمياتها وصورها والفاتورة الحالية وأسعار الصرف. أرسله للشخص الآخر ليستورده على هاتفه. لا توجد مزامنة للبيانات مع السحابة.</p>
+<button type="button" class="primary" id="exportBackupBtn" style="width:100%;margin:8px 0">⬇️ تصدير ملف المنتجات والفاتورة</button>
+<label for="importBackupFile">استيراد ملف مرسل من هاتف آخر</label>
+<input id="importBackupFile" type="file" accept=".json,application/json" style="padding:10px;height:auto">
+<div id="backupMessage" class="muted" role="status" aria-live="polite"></div>
+<div class="box" style="background:#f7faf8;margin-top:12px">
+<b>طريقة الدمج:</b>
+<p class="muted">إذا وُجد منتج بنفس الاسم، تُحدّث بياناته وصورته دون تكرار. وإذا لم يوجد، يُضاف. المنتجات الأخرى الموجودة على الهاتف لا تُحذف. الفاتورة الحالية وأسعار الصرف تُستبدل بما في الملف المستورد.</p>
 </div>
-<div id="authActions" class="hidden"><button type="button" class="primary" id="syncBtn">مزامنة المنتجات والإعدادات</button> <button type="button" id="connectionTestBtn">🔎 فحص اتصال Firebase</button> <button type="button" id="signOutBtn">تسجيل الخروج</button></div>
-<div id="connectionDiagnostics" class="box hidden" style="margin-top:12px" aria-live="polite"><h3>نتيجة فحص الاتصال</h3><pre id="connectionDiagnosticsText" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:0"></pre></div>
-<p class="muted">لن تُحذف المنتجات المحلية تلقائياً. عند أول مزامنة، تُضاف المنتجات المحلية إلى السحابة وتُدمج مع الموجودة دون حذف سجلات السحابة. لا تُزامَن الفاتورة المفتوحة كسجل بيع.</p>
-<div id="syncMessage" role="status" class="muted"></div>
+<hr class="drawer-divider">
+<h3>👤 الحساب</h3>
+<div id="authStatus" class="muted" role="status">جارٍ التحقق من الحساب...</div>
+<div id="authForm">
+  <label for="authEmail">اسم المستخدم</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="اسم المستخدم">
+  <label for="authPassword">كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+  <button type="button" class="primary" id="signInBtn" style="width:100%">تسجيل الدخول</button>
+</div>
+<div id="authActions" class="hidden"><button type="button" id="signOutBtn" style="width:100%">تسجيل الخروج</button></div>
+<div id="connectionDiagnostics" class="hidden"></div><pre id="connectionDiagnosticsText" class="hidden"></pre>
+<div id="syncMessage" class="muted" role="status"></div>
 </div>
 </section>
 <section id="productsPage">
@@ -393,19 +440,9 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
   $('tryRate').value = tryRate;
   $('sypRate').value = sypRate;
 
+  // حفظ محلي فقط: لا تُرفع المنتجات أو الفاتورة إلى أي خدمة سحابية.
   function save() {
     saveWorkspaceLocal();
-    if (cloudUser && !syncingCloud) {
-      clearTimeout(cloudTimer);
-      cloudTimer = setTimeout(async () => {
-        try {
-          await syncProductsToCloud();
-          await syncCartToCloud();
-        } catch (e) {
-          showCloudMessage('تعذرت مزامنة المنتجات أو الفاتورة: ' + e.message);
-        }
-      }, 1800);
-    }
   }
 
   window.page = function(p) {
@@ -903,8 +940,10 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     const on = !!cloudUser;
     $('authForm').classList.toggle('hidden', on);
     $('authActions').classList.toggle('hidden', !on);
-    const label = cloudUser?.email || '';
-    $('authStatus').textContent = on ? 'تم تسجيل الدخول باسم: ' + label + ' — المزامنة السحابية متاحة.' : 'غير مسجّل الدخول — بياناتك الحالية محفوظة على هذا الجهاز.';
+    const label = cloudUser?.email || 'زائر هذا الجهاز';
+    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. تُحفظ البيانات محلياً فقط.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز.';
+    $('drawerAccountName').textContent = label;
+    $('drawerSignOut').classList.toggle('hidden', !on);
   }
 
   function usernameToAuthEmail(raw) {
@@ -1217,36 +1256,134 @@ input:focus{border-color:#4c9270;box-shadow:0 0 0 3px rgba(76,146,112,.11);outli
     }
   }
 
-  // إعادة المحاولة تلقائياً عند عودة الإنترنت أو الرجوع إلى التطبيق.
-  window.addEventListener('online', () => {
-    if (cloudUser) {
-      showCloudMessage('عاد اتصال الإنترنت؛ جارٍ إعادة محاولة المزامنة...');
-      syncCloudSafely();
-    }
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && cloudUser && navigator.onLine !== false) syncCloudSafely();
-  });
-
-  $('signUpBtn').addEventListener('click', () => doSignUp().catch(e => showCloudMessage(e.message)));
-  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
-  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
-  $('syncBtn').addEventListener('click', () => syncCloudSafely());
-  $('connectionTestBtn').addEventListener('click', () => runFirebaseConnectionTest());
-
+  // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
-    if (cloudTimer) clearTimeout(cloudTimer);
-    syncingCloud = false;
-    fullSyncRunning = false;
     loadWorkspace(cloudUser?.uid || null);
     updateAuthUI();
     renderProducts();
     renderInvoice();
-    if (cloudUser) {
-      syncCloudSafely();
-    } else {
-      showCloudMessage('أنت الآن خارج الحساب. منتجات الحسابات لا تظهر إلا بعد تسجيل الدخول إلى الحساب نفسه.');
+  });
+  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
+  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
+  $('drawerSignOut').addEventListener('click', () => {
+    if (cloudUser && confirm('تسجيل الخروج؟ ستبقى بيانات الحساب محفوظة على هذا الجهاز.')) doSignOut().then(closeDrawer).catch(e => showCloudMessage(e.message));
+  });
+
+  function openDrawer() {
+    $('sideDrawer').classList.add('open');
+    $('drawerBackdrop').classList.add('open');
+    document.body.classList.add('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','false');
+    $('menuToggle').setAttribute('aria-expanded','true');
+  }
+  window.closeDrawer = function() {
+    $('sideDrawer').classList.remove('open');
+    $('drawerBackdrop').classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','true');
+    $('menuToggle').setAttribute('aria-expanded','false');
+  };
+  $('menuToggle').addEventListener('click', openDrawer);
+  $('drawerClose').addEventListener('click', closeDrawer);
+  $('drawerBackdrop').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
+  function normalizedProductName(value) {
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\s\u0640]+/g, ' ');
+  }
+  function downloadJsonFile(data, filename) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  $('exportBackupBtn').addEventListener('click', () => {
+    try {
+      const backup = {
+        format: 'alhloo-nadwa-portable-backup',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        products: products,
+        cart: cart,
+        rates: { tryRate, sypRate }
+      };
+      const stamp = new Date().toISOString().slice(0,10);
+      downloadJsonFile(backup, 'bidaat-alnadwa-backup-' + stamp + '.json');
+      $('backupMessage').textContent = 'تم تجهيز ملف النسخة الاحتياطية. أرسله للشخص الآخر عبر واتساب أو تيليغرام.';
+    } catch (error) {
+      $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
+    }
+  });
+  $('importBackupFile').addEventListener('change', async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      if (file.size > 40 * 1024 * 1024) throw new Error('حجم الملف أكبر من 40 ميغابايت.');
+      const raw = await file.text();
+      const backup = JSON.parse(raw);
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 || !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object') {
+        throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
+      }
+      const currentProducts = Array.isArray(products) ? products : [];
+      const merged = currentProducts.map(p => ({ ...p }));
+      const currentByName = new Map();
+      merged.forEach(p => {
+        const key = normalizedProductName(p.name);
+        if (key && !currentByName.has(key)) currentByName.set(key, p);
+      });
+      const idMap = new Map();
+      let updated = 0, added = 0;
+      backup.products.forEach((incoming, index) => {
+        if (!incoming || !String(incoming.name || '').trim()) return;
+        const key = normalizedProductName(incoming.name);
+        const existing = currentByName.get(key);
+        if (existing) {
+          const keepId = existing.id;
+          Object.assign(existing, incoming, { id: keepId });
+          idMap.set(String(incoming.id), keepId);
+          updated++;
+        } else {
+          let newId = incoming.id;
+          if (merged.some(p => String(p.id) === String(newId))) newId = Date.now() + index + 1;
+          const fresh = { ...incoming, id: newId };
+          merged.push(fresh);
+          currentByName.set(key, fresh);
+          idMap.set(String(incoming.id), newId);
+          added++;
+        }
+      });
+      const importedCart = {};
+      for (const [oldId, quantity] of Object.entries(backup.cart)) {
+        const mappedId = idMap.get(String(oldId));
+        if (mappedId !== undefined && Number(quantity) > 0) importedCart[String(mappedId)] = Number(quantity);
+      }
+      const nextTry = Number(backup.rates?.tryRate);
+      const nextSyp = Number(backup.rates?.sypRate);
+      const previous = { products, cart, tryRate, sypRate };
+      products = merged;
+      cart = importedCart;
+      if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
+      if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
+      try {
+        saveWorkspaceLocal();
+        localStorage.setItem('nadwa_try', String(tryRate));
+        localStorage.setItem('nadwa_syp', String(sypRate));
+      } catch (storageError) {
+        products = previous.products; cart = previous.cart; tryRate = previous.tryRate; sypRate = previous.sypRate;
+        throw new Error('مساحة التخزين على الهاتف غير كافية لحفظ الصور والبيانات. لم نعتمد الاستيراد. ' + storageError.message);
+      }
+      $('tryRate').value = tryRate;
+      $('sypRate').value = sypRate;
+      renderProducts();
+      renderInvoice();
+      $('backupMessage').textContent = 'اكتمل الاستيراد: تم تحديث ' + updated + ' منتج وإضافة ' + added + ' منتج جديد. المنتجات الأخرى بقيت كما هي، وتم استبدال الفاتورة الحالية وأسعار الصرف بمحتوى الملف.';
+    } catch (error) {
+      $('backupMessage').textContent = 'فشل الاستيراد: ' + (error.message || error);
+    } finally {
+      event.target.value = '';
     }
   });
 
