@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsExistingDocument() {
+      return signedIn()
+        && resource.data.user_id == request.auth.uid;
+    }
+
+    function ownsIncomingDocument() {
+      return signedIn()
+        && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // The current app queries products with where('user_id', '==', auth.uid).
+    match /products/{productId} {
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
+    }
+
+    // Cart document ID is the authenticated user's UID.
+    match /user_carts/{userId} {
+      allow read, delete: if signedIn() && request.auth.uid == userId;
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // Current app uses a user_id-filtered query on this collection.
+    match /app_settings/{settingsId} {
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
+    }
+
+    // No invoice collection is currently written by index.html.
+    // Deny by default for every other collection/document.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
