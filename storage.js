@@ -10,7 +10,7 @@
  * - All local writes are transactional; IndexedDB errors never erase localStorage.
  */
 const DB_NAME = "Alhloo2026_Enterprise_DB";
-const DB_VERSION = 1;
+const DB_VERSION = 9;
 
 const STORE = Object.freeze({
   products: "products",
@@ -221,7 +221,7 @@ class AlhlooStorageV9 {
       queueStore.put({
         userId: uid, syncId, entity: "product", entityId: String(product.id),
         operation: "upsert",
-        status: prior?.status === "syncing" ? "pending" : (prior?.status || "pending"),
+        status: "pending",
         attempts: prior?.attempts || 0,
         createdAt: prior?.createdAt || now, updatedAt: now
       });
