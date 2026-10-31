@@ -477,12 +477,9 @@ body.drawer-open{overflow:hidden}
     saveWorkspaceLocal();
   }
 
-  // إدارة الرجوع داخل التطبيق: لا نسمح لزر الرجوع بإغلاق الموقع من صفحاته الداخلية.
+  // إدارة زر الرجوع: الصفحات الداخلية ترجع خطوة، والرئيسية تطلب تأكيداً من أول ضغطة.
   let currentAppPage = 'products';
   let handlingAppPopState = false;
-  let homeBackPresses = 0;
-  let homeBackTimer = null;
-  const HOME_BACK_WINDOW_MS = 1800;
 
   function showAppPage(p) {
     $('productsPage').classList.toggle('hidden', p !== 'products');
@@ -506,45 +503,36 @@ body.drawer-open{overflow:hidden}
     showAppPage(p);
   };
 
-  // حالة حارسة فوق الصفحة الرئيسية. الرجوع من أي صفحة داخلية يرجع صفحةً واحدة.
+  // نضع حالتين للصفحة الرئيسية حتى يبقى زر الرجوع داخل التطبيق.
   history.replaceState({ nadwaApp: true, page: 'products', homeBase: true }, '', location.pathname + location.search);
   history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
 
   window.addEventListener('popstate', function(event) {
-    // إذا كانت القائمة الجانبية مفتوحة، فالرجوع الأول يغلقها فقط.
     if ($('sideDrawer') && $('sideDrawer').classList.contains('open')) {
       closeDrawer();
       history.pushState({ nadwaApp: true, page: currentAppPage, homeGuard: currentAppPage === 'products' }, '', location.pathname + location.search);
       return;
     }
 
-    const targetPage = event.state && event.state.nadwaApp && event.state.page
-      ? event.state.page : 'products';
-
-    // وصلنا للواجهة الرئيسية: امنع مغادرة الموقع واطلب ثلاث ضغطات سريعة للخروج.
-    if (currentAppPage === 'products' && targetPage === 'products') {
-      homeBackPresses += 1;
-      clearTimeout(homeBackTimer);
-      homeBackTimer = setTimeout(() => { homeBackPresses = 0; }, HOME_BACK_WINDOW_MS);
-      history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
-
-      if (homeBackPresses >= 3) {
-        homeBackPresses = 0;
-        clearTimeout(homeBackTimer);
-        if (window.confirm('هل تريد الخروج من التطبيق؟')) {
-          // المتصفحات قد تمنع window.close للتبويبات التي لم يفتحها JavaScript.
-          window.close();
-        }
+    // على الصفحة الرئيسية يظهر التأكيد من أول ضغطة، ويتكرر إذا اختار المستخدم "لا".
+    if (currentAppPage === 'products') {
+      const wantsToExit = window.confirm('هل تريد الخروج من التطبيق؟');
+      if (!wantsToExit) {
+        history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
       }
       return;
     }
 
+    const targetPage = event.state && event.state.nadwaApp && event.state.page
+      ? event.state.page : 'products';
+
     handlingAppPopState = true;
     showAppPage(targetPage);
     handlingAppPopState = false;
+
+    // عند الرجوع إلى الرئيسية نعيد إنشاء الحارس فوراً.
     if (targetPage === 'products') {
-      homeBackPresses = 0;
-      clearTimeout(homeBackTimer);
+      history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
     }
   });
 
