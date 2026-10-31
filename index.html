@@ -1080,62 +1080,6 @@ body.drawer-open{overflow:hidden}
 
   function showCloudMessage(s) { $('syncMessage').textContent = s; }
 
-  // فحص تشخيصي للقراءة فقط: لا ينشئ أو يعدّل أو يحذف أي بيانات.
-  async function runFirebaseConnectionTest() {
-    const panel = $('connectionDiagnostics');
-    const output = $('connectionDiagnosticsText');
-    panel.classList.remove('hidden');
-    $('connectionTestBtn').disabled = true;
-    const lines = [];
-    const add = (label, value) => lines.push(label + ': ' + value);
-    const started = Date.now();
-    const describeError = error => ({ code: error?.code || error?.name || 'غير محدد', message: error?.message || String(error || 'لا توجد رسالة') });
-    output.textContent = 'جارٍ فحص الاتصال...';
-    try {
-      add('وقت الفحص', new Date().toLocaleString());
-      add('المتصفح متصل بالإنترنت', navigator.onLine ? 'نعم (هذا لا يضمن الوصول إلى Firebase)' : 'لا');
-      add('Firebase projectId', firebaseConfig.projectId);
-      const user = auth.currentUser;
-      add('حالة تسجيل الدخول', user ? 'مسجّل' : 'غير مسجّل');
-      if (!user) { add('النتيجة', 'سجّل الدخول أولاً حتى نفحص قراءة بيانات حسابك من Firestore.'); return; }
-      add('UID الحالي', user.uid);
-      add('الحصول على رمز تسجيل الدخول', 'جارٍ...');
-      try {
-        let tokenTimer;
-        await Promise.race([user.getIdToken(), new Promise((_, reject) => { tokenTimer = setTimeout(() => reject(new Error('انتهت مهلة الحصول على رمز تسجيل الدخول بعد 15 ثانية')), 15000); })]).finally(() => clearTimeout(tokenTimer));
-        add('الحصول على رمز تسجيل الدخول', 'نجح');
-      } catch (error) {
-        const detail = describeError(error);
-        add('فشل رمز تسجيل الدخول', detail.code + ' — ' + detail.message);
-        add('الاستنتاج المبدئي', 'تحقق من اتصال Firebase Authentication أو جلسة الحساب.');
-        return;
-      }
-      add('قراءة Firestore من الخادم', 'جارٍ تنفيذ قراءة مباشرة دون استخدام بيانات الذاكرة المؤقتة...');
-      try {
-        const ownProductsQuery = query(collection(db, 'products'), where('user_id', '==', user.uid));
-        let readTimer;
-        const snapshot = await Promise.race([getDocsFromServer(ownProductsQuery), new Promise((_, reject) => { readTimer = setTimeout(() => reject(new Error('انتهت مهلة الفحص بعد 25 ثانية؛ لم يصل تأكيد من خادم Firestore')), 25000); })]).finally(() => clearTimeout(readTimer));
-        add('نتيجة Firestore', 'نجح الاتصال والقراءة من الخادم');
-        add('عدد مستندات منتجات هذا الحساب', snapshot.size);
-        add('قواعد القراءة', 'سمحت بقراءة استعلام منتجات الحساب الحالي');
-        add('الاستنتاج', 'الاتصال والقراءة يعملان الآن. هذا الفحص لا يختبر الكتابة أو المزامنة.');
-      } catch (error) {
-        const detail = describeError(error);
-        add('فشل Firestore', detail.code + ' — ' + detail.message);
-        if (detail.code === 'permission-denied' || detail.code === 'firestore/permission-denied') add('الاستنتاج المبدئي', 'وصل الطلب إلى Firestore لكن قواعد الأمان رفضت القراءة أو أن صلاحية الحساب لا تسمح بها.');
-        else if (detail.code === 'unavailable' || detail.code === 'failed-precondition' || /offline|network|fetch/i.test(detail.message)) add('الاستنتاج المبدئي', 'يرجّح وجود مشكلة وصول/اتصال بين المتصفح وFirestore أو إعداد نقل البيانات.');
-        else add('الاستنتاج المبدئي', 'راجع رمز الخطأ ورسالة Firebase أعلاه لتحديد السبب بدقة أكبر.');
-      }
-    } catch (error) {
-      const detail = describeError(error);
-      add('خطأ أثناء الفحص', detail.code + ' — ' + detail.message);
-    } finally {
-      add('مدة الفحص', ((Date.now() - started) / 1000).toFixed(1) + ' ثانية');
-      output.textContent = lines.join('\n');
-      $('connectionTestBtn').disabled = false;
-    }
-  }
-  
   function updateAuthUI() {
     const on = !!cloudUser;
     $('authForm').classList.toggle('hidden', on);
