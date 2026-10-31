@@ -301,7 +301,8 @@ body.drawer-open{overflow:hidden}
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" onclick="document.getElementById('supplierManager').scrollIntoView({behavior:'smooth'})">🏬 إدارة المخازن</button></div>
 <div class="box" id="supplierManager"><h3>🏬 المخازن وأصحابها</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="newSupplierName" placeholder="اسم صاحب المخزن أو المحل" style="flex:1;min-width:180px"><button type="button" class="primary" id="addSupplierBtn">إضافة مخزن</button></div><div id="supplierList" class="muted"></div></div>
 <div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لخيارات المنتج. ويمكنك تحديد عدة منتجات ونقلها دفعة واحدة.</p>
-<div id="bulkMoveToolbar" style="border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
+<button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
+<div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <button type="button" id="selectVisibleProducts">☑️ تحديد منتجات المخزن الظاهر</button>
     <button type="button" id="clearSelectedProducts">إلغاء التحديد</button>
@@ -859,7 +860,13 @@ body.drawer-open{overflow:hidden}
 
   // تحديد مجموعة منتجات ونقلها دفعة واحدة بين المخازن.
   const selectedProductIds = new Set();
+  let bulkSelectionMode = false;
   function updateBulkSelectionUI() {
+    const toggle = $('toggleBulkSelection');
+    const toolbar = $('bulkMoveToolbar');
+    if (toggle) toggle.textContent = bulkSelectionMode ? '✖ إلغاء وضع التحديد' : '☑️ تفعيل التحديد للنقل';
+    if (toolbar) toolbar.style.display = bulkSelectionMode ? 'block' : 'none';
+    document.querySelectorAll('#products .bulkSelectLabel').forEach(label => label.style.display = bulkSelectionMode ? 'flex' : 'none');
     const count = $('selectedProductsCount');
     if (count) count.textContent = 'المحدد: ' + selectedProductIds.size;
     const visible = Array.from(document.querySelectorAll('#products .bulkProductSelect'));
@@ -868,6 +875,15 @@ body.drawer-open{overflow:hidden}
       $('selectVisibleProducts').textContent = allChecked ? '☑️ إلغاء تحديد الظاهر' : '☑️ تحديد منتجات المخزن الظاهر';
     }
   }
+  $('toggleBulkSelection').addEventListener('click', () => {
+    bulkSelectionMode = !bulkSelectionMode;
+    if (!bulkSelectionMode) {
+      selectedProductIds.clear();
+      document.querySelectorAll('#products .bulkProductSelect').forEach(box => box.checked = false);
+    }
+    updateBulkSelectionUI();
+    if (typeof renderProducts === 'function') renderProducts();
+  });
   $('selectVisibleProducts').addEventListener('click', () => {
     const visible = Array.from(document.querySelectorAll('#products .bulkProductSelect'));
     const shouldClear = visible.length > 0 && visible.every(x => x.checked);
@@ -953,7 +969,7 @@ body.drawer-open{overflow:hidden}
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:flex;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
