@@ -291,7 +291,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <section id="accountPage" class="hidden">
 <div class="box" id="backupPanel">
 <h3>📦 نقل المنتجات والبيانات بين الهواتف</h3>
-<p class="muted">أنشئ نسخة كاملة من منتجات هذا الحساب بأسمائها وأسعارها وكمياتها وصورها والمخازن والفواتير وأسعار الصرف، ثم استوردها في الحساب الآخر لنقل البيانات كما هي. لا توجد مزامنة للبيانات مع السحابة.</p>
+<p class="muted">يمكنك مزامنة المنتجات وصورها عبر حسابك لتظهر على المتصفح والهاتف وتطبيق APK بعد تسجيل الدخول بالحساب نفسه. تبقى نسخة الجهاز محفوظة محلياً، والمزامنة تدمج المنتجات ولا تحذف سجلات السحابة. كما يمكنك استخدام النسخة الاحتياطية لنقل بقية بيانات المخازن والفواتير.</p>
 <label for="backupFileName">اسم الملف قبل التصدير</label>
 <input id="backupFileName" type="text" value="نسخة-بضاعة-الندوة" maxlength="80" placeholder="اكتب اسم الملف الذي تريده">
 <p class="muted" style="margin:4px 0 8px">سيُحفظ الملف على جهازك ضمن التنزيلات بالاسم الذي تكتبه، وامتداده .json سيُضاف تلقائياً.</p>
@@ -323,7 +323,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   <label for="authPassword">كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
   <button type="button" class="primary" id="signInBtn" style="width:100%">تسجيل الدخول</button>
 </div>
-<div id="authActions" class="hidden"><button type="button" id="signOutBtn" style="width:100%">تسجيل الخروج</button></div>
+<div id="authActions" class="hidden"><button type="button" class="primary" id="syncCloudBtn" style="width:100%;margin:8px 0">☁️ مزامنة المنتجات والصور بين الأجهزة</button><button type="button" id="signOutBtn" style="width:100%">تسجيل الخروج</button></div>
 <div id="connectionDiagnostics" class="hidden"></div><pre id="connectionDiagnosticsText" class="hidden"></pre>
 <div id="syncMessage" class="muted" role="status"></div>
 </div>
@@ -1890,7 +1890,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('authForm').classList.toggle('hidden', on);
     $('authActions').classList.toggle('hidden', !on);
     const label = cloudUser?.email || 'زائر هذا الجهاز';
-    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. تُحفظ البيانات محلياً فقط.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز.';
+    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. المنتجات قابلة للمزامنة مع أجهزتك الأخرى.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز فقط.';
     $('drawerAccountName').textContent = label;
     $('drawerSignOut').classList.toggle('hidden', !on);
   }
@@ -2156,6 +2156,11 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           restored[id] = +quantity;
         }
       }
+      for (const [id, quantity] of Object.entries(cart || {})) {
+        if (products.some(p => String(p.id) === String(id)) && +quantity > 0) {
+          restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
+        }
+      }
       cart = restored;
       saveLocalOnly();
       renderProducts();
@@ -2206,9 +2211,68 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   }
 
   // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
+  function mergeGuestProductsIntoAccount(uid) {
+    if (!uid) return 0;
+    // لا نحذف مساحة الزائر: ننسخ منتجاتها إلى الحساب مع الاحتفاظ بالصور والحقول الأصلية.
+    let guestProducts = [];
+    let guestCart = {};
+    try { guestProducts = JSON.parse(localStorage.getItem('nadwa_products_guest') || '[]'); } catch (_) {}
+    try { guestCart = JSON.parse(localStorage.getItem('nadwa_cart_guest') || '{}'); } catch (_) {}
+    if (!Array.isArray(guestProducts) || !guestProducts.length) return 0;
+    const knownIds = new Set(products.map(p => String(p.id)));
+    const idMap = new Map();
+    let merged = 0;
+    for (const item of guestProducts) {
+      if (!item || typeof item !== 'object') continue;
+      let copy = { ...item };
+      let nextId = String(copy.id);
+      if (knownIds.has(nextId)) {
+        // عند تعارض معرّف بين مساحة الزائر والحساب، نولّد معرّفاً جديداً دون إسقاط المنتج.
+        let candidate = Date.now() + merged;
+        while (knownIds.has(String(candidate))) candidate++;
+        idMap.set(nextId, String(candidate));
+        copy.id = candidate;
+        nextId = String(candidate);
+      }
+      knownIds.add(nextId);
+      products.push(copy);
+      merged++;
+    }
+    for (const [oldId, quantity] of Object.entries(guestCart || {})) {
+      const mappedId = idMap.get(String(oldId)) || String(oldId);
+      if (products.some(p => String(p.id) === mappedId) && +quantity > 0) {
+        cart[mappedId] = Math.max(+cart[mappedId] || 0, +quantity || 0);
+      }
+    }
+    if (merged) saveWorkspaceLocal();
+    return merged;
+  }
+
+  async function runCloudSyncFromButton() {
+    const button = $('syncCloudBtn');
+    if (!cloudUser) {
+      showCloudMessage('سجّل الدخول أولاً بنفس الحساب المستخدم على الجهاز الآخر.');
+      return;
+    }
+    if (fullSyncRunning) return;
+    button.disabled = true;
+    const previousLabel = button.textContent;
+    button.textContent = '⏳ جارٍ المزامنة...';
+    try {
+      await syncCloudSafely();
+    } finally {
+      button.disabled = false;
+      button.textContent = previousLabel;
+    }
+  }
+
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
     loadWorkspace(cloudUser?.uid || null);
+    if (cloudUser) {
+      const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
+      if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+    }
     loadUiSettings();
     refreshGeminiKeyUI();
     updateAuthUI();
@@ -2217,6 +2281,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     renderProducts();
     renderInvoice();
   });
+  $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
   $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
   $('drawerSignOut').addEventListener('click', () => {
@@ -2442,8 +2507,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
   });
 
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(err => console.warn("Offline cache registration failed", err)));
+  if ("serviceWorker" in navigator && location.protocol === 'https:') {
+    window.addEventListener("load", () => navigator.serviceWorker.register(new URL("./sw.js", document.baseURI).toString()).catch(err => console.warn("Offline cache registration failed", err)));
   }
 </script>
 </body>
