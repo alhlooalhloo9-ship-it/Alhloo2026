@@ -1136,6 +1136,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     let packRevenue = (+p.sellTry || 0) * pieces / tryRate, packProfit = packRevenue - packCost;
     $('modalTitle').textContent = p.name + ' — تفاصيل العبوة';
     $('modalContent').innerHTML =
+      (p.image ? '<img src="' + p.image + '" alt="' + esc(p.name) + '" style="display:block;width:100%;max-width:520px;max-height:46vh;object-fit:contain;margin:0 auto 16px;border-radius:12px;background:#f4f6f5">' : '') +
       '<div>عدد القطع بالعبوة: <b>' + pieces + '</b></div>' +
       '<div>سعر شراء العبوة: <b>$' + packCost.toFixed(2) + '</b></div>' +
       '<div>سعر بيع القطعة: <b>' + fmt(p.sellTry || 0) + ' ل.ت</b></div>' +
@@ -1316,11 +1317,39 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
+        photo.title = 'اضغط مرة لإضافة المنتج للفاتورة، أو اضغط مطولاً لعرض الصورة والتفاصيل';
         photo.addEventListener('click', e => {
-          e.preventDefault(); e.stopPropagation(); add(p.id);
+          e.preventDefault(); e.stopPropagation();
+          if (photoHoldTriggered) { photoHoldTriggered = false; return; }
+          add(p.id);
         });
+        // الضغط المطوّل على الصورة يعرضها بحجم كبير وتظهر التفاصيل أسفلها.
+        let photoHoldTimer = null, photoHoldTriggered = false, photoStartX = 0, photoStartY = 0;
+        photo.addEventListener('pointerdown', e => {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          photoHoldTriggered = false;
+          photoStartX = e.clientX; photoStartY = e.clientY;
+          photoHoldTimer = setTimeout(() => {
+            photoHoldTriggered = true;
+            productHoldTriggered = true;
+            window.openDetails(p.id);
+          }, 650);
+        });
+        const cancelPhotoHold = () => {
+          if (photoHoldTimer) clearTimeout(photoHoldTimer);
+          photoHoldTimer = null;
+        };
+        photo.addEventListener('pointermove', e => {
+          if (Math.abs(e.clientX-photoStartX)>12 || Math.abs(e.clientY-photoStartY)>12) cancelPhotoHold();
+        });
+        photo.addEventListener('pointerup', cancelPhotoHold);
+        photo.addEventListener('pointercancel', cancelPhotoHold);
+        photo.addEventListener('pointerleave', cancelPhotoHold);
         photo.addEventListener('contextmenu', e => {
-          e.preventDefault(); e.stopPropagation(); openProductActions(p.id);
+          e.preventDefault(); e.stopPropagation();
+          photoHoldTriggered = true;
+          productHoldTriggered = true;
+          window.openDetails(p.id);
         });
       }
       const bulkBox = el.querySelector('.bulkProductSelect');
@@ -1333,7 +1362,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       // ضغطة مطوّلة على بطاقة المنتج تفتح خيارات النقل، والضغط العادي يبقى للإضافة للفاتورة.
       let productHoldTimer = null, productHoldTriggered = false, productStartX = 0, productStartY = 0;
       el.addEventListener('pointerdown', e => {
-        if (e.target.closest('button,summary,details,input,select,a')) return;
+        if (e.target.closest('.productPhoto,button,summary,details,input,select,a')) return;
         productHoldTriggered = false; productStartX = e.clientX; productStartY = e.clientY;
         productHoldTimer = setTimeout(() => {
           productHoldTriggered = true;
