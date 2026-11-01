@@ -438,6 +438,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     where,
     getDoc,
     getDocsFromServer,
+    enableNetwork,
     writeBatch
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -453,10 +454,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // توافق أعلى مع الشبكات والوسطاء الذين يقطعون WebChannel streaming.
-  // نستخدم Long Polling بشكل صريح لأن الرفع السابق كان يبقى بانتظار تأكيد الخادم.
+  // دع Firebase يختار آلية Long Polling المناسبة تلقائياً حسب بيئة المتصفح أو WebView.
+  // هذا أكثر توافقاً من فرض نمط اتصال واحد على جميع الأجهزة.
   const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
     useFetchStreams: false
   });
 
@@ -2029,7 +2030,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       showCloudMessage('جارٍ قراءة المنتجات السحابية...');
       const uid = cloudUser.uid;
       const productsQuery = query(collection(db, 'products'), where('user_id', '==', uid));
-      const snapshot = await withCloudTimeout(getDocs(productsQuery), 'قراءة المنتجات السحابية', 60000);
+      const snapshot = await withCloudTimeout(getDocsFromServer(productsQuery), 'قراءة المنتجات السحابية من الخادم', 60000);
       const remoteDocs = snapshot.docs;
       const remoteById = new Map(remoteDocs.map(item => [item.id, item]));
       const remoteQueues = new Map();
@@ -2193,6 +2194,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
     fullSyncRunning = true;
     try {
+      showCloudMessage('جارٍ إعادة تهيئة اتصال Firebase ثم بدء المزامنة...');
+      // أعد تفعيل شبكة Firestore صراحةً إذا بقي العميل في حالة offline بعد انقطاع سابق.
+      await withCloudTimeout(enableNetwork(db), 'إعادة تفعيل اتصال Firestore', 20000);
+      await new Promise(resolve => setTimeout(resolve, 700));
       await syncProductsToCloud();
       await loadCartFromCloud();
       await syncSettings();
