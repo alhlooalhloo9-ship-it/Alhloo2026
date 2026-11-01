@@ -1220,7 +1220,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       '<div>ربح العبوة بالسوري الجديد: <b>' + fmt(packProfit * sypRate) + ' ل.س</b></div>' +
       '<hr><div>المخزون: ' + fmt(p.stock || 0) + ' عبوة</div>' +
       '<div>الكمية بالفاتورة: ' + fmt(cart[p.id] || 0) + ' عبوة</div>' +
-      (p.image ? '' : '<button type="button" class="primary" style="width:100%;margin-top:10px" onclick="addPhotoFromDetails(\'' + String(p.id).replace(/'/g, '\\\\'') + '\')">⬆️ تحميل صورة للمنتج</button>');
+      (p.image ? '' : '<button type="button" class="primary" id="detailsAddPhotoBtn" style="width:100%;margin-top:10px">⬆️ تحميل صورة للمنتج</button>');
     if ($('detailsModal').classList.contains('hidden') && !detailsHistoryOpen) {
       history.pushState({ nadwaApp: true, page: currentAppPage, detailsModal: true }, '', location.pathname + location.search);
       detailsHistoryOpen = true;
@@ -1346,6 +1346,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     closeDetails(true);
     editProduct(id);
   };
+  $('modalContent').addEventListener('click', function(e) {
+    const button = e.target.closest('#detailsAddPhotoBtn');
+    if (!button || activeDetailsProductId === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.addPhotoFromDetails(activeDetailsProductId);
+  });
   $('detailsEditBtn').addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
