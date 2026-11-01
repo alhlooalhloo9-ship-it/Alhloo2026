@@ -404,7 +404,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   </div>
 </div>
 <div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
-<div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><button class="primary" style="width:100%;margin-top:12px" onclick="closeDetails()">إغلاق</button></div>
+<div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><div class="detailsModalActions" style="display:flex;gap:10px;margin-top:14px"><button type="button" class="primary" id="detailsEditBtn" style="flex:1;min-height:46px">✏️ تعديل</button><button type="button" id="detailsCloseBtn" style="flex:1;min-height:46px" onclick="closeDetails()">إغلاق</button></div></div>
 </div>
 <div class="box">
 <h3>💱 أسعار الصرف</h3>
@@ -1122,7 +1122,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   });
 
   window.editProduct = function(id) {
-    let p = products.find(x => x.id === id);
+    let p = products.find(x => String(x.id) === String(id));
+    if (!p) return;
     editId = id;
     newImage = null;
     removeImg = false;
@@ -1199,9 +1200,11 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
   }
 
+  let activeDetailsProductId = null;
   window.openDetails = function(id) {
-    let p = products.find(x => x.id === id);
+    let p = products.find(x => String(x.id) === String(id));
     if (!p) return;
+    activeDetailsProductId = p.id;
     let pieces = Math.max(1, +p.pieces || 1), packCost = +p.price || 0;
     let packRevenue = (+p.sellTry || 0) * pieces / tryRate, packProfit = packRevenue - packCost;
     $('modalTitle').textContent = p.name + ' — تفاصيل العبوة';
@@ -1217,7 +1220,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       '<div>ربح العبوة بالسوري الجديد: <b>' + fmt(packProfit * sypRate) + ' ل.س</b></div>' +
       '<hr><div>المخزون: ' + fmt(p.stock || 0) + ' عبوة</div>' +
       '<div>الكمية بالفاتورة: ' + fmt(cart[p.id] || 0) + ' عبوة</div>' +
-      (p.image ? '' : '<button type="button" class="primary" style="width:100%;margin-top:10px" onclick="addPhotoFromDetails(' + p.id + ')">⬆️ تحميل صورة للمنتج</button>') + '<button type="button" class="primary" style="width:100%;margin-top:14px" onclick="editProductFromDetails(' + p.id + ')">✏️ تعديل المنتج</button>';
+      (p.image ? '' : '<button type="button" class="primary" style="width:100%;margin-top:10px" onclick="addPhotoFromDetails(\'' + String(p.id).replace(/'/g, '\\\\'') + '\')">⬆️ تحميل صورة للمنتج</button>');
     if ($('detailsModal').classList.contains('hidden') && !detailsHistoryOpen) {
       history.pushState({ nadwaApp: true, page: currentAppPage, detailsModal: true }, '', location.pathname + location.search);
       detailsHistoryOpen = true;
@@ -1343,6 +1346,19 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     closeDetails(true);
     editProduct(id);
   };
+  $('detailsEditBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (activeDetailsProductId === null) return;
+    const id = activeDetailsProductId;
+    closeDetails(true);
+    editProduct(id);
+  });
+  $('detailsCloseBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeDetails();
+  });
 
   window.closeDetails = function(skipHistory = false) {
     $('detailsModal').classList.add('hidden');
