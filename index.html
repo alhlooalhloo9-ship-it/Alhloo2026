@@ -1355,6 +1355,26 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         e.preventDefault(); e.stopPropagation(); editProduct(p.id);
         setTimeout(() => $('image').click(), 120);
       });
+      // النقر المزدوج على السعر يفتح تعديل المنتج نفسه ويركّز حقل السعر مباشرة.
+      const priceEl = el.querySelector('.price');
+      priceEl.title = 'انقر مرتين لتعديل السعر مباشرة';
+      priceEl.setAttribute('role', 'button');
+      priceEl.setAttribute('tabindex', '0');
+      const openPriceEditor = event => {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        window.editProduct(p.id);
+        const priceInput = $('price');
+        if (!priceInput) return;
+        // التركيز فوراً ضمن إيماءة المستخدم لفتح لوحة المفاتيح على الهاتف.
+        priceInput.focus({ preventScroll: true });
+        priceInput.select();
+        priceInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      priceEl.addEventListener('dblclick', openPriceEditor);
+      priceEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') openPriceEditor(event);
+      });
+      priceEl.setAttribute('aria-label', 'السعر الحالي ' + (+p.price).toFixed(2) + ' دولار. انقر مرتين لتعديل السعر');
       el.querySelector('.name').title = 'اضغط على اسم المنتج لإضافته إلى الفاتورة';
       el.querySelector('.name').onclick = e => {
         e.preventDefault();
