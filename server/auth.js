@@ -1,25 +1,6 @@
 "use strict";
-
-const admin = require("firebase-admin");
-const { parseServiceAccount } = require("./firebase");
-
-function getFirebaseAdmin() {
-  let serviceAccount;
-  try {
-    serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  } catch (error) {
-    error.statusCode = 503;
-    throw error;
-  }
-
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      projectId: serviceAccount.project_id
-    });
-  }
-  return admin;
-}
+const FIREBASE_API_KEY = "AIzaSyD1iTNsgI-R12xywSKjyxmhQSF-sZ1qQ_Q";
+const LOOKUP_URL = "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FIREBASE_API_KEY;
 
 async function requireFirebaseUser(req) {
   const header = req.headers.authorization || "";
@@ -29,15 +10,29 @@ async function requireFirebaseUser(req) {
     error.statusCode = 401;
     throw error;
   }
-
-  const firebaseAdmin = getFirebaseAdmin();
+  let response;
   try {
-    return await firebaseAdmin.auth().verifyIdToken(match[1]);
+    response = await fetch(LOOKUP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: match[1] }),
+      signal: AbortSignal.timeout(8000)
+    });
   } catch (_) {
-    const error = new Error("Invalid or expired authentication token");
-    error.statusCode = 401;
+    const error = new Error("تعذر الوصول إلى خدمة التحقق من تسجيل الدخول؛ تحقق من اتصال الخادم");
+    error.statusCode = 503;
     throw error;
   }
+  let data = {};
+  try { data = await response.json(); } catch (_) {}
+  if (!response.ok || !Array.isArray(data.users) || !data.users[0]?.localId) {
+    const error = new Error(response.status === 400
+      ? "Invalid or expired authentication token"
+      : "Firebase token verification is temporarily unavailable");
+    error.statusCode = response.status === 400 ? 401 : 503;
+    throw error;
+  }
+  const user = data.users[0];
+  return { uid: user.localId, email: user.email || null, emailVerified: Boolean(user.emailVerified), name: user.displayName || null };
 }
-
 module.exports = { requireFirebaseUser };
