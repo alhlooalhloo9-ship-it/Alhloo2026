@@ -6,7 +6,7 @@ module.exports=async function(req,res){
  try{
   const db=await getDatabase(), col=db.collection("products"), userId=user.uid;
   if(req.method==="GET"){
-   const rows=await col.find({userId}).toArray();
+   const skip=Math.max(0,Math.min(100000,Number.parseInt(req.query?.skip||"0",10)||0));\n   const limit=Math.max(1,Math.min(2,Number.parseInt(req.query?.limit||"2",10)||2));\n   const rows=await col.find({userId}).sort({id:1}).skip(skip).limit(limit).toArray();
    return res.status(200).json({ok:true,products:rows.map(({_id,...x})=>x)});
   }
   if(req.method==="POST"){
