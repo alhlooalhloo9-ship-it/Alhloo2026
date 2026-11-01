@@ -1320,17 +1320,14 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         photo.title = 'اضغط مرة لإضافة المنتج للفاتورة، أو اضغط مطولاً لعرض الصورة والتفاصيل';
         photo.addEventListener('click', e => {
           e.preventDefault(); e.stopPropagation();
-          if (photoHoldTriggered) { photoHoldTriggered = false; return; }
           add(p.id);
         });
         // الضغط المطوّل على الصورة يعرضها بحجم كبير وتظهر التفاصيل أسفلها.
-        let photoHoldTimer = null, photoHoldTriggered = false, photoStartX = 0, photoStartY = 0;
+        let photoHoldTimer = null, photoStartX = 0, photoStartY = 0;
         photo.addEventListener('pointerdown', e => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
-          photoHoldTriggered = false;
           photoStartX = e.clientX; photoStartY = e.clientY;
           photoHoldTimer = setTimeout(() => {
-            photoHoldTriggered = true;
             productHoldTriggered = true;
             window.openDetails(p.id);
           }, 650);
@@ -1347,8 +1344,6 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         photo.addEventListener('pointerleave', cancelPhotoHold);
         photo.addEventListener('contextmenu', e => {
           e.preventDefault(); e.stopPropagation();
-          photoHoldTriggered = true;
-          productHoldTriggered = true;
           window.openDetails(p.id);
         });
       }
