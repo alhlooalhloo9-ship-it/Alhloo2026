@@ -352,7 +352,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
-<div class="box"><h3>المنتجات</h3><select id="productSupplierFilter" class="supplierSelect" hidden aria-hidden="true" tabindex="-1"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
+<div class="box"><h3>المنتجات</h3>
+<div class="product-search-wrap" style="position:relative;margin:10px 0 14px">
+  <input id="productSearchInput" type="search" placeholder="🔎 ابحث عن اسم المنتج..." autocomplete="off" aria-label="البحث عن المنتجات" aria-controls="productSearchSuggestions" aria-autocomplete="list" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #b8c8bf;border-radius:10px;font:inherit;background:#fff">
+  <div id="productSearchSuggestions" role="listbox" class="hidden" style="position:absolute;top:calc(100% + 4px);right:0;left:0;z-index:50;max-height:260px;overflow:auto;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border:1px solid #cbd8d0;border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.13)"></div>
+  <small class="muted" style="display:block;margin:5px 3px">اكتب أول حرفين أو أكثر، واختر اسماً من الاقتراحات أو تابع الكتابة للبحث.</small>
+</div>
+<select id="productSupplierFilter" class="supplierSelect" hidden aria-hidden="true" tabindex="-1"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
 <button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
 <div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -1383,12 +1389,71 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiFontSize'])$(id).addEventListener('change',saveUiSettings);
   $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
   $('resetUiSettings').addEventListener('click',()=>{uiSettings={...defaultUiSettings};localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));fillUiSettings();applyUiSettings();renderProducts();$('uiSettingsStatus').textContent='تمت استعادة الإعدادات الافتراضية.';});
+  function renderProductSearchSuggestions() {
+    const input = $('productSearchInput');
+    const list = $('productSearchSuggestions');
+    if (!input || !list) return;
+    const query = normalizedProductName(input.value);
+    if (query.length < 1) {
+      list.innerHTML = '';
+      list.classList.add('hidden');
+      return;
+    }
+    const filterId = $('productSupplierFilter')?.value || 'all';
+    const matches = products.filter(p =>
+      (filterId === 'all' || (p.supplierId || 'general') === filterId) &&
+      normalizedProductName(p.name).startsWith(query)
+    ).slice(0, 8);
+    if (!matches.length) {
+      list.innerHTML = '<div style="padding:11px 13px;color:#718078">ما في أسماء مطابقة بالبداية؛ تابع الكتابة للبحث ضمن الاسم.</div>';
+      list.classList.remove('hidden');
+      return;
+    }
+    list.innerHTML = matches.map(p =>
+      '<button type="button" role="option" data-product-search-id="' + esc(String(p.id)) + '" style="display:block;width:100%;text-align:right;padding:11px 13px;border:0;border-bottom:1px solid #edf1ee;background:transparent;font:inherit;color:inherit;cursor:pointer">' +
+      '<span style="font-weight:600">' + esc(p.name) + '</span><small style="display:block;color:#718078;margin-top:3px">🏬 ' + esc(suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام') + '</small></button>'
+    ).join('');
+    list.classList.remove('hidden');
+  }
+
+  $('productSearchInput')?.addEventListener('input', () => {
+    renderProductSearchSuggestions();
+    renderProducts();
+  });
+  $('productSearchInput')?.addEventListener('focus', renderProductSearchSuggestions);
+  $('productSearchInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Escape') $('productSearchSuggestions').classList.add('hidden');
+    if (e.key === 'Enter') {
+      const first = $('productSearchSuggestions').querySelector('[data-product-search-id]');
+      if (first) {
+        e.preventDefault();
+        first.click();
+      }
+    }
+  });
+  $('productSearchSuggestions')?.addEventListener('click', e => {
+    const button = e.target.closest('[data-product-search-id]');
+    if (!button) return;
+    const product = products.find(p => String(p.id) === button.dataset.productSearchId);
+    if (!product) return;
+    $('productSearchInput').value = product.name;
+    $('productSearchSuggestions').classList.add('hidden');
+    renderProducts();
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.product-search-wrap')) $('productSearchSuggestions')?.classList.add('hidden');
+  });
+
   function renderProducts() {
     sortByPopularityIfDue();
     let root = $('products');
     root.innerHTML = '';
     const filterId = $('productSupplierFilter')?.value || 'all';
-    products.filter(p => filterId === 'all' || (p.supplierId || 'general') === filterId).forEach(p => {
+    const searchTerm = normalizedProductName($('productSearchInput')?.value || '');
+    products.filter(p =>
+      (filterId === 'all' || (p.supplierId || 'general') === filterId) &&
+      (!searchTerm || normalizedProductName(p.name).includes(searchTerm))
+    ).forEach(p => {
       let el = document.createElement('div');
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
