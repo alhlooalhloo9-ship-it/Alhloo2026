@@ -1354,14 +1354,49 @@ body.drawer-open{overflow:hidden}
   }
   function renderSupplierList() {
     if (!$('supplierList')) return;
-    $('supplierList').innerHTML = suppliers.map(x => '<div class="row"><div class="info"><b>' + esc(x.name) + '</b><small>' + products.filter(p => (p.supplierId || 'general') === x.id).length + ' منتج</small></div>' + (x.id === 'general' ? '' : '<button type="button" onclick="renameSupplier(\'' + esc(x.id) + '\')">تعديل الاسم</button>') + '</div>').join('');
+    $('supplierList').innerHTML = suppliers.map(x => {
+      const count = products.filter(p => (p.supplierId || 'general') === x.id).length;
+      const actions = x.id === 'general' ? '' :
+        '<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" onclick="renameSupplier(\'' + esc(x.id) + '\')">✏️ إعادة تسمية</button><button type="button" class="danger" onclick="deleteSupplier(\'' + esc(x.id) + '\')">🗑️ حذف المخزن</button></div>';
+      return '<div class="row"><div class="info"><b>' + esc(x.name) + '</b><small>' + count + ' منتج</small></div>' + actions + '</div>';
+    }).join('');
   }
   window.renameSupplier = function(id) {
     const item = suppliers.find(x => x.id === id);
-    if (!item) return;
+    if (!item || item.id === 'general') return;
     const name = prompt('اكتب الاسم الجديد للمخزن:', item.name);
     if (!name || !name.trim()) return;
-    item.name = name.trim().slice(0,80); save(); renderSupplierList(); renderSupplierSelectors(); renderProducts(); renderInvoice();
+    const clean = name.trim().slice(0,80);
+    if (suppliers.some(x => x.id !== id && x.name.trim().toLocaleLowerCase() === clean.toLocaleLowerCase())) return alert('يوجد مخزن آخر بهذا الاسم.');
+    item.name = clean;
+    save(); renderSupplierList(); renderSupplierSelectors(); renderProducts(); renderInvoice();
+  };
+  window.deleteSupplier = function(id) {
+    const item = suppliers.find(x => x.id === id);
+    if (!item || item.id === 'general') return;
+    const count = products.filter(p => (p.supplierId || 'general') === id).length;
+    const message = count
+      ? 'المخزن «' + item.name + '» يحتوي على ' + count + ' منتج.\nسيتم نقل هذه المنتجات إلى «مخزن عام» قبل حذف المخزن.\nلن تُحذف المنتجات أو الفواتير السابقة. هل تريد المتابعة؟'
+      : 'هل تريد حذف المخزن «' + item.name + '»؟';
+    if (!confirm(message)) return;
+    products.forEach(p => { if ((p.supplierId || 'general') === id) p.supplierId = 'general'; });
+    const oldCart = supplierCarts[id] || {};
+    if (!supplierCarts.general) supplierCarts.general = {};
+    Object.entries(oldCart).forEach(([productId, qty]) => {
+      if (products.some(p => String(p.id) === String(productId) && (p.supplierId || 'general') === 'general')) {
+        supplierCarts.general[productId] = (+(supplierCarts.general[productId] || 0)) + (+qty || 0);
+      }
+    });
+    delete supplierCarts[id];
+    suppliers = suppliers.filter(x => x.id !== id);
+    if (activeSupplierId === id) {
+      supplierCarts[activeSupplierId] = cart;
+      activeSupplierId = 'general';
+      cart = supplierCarts.general || (supplierCarts.general = {});
+    }
+    if ($('productSupplierFilter')?.value === id) $('productSupplierFilter').value = 'all';
+    save(); renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+    alert('تم حذف المخزن. المنتجات نُقلت إلى مخزن عام، والفواتير السابقة بقيت محفوظة.');
   };
   $('addSupplierBtn').addEventListener('click', () => {
     const name = $('newSupplierName').value.trim();
