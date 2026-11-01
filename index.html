@@ -1984,11 +1984,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     try {
       showCloudMessage('جارٍ جلب المنتجات من قاعدة البيانات الجديدة...');
       const remote = [];
-      for (let skip = 0; ; skip += 2) {
-        const page = await apiRequest('/products?skip=' + skip + '&limit=2');
+      const pageSize = 500;
+      for (let skip = 0; ; skip += pageSize) {
+        const page = await apiRequest('/products?skip=' + skip + '&limit=' + pageSize);
         const rows = Array.isArray(page.products) ? page.products : [];
         remote.push(...rows);
-        if (rows.length < 2) break;
+        if (rows.length < pageSize) break;
       }
       const localIds = new Set(products.map(p => String(p.id)));
       for (const item of remote) {
@@ -1998,8 +1999,9 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         }
       }
       let saved = 0;
-      for (let offset = 0; offset < products.length; offset += 2) {
-        const batch = products.slice(offset, offset + 2).map(p => ({ ...p, id: String(p.id) }));
+      const batchSize = 100;
+      for (let offset = 0; offset < products.length; offset += batchSize) {
+        const batch = products.slice(offset, offset + batchSize).map(p => ({ ...p, id: String(p.id) }));
         const result = await apiRequest('/products', { method: 'POST', body: { products: batch } });
         saved += Number(result.saved || batch.length);
         showCloudMessage('جارٍ حفظ المنتجات عبر Vercel: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
