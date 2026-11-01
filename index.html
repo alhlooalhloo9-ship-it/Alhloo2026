@@ -345,7 +345,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <label><input type="checkbox" id="uiShowPrice" checked> السعر</label>
 <label><input type="checkbox" id="uiShowSupplier" checked> اسم المخزن</label>
 <label><input type="checkbox" id="uiShowPieces" checked> عدد القطع</label>
-<label><input type="checkbox" id="uiShowTaps" checked> الكبسات</label>
+<label><input type="checkbox" id="uiShowTaps" checked> الإضافة</label>
 <label><input type="checkbox" id="uiShowActions" checked> أزرار الإجراءات</label></div>
 <button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
 <div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
@@ -1180,7 +1180,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     if ((p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
     let taps = +(p.pickCount || 0);
     if (taps <= 0) {
-      alert('عدد الكبسات لهذا المنتج صفر بالفعل.');
+      alert('عدد الإضافات لهذا المنتج صفر بالفعل.');
       return;
     }
     if ((cart[id] || 0) > 0) {
@@ -1458,7 +1458,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">➕ الإضافة: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="إزالة إضافة بالخطأ">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
