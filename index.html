@@ -314,7 +314,7 @@ body.drawer-open{overflow:hidden}
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
-<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
+<div class="box"><h3>المنتجات</h3><select id="productSupplierFilter" class="supplierSelect" hidden aria-hidden="true" tabindex="-1"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
 <button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
 <div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
