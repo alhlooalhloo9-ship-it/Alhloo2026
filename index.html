@@ -557,6 +557,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   // إدارة زر الرجوع: الصفحات الداخلية ترجع خطوة، والرئيسية تطلب تأكيداً من أول ضغطة.
   let currentAppPage = 'products';
   let handlingAppPopState = false;
+  let detailsHistoryOpen = false;
+  let ignoreNextDetailsPopState = false;
 
   function showAppPage(p) {
     $('productsPage').classList.toggle('hidden', p !== 'products');
@@ -588,6 +590,18 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
 
   window.addEventListener('popstate', function(event) {
+    // إذا كانت تفاصيل المنتج مفتوحة، زر الرجوع في الهاتف يغلقها أولاً
+    // ويبقى المستخدم في نفس صفحة المنتجات دون إظهار تأكيد الخروج.
+    if (ignoreNextDetailsPopState) {
+      ignoreNextDetailsPopState = false;
+      return;
+    }
+    if (detailsHistoryOpen) {
+      detailsHistoryOpen = false;
+      $('detailsModal').classList.add('hidden');
+      return;
+    }
+
     if ($('sideDrawer') && $('sideDrawer').classList.contains('open')) {
       closeDrawer();
       history.pushState({ nadwaApp: true, page: currentAppPage, homeGuard: currentAppPage === 'products' }, '', location.pathname + location.search);
@@ -1148,6 +1162,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       '<hr><div>المخزون: ' + fmt(p.stock || 0) + ' عبوة</div>' +
       '<div>الكمية بالفاتورة: ' + fmt(cart[p.id] || 0) + ' عبوة</div>' +
       (p.image ? '' : '<button type="button" class="primary" style="width:100%;margin-top:10px" onclick="addPhotoFromDetails(' + p.id + ')">⬆️ تحميل صورة للمنتج</button>') + '<button type="button" class="primary" style="width:100%;margin-top:14px" onclick="editProductFromDetails(' + p.id + ')">✏️ تعديل المنتج</button>';
+    if ($('detailsModal').classList.contains('hidden') && !detailsHistoryOpen) {
+      history.pushState({ nadwaApp: true, page: currentAppPage, detailsModal: true }, '', location.pathname + location.search);
+      detailsHistoryOpen = true;
+    }
     $('detailsModal').classList.remove('hidden');
   };
 
@@ -1263,15 +1281,24 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   });
 
   window.addPhotoFromDetails = function(id) {
-    closeDetails(); editProduct(id); setTimeout(() => $('image').click(), 120);
+    closeDetails(true); editProduct(id); setTimeout(() => $('image').click(), 120);
   };
   window.editProductFromDetails = function(id) {
-    closeDetails();
+    closeDetails(true);
     editProduct(id);
   };
 
-  window.closeDetails = function() {
+  window.closeDetails = function(skipHistory = false) {
     $('detailsModal').classList.add('hidden');
+    if (detailsHistoryOpen) {
+      detailsHistoryOpen = false;
+      if (skipHistory) {
+        ignoreNextDetailsPopState = true;
+        history.back();
+      } else {
+        history.back();
+      }
+    }
   };
 
   const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true};
