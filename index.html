@@ -2133,6 +2133,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     renderSupplierList();
     renderProducts();
     renderInvoice();
+    if (cloudUser) {
+      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بقاعدة البيانات عبر Vercel...');
+      window.setTimeout(() => syncCloudSafely(), 500);
+    }
   });
   $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
