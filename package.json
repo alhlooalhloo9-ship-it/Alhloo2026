@@ -1,0 +1,13 @@
+{
+  "name": "alhloo2026-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure serverless API foundation for the Alhloo2026 application",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "mongodb": "^6.19.0"
+  }
+}
