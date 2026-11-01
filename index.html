@@ -424,23 +424,6 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     signOut, 
     onAuthStateChanged 
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-  import { 
-    getFirestore,
-    initializeFirestore,
-    collection, 
-    addDoc, 
-    getDocs, 
-    doc, 
-    setDoc, 
-    updateDoc, 
-    deleteDoc, 
-    query,
-    where,
-    getDoc,
-    getDocsFromServer,
-    enableNetwork,
-    writeBatch
-  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD1iTNsgI-R12xywSKjyxmhQSF-sZ1qQ_Q",
@@ -452,14 +435,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     measurementId: "G-360V9996CH"
   };
 
+  // Firebase Authentication فقط لتسجيل الدخول؛ لا يوجد أي اتصال Firestore من المتصفح.
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  // دع Firebase يختار آلية Long Polling المناسبة تلقائياً حسب بيئة المتصفح أو WebView.
-  // هذا أكثر توافقاً من فرض نمط اتصال واحد على جميع الأجهزة.
-  const db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
-    useFetchStreams: false
-  });
+  const API_BASE = "https://alhloo2026.vercel.app/api";
 
   let cloudUser = null, syncingCloud = false, cloudTimer = null, fullSyncRunning = false;
   const $ = id => document.getElementById(id);
@@ -1906,16 +1885,16 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     const code = String(error?.code || error?.name || 'unknown');
     const message = String(error?.message || 'لا توجد تفاصيل إضافية');
     const known = {
-      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في إعدادات Firebase.',
+      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في خدمة الحسابات.',
       'auth/invalid-credential': 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود.',
       'auth/user-not-found': 'لا يوجد حساب بهذا الاسم.',
       'auth/wrong-password': 'كلمة المرور غير صحيحة.',
       'auth/email-already-in-use': 'اسم المستخدم مستخدم مسبقاً.',
       'auth/weak-password': 'كلمة المرور ضعيفة؛ استخدم 6 أحرف على الأقل.',
       'auth/invalid-email': 'صيغة بيانات الحساب التي أُرسلت إلى Firebase غير مقبولة.',
-      'auth/network-request-failed': 'تعذّر الاتصال بخوادم Firebase. جرّب شبكة أخرى وأوقف VPN أو مانع الإعلانات مؤقتاً.',
+      'auth/network-request-failed': 'تعذّر الاتصال بخدمة تسجيل الدخول. تحقق من اتصال الإنترنت.',
       'auth/too-many-requests': 'تمت محاولات كثيرة؛ انتظر قليلاً ثم أعد المحاولة.',
-      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'مفتاح Firebase API غير صالح أو مقيّد.'
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'إعداد مفتاح خدمة تسجيل الدخول غير صالح أو مقيّد.'
     };
     const explanation = known[code] || (message.includes('Failed to fetch')
       ? 'المتصفح لم يتمكن من الوصول إلى خدمة Firebase أو تحميلها. هذا غالباً اتصال أو حجب للشبكة، وليس خطأ كلمة المرور.'
@@ -1979,156 +1958,47 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
   }
 
-  function toCloudProduct(p) {
-    return {
-      user_id: cloudUser.uid,
-      name: String(p.name || 'منتج'),
-      purchase_price_usd: +p.price || 0,
-      pieces_per_package: Math.max(1, +p.pieces || 1),
-      selling_price_try: +p.sellTry || 0,
-      stock: Math.max(0, +p.stock || 0),
-      image: p.image || '',
-      pick_count: Math.max(0, +p.pickCount || 0)
-    };
+  async function apiRequest(path, options = {}) {
+    if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
+    const token = await cloudUser.getIdToken();
+    const response = await fetch(API_BASE + path, {
+      method: options.method || "GET",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      cache: "no-store"
+    });
+    let data = {};
+    try { data = await response.json(); } catch (_) {}
+    if (!response.ok || data.ok === false) throw new Error(data.error || ("فشل طلب الخادم (" + response.status + ")"));
+    return data;
   }
-
-  function fromCloudProduct(docSnap) {
-    const data = docSnap.data();
-    return {
-      id: +data.id || Date.now(),
-      docId: docSnap.id,
-      name: data.name,
-      price: +data.purchase_price_usd || 0,
-      pieces: Math.max(1, +data.pieces_per_package || 1),
-      sellTry: +data.selling_price_try || 0,
-      stock: Math.max(0, +data.stock || 0),
-      image: data.image || '',
-      pickCount: Math.max(0, +data.pick_count || 0)
-    };
-  }
-
-  function productSignature(p) {
-    return [String(p.name || '').trim().toLocaleLowerCase(), (+p.price || 0).toFixed(2), Math.max(1, +p.pieces || 1), (+p.sellTry || 0).toFixed(2)].join('|');
-  }
-
-  // Firestore requests must not leave the interface stuck indefinitely.
-  function withCloudTimeout(promise, label, timeoutMs = 20000) {
-    let timer;
-    return Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('انتهت مهلة الاتصال أثناء ' + label + '. تحقق من اتصال Firebase ثم أعد المحاولة.')), timeoutMs);
-      })
-    ]).finally(() => clearTimeout(timer));
-  }
-
 
   async function syncProductsToCloud() {
     if (!cloudUser || syncingCloud) return;
     syncingCloud = true;
     try {
-      showCloudMessage('جارٍ قراءة المنتجات السحابية...');
-      const uid = cloudUser.uid;
-      const productsQuery = query(collection(db, 'products'), where('user_id', '==', uid));
-      const snapshot = await withCloudTimeout(getDocsFromServer(productsQuery), 'قراءة المنتجات السحابية من الخادم', 60000);
-      const remoteDocs = snapshot.docs;
-      const remoteById = new Map(remoteDocs.map(item => [item.id, item]));
-      const remoteQueues = new Map();
-
-      for (const remote of remoteDocs) {
-        const data = remote.data();
-        const key = productSignature({
-          name: data.name,
-          price: data.purchase_price_usd,
-          pieces: data.pieces_per_package,
-          sellTry: data.selling_price_try
-        });
-        if (!remoteQueues.has(key)) remoteQueues.set(key, []);
-        remoteQueues.get(key).push(remote);
-      }
-
-      // تجهيز كل المراجع قبل الإرسال. المعرّف الثابت يمنع إنشاء وثيقة جديدة
-      // كل مرة تنقطع فيها الشبكة أو يعاد تشغيل المزامنة.
-      const jobs = [];
-      const usedRemoteIds = new Set();
-      for (const local of products) {
-        let existing = local.docId ? remoteById.get(local.docId) : null;
-        if (existing && usedRemoteIds.has(existing.id)) existing = null;
-        if (!existing) {
-          const queue = remoteQueues.get(productSignature(local)) || [];
-          existing = queue.find(item => !usedRemoteIds.has(item.id)) || null;
-        }
-        if (existing) usedRemoteIds.add(existing.id);
-
-        const stableId = String(local.id);
-        const ref = existing
-          ? doc(db, 'products', existing.id)
-          : doc(db, 'products', uid + '_' + stableId);
-        const payload = { ...toCloudProduct(local), id: local.id };
-        const payloadBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
-        if (payloadBytes > 850000) {
-          throw new Error('صورة المنتج «' + (local.name || '') + '» كبيرة جداً لتخزينها في Firestore. لم يتم حذف أو تعديل بياناته المحلية؛ يلزم تصغير الصورة قبل مزامنته.');
-        }
-        jobs.push({ local, ref, payload, payloadBytes });
-      }
-
-      // دفعات صغيرة لتقليل عدد الاتصالات وتفادي حد حجم طلب Firestore.
-      // نترك هامشاً آمناً لحجم الطلب، ونحفظ نقطة التقدم بعد كل دفعة ناجحة.
-      const MAX_BATCH_WRITES = 100;
-      const MAX_BATCH_BYTES = 6 * 1024 * 1024;
-      let batchJobs = [];
-      let batchBytes = 0;
-      let completed = 0;
-
-      const commitPendingBatch = async () => {
-        if (!batchJobs.length) return;
-        const current = batchJobs;
-        const batch = writeBatch(db);
-        for (const job of current) batch.set(job.ref, job.payload, { merge: true });
-        showCloudMessage('جارٍ رفع المنتجات: ' + completed + ' من ' + jobs.length + ' — الدفعة الحالية ' + current.length + ' منتج...');
-        await withCloudTimeout(batch.commit(), 'تأكيد Firebase لحفظ دفعة المنتجات (' + current.length + ' منتج)', 30000);
-
-        const savedIds = new Map(current.map(job => [String(job.local.id), job.ref.id]));
-        products = products.map(item => savedIds.has(String(item.id))
-          ? { ...item, docId: savedIds.get(String(item.id)) }
-          : item);
-        saveLocalOnly();
-        completed += current.length;
-        batchJobs = [];
-        batchBytes = 0;
-        showCloudMessage('تم حفظ ' + completed + ' من ' + jobs.length + ' منتجاً بأمان...');
-      };
-
-      for (const job of jobs) {
-        if (batchJobs.length && (batchJobs.length >= MAX_BATCH_WRITES || batchBytes + job.payloadBytes > MAX_BATCH_BYTES)) {
-          await commitPendingBatch();
-        }
-        batchJobs.push(job);
-        batchBytes += job.payloadBytes;
-      }
-      await commitPendingBatch();
-
-      // دمج أي سجلات سحابية غير ممثلة محلياً دون حذفها.
-      const knownDocIds = new Set(products.map(item => item.docId).filter(Boolean));
-      for (const remote of remoteDocs) {
-        if (!knownDocIds.has(remote.id)) {
-          products.push(fromCloudProduct(remote));
-          knownDocIds.add(remote.id);
+      showCloudMessage('جارٍ جلب المنتجات من قاعدة البيانات الجديدة...');
+      const data = await apiRequest('/products');
+      const remote = Array.isArray(data.products) ? data.products : [];
+      const localIds = new Set(products.map(p => String(p.id)));
+      for (const item of remote) {
+        if (!localIds.has(String(item.id))) {
+          products.push({ ...item, id: item.id });
+          localIds.add(String(item.id));
         }
       }
-
+      const result = await apiRequest('/products', {
+        method: 'POST',
+        body: { products: products.map(p => ({ ...p, id: String(p.id) })) }
+      });
       saveLocalOnly();
       renderProducts();
       renderInvoice();
-      showCloudMessage('اكتملت مزامنة ' + products.length + ' منتجاً بنجاح.');
-    } finally {
-      syncingCloud = false;
-    }
+      showCloudMessage('اكتملت مزامنة ' + (result.saved || products.length) + ' منتجاً مع MongoDB عبر Vercel.');
+    } finally { syncingCloud = false; }
   }
 
-  function saveLocalOnly() {
-    saveWorkspaceLocal();
-  }
+  function saveLocalOnly() { saveWorkspaceLocal(); }
 
   async function syncCartToCloud() {
     if (!cloudUser) return;
@@ -2137,82 +2007,52 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       const product = products.find(p => String(p.id) === String(id));
       if (product && +quantity > 0) items[String(product.id)] = +quantity;
     }
-    await withCloudTimeout(setDoc(doc(db, 'user_carts', cloudUser.uid), {
-      user_id: cloudUser.uid,
-      items,
-      updated_at: new Date().toISOString()
-    }, { merge: true }), 'حفظ الفاتورة');
-    showCloudMessage('تمت مزامنة الفاتورة والمنتجات المختارة مع الحساب.');
+    await apiRequest('/cart', { method: 'PUT', body: { items } });
+    showCloudMessage('تمت مزامنة الفاتورة مع قاعدة البيانات الجديدة.');
   }
 
   async function loadCartFromCloud() {
     if (!cloudUser) return;
-    const cartRef = doc(db, 'user_carts', cloudUser.uid);
-    const cartSnap = await withCloudTimeout(getDoc(cartRef), 'قراءة الفاتورة');
-    if (cartSnap.exists()) {
-      const savedItems = cartSnap.data().items || {};
-      const restored = {};
-      for (const [id, quantity] of Object.entries(savedItems)) {
-        if (products.some(p => String(p.id) === String(id)) && +quantity > 0) {
-          restored[id] = +quantity;
-        }
-      }
-      for (const [id, quantity] of Object.entries(cart || {})) {
-        if (products.some(p => String(p.id) === String(id)) && +quantity > 0) {
-          restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
-        }
-      }
-      cart = restored;
-      saveLocalOnly();
-      renderProducts();
-      renderInvoice();
-      showCloudMessage('تم استرجاع الفاتورة والمنتجات المختارة من الحساب.');
-    } else if (Object.keys(cart).length) {
-      // إذا كانت الفاتورة موجودة على الجهاز الأول ولم تُرفع سابقاً، ارفعها دون استبدالها بسلة فارغة من جهاز جديد.
-      await syncCartToCloud();
+    const data = await apiRequest('/cart');
+    const savedItems = data.items || {};
+    const restored = {};
+    for (const [id, quantity] of Object.entries(savedItems)) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = +quantity;
     }
+    for (const [id, quantity] of Object.entries(cart || {})) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
+    }
+    cart = restored;
+    saveLocalOnly();
+    renderProducts();
+    renderInvoice();
+    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من MongoDB.');
+    else if (Object.keys(cart).length) await syncCartToCloud();
   }
 
   async function syncSettings() {
     if (!cloudUser) return;
-    const settings = { tryRate, sypRate };
-    const q = query(collection(db, 'app_settings'), where('user_id', '==', cloudUser.uid));
-    const snap = await withCloudTimeout(getDocs(q), 'قراءة الإعدادات');
-    if (!snap.empty) {
-      const docRef = snap.docs[0].ref;
-      await withCloudTimeout(setDoc(docRef, { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }, { merge: true }), 'حفظ الإعدادات');
-    } else {
-      await withCloudTimeout(addDoc(collection(db, 'app_settings'), { user_id: cloudUser.uid, settings, updated_at: new Date().toISOString() }), 'إضافة الإعدادات');
-    }
+    await apiRequest('/settings', { method: 'PUT', body: { settings: { tryRate, sypRate } } });
   }
 
   async function syncCloudSafely() {
     if (!cloudUser || fullSyncRunning) return;
     if (navigator.onLine === false) {
-      showCloudMessage('الجهاز غير متصل بالإنترنت حالياً. بيانات المنتجات والفاتورة محفوظة على هذا الهاتف، وستُعاد محاولة المزامنة عند عودة الاتصال.');
+      showCloudMessage('الجهاز غير متصل بالإنترنت. بياناتك محفوظة محلياً وستتم إعادة المحاولة عند عودة الاتصال.');
       return;
     }
     fullSyncRunning = true;
     try {
-      showCloudMessage('جارٍ إعادة تهيئة اتصال Firebase ثم بدء المزامنة...');
-      // أعد تفعيل شبكة Firestore صراحةً إذا بقي العميل في حالة offline بعد انقطاع سابق.
-      await withCloudTimeout(enableNetwork(db), 'إعادة تفعيل اتصال Firestore', 20000);
-      await new Promise(resolve => setTimeout(resolve, 700));
+      showCloudMessage('جارٍ الاتصال بقاعدة البيانات عبر Vercel...');
       await syncProductsToCloud();
       await loadCartFromCloud();
       await syncSettings();
-      showCloudMessage('اكتملت المزامنة السحابية للمنتجات والفاتورة والإعدادات.');
+      showCloudMessage('اكتملت المزامنة عبر Vercel API مع MongoDB بنجاح.');
     } catch (e) {
-      const code = String(e?.code || '');
       const message = String(e?.message || 'خطأ غير معروف');
-      const offlineError = navigator.onLine === false || /client is offline|unavailable|failed to fetch|network/i.test(message) || code === 'unavailable';
-      showCloudMessage(offlineError
-        ? 'تعذّر الوصول إلى Firebase حالياً (' + message + '). لم تُحذف أي بيانات؛ بقيت محفوظة على هذا الهاتف، وستُعاد المحاولة تلقائياً عند عودة الاتصال.'
-        : 'تعذرت المزامنة: ' + message + ' — بقيت بيانات الجهاز محفوظة.');
-      console.error('Firestore synchronization failed:', { code, message, error: e });
-    } finally {
-      fullSyncRunning = false;
-    }
+      showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
+      console.error('Vercel API synchronization failed:', e);
+    } finally { fullSyncRunning = false; }
   }
 
   // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
