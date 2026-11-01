@@ -233,6 +233,20 @@ body.drawer-open{overflow:hidden}
 .supplier-quick-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;background:#fff;border:1px solid #e4ebe6;border-radius:14px;box-shadow:0 3px 12px rgba(31,64,46,.04)}.supplier-quick-switch:before{content:"المخازن:";font-size:13px;font-weight:800;color:#50665a}.supplier-quick-switch button{background:#f0f5f1;color:#315744;border:1px solid #dce8df;padding:9px 13px;font-size:13px;white-space:nowrap}.supplier-quick-switch button.active{background:#174c3c;color:#fff;border-color:#174c3c;box-shadow:0 3px 9px #174c3c22}.supplier-quick-switch button:focus-visible{outline:3px solid #8bbba0;outline-offset:2px}
 #smartProductText{max-width:100%;min-height:110px}
 @media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}#invoicePage .no-print button{flex:1 1 46%}}
+:root{--user-page-bg:#f4f7f5;--user-card-bg:#fff;--user-accent:#174c3c;--user-font-scale:1;--user-columns:2}
+body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-font-scale))}
+.prod{background:var(--user-card-bg)!important}
+.primary{background:var(--user-accent)!important}
+#products.grid{grid-template-columns:repeat(var(--user-columns),minmax(0,1fr))!important}
+#products.layout-list{display:flex!important;flex-direction:column;gap:9px}
+#products.layout-list .prod{display:grid;grid-template-columns:minmax(76px,28%) minmax(0,1fr);gap:6px 10px;text-align:right;align-items:center}
+#products.layout-list .prod .productPhoto{grid-column:1;grid-row:1 / span 4;height:100px;max-width:100%;margin:0}
+#products.layout-list .prod .name,#products.layout-list .prod .muted,#products.layout-list .prod .price,#products.layout-list .prod .tapControls,#products.layout-list .prod details{grid-column:2}
+#products.hide-image .productPhoto,#products.hide-image .uploadProductPhoto,#products.hide-name .name,#products.hide-price .price,#products.hide-supplier .prod>.muted,#products.hide-pieces .prod>.muted,#products.hide-taps .tapControls,#products.hide-actions .productDetails{display:none!important}
+.setting-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.setting-checks label{display:flex;align-items:center;gap:8px;background:#f5f8f6;border:1px solid #e4ebe6;border-radius:10px;padding:10px;font-size:14px}
+.setting-checks input{width:18px;height:18px;margin:0;flex:0 0 auto}
+@media(max-width:420px){#products.grid{grid-template-columns:repeat(min(var(--user-columns),2),minmax(0,1fr))!important}.setting-checks{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -260,6 +274,7 @@ body.drawer-open{overflow:hidden}
     <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
     <button type="button" onclick="page('suppliers');closeDrawer()">🏬 المخازن وأصحابها</button>
     <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
+    <button type="button" onclick="page('settings');closeDrawer()">🎨 إعدادات الصفحة الرئيسية</button>
     <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
   </nav>
   <hr class="drawer-divider">
@@ -311,6 +326,27 @@ body.drawer-open{overflow:hidden}
 <div id="syncMessage" class="muted" role="status"></div>
 </div>
 </section>
+<section id="settingsPage" class="hidden">
+<div class="box"><h3>🎨 تخصيص الصفحة الرئيسية</h3>
+<p class="muted">خصص شكل عرض المنتجات والخط والألوان. تُحفظ اختياراتك تلقائياً على هذا الجهاز لهذا الحساب.</p>
+<label for="uiColumns">عدد الأعمدة</label><select id="uiColumns" class="supplierSelect"><option value="2">عمودان</option><option value="3">ثلاثة أعمدة</option><option value="4">أربعة أعمدة</option></select>
+<label for="uiLayout">طريقة العرض</label><select id="uiLayout" class="supplierSelect"><option value="grid">شبكة بطاقات</option><option value="list">قائمة طولية</option></select>
+<label for="uiFont">نوع الخط</label><select id="uiFont" class="supplierSelect"><option value="Arial">Arial</option><option value="Tahoma">Tahoma</option><option value="system">خط الجهاز</option></select>
+<label for="uiFontSize">حجم الخط: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
+<label for="uiPageColor">لون خلفية الصفحة</label><input id="uiPageColor" type="color" value="#f4f7f5">
+<label for="uiCardColor">لون بطاقات المنتجات</label><input id="uiCardColor" type="color" value="#ffffff">
+<label for="uiAccentColor">اللون الأساسي</label><input id="uiAccentColor" type="color" value="#174c3c">
+<hr class="drawer-divider"><h3>👁️ العناصر الظاهرة بالمنتج</h3>
+<div class="setting-checks">
+<label><input type="checkbox" id="uiShowImage" checked> صورة المنتج</label>
+<label><input type="checkbox" id="uiShowName" checked> اسم المنتج</label>
+<label><input type="checkbox" id="uiShowPrice" checked> السعر</label>
+<label><input type="checkbox" id="uiShowSupplier" checked> اسم المخزن</label>
+<label><input type="checkbox" id="uiShowPieces" checked> عدد القطع</label>
+<label><input type="checkbox" id="uiShowTaps" checked> الكبسات</label>
+<label><input type="checkbox" id="uiShowActions" checked> أزرار الإجراءات</label></div>
+<button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
+<div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
@@ -526,6 +562,7 @@ body.drawer-open{overflow:hidden}
     $('productFormPage').classList.toggle('hidden', p !== 'add');
     $('invoicePage').classList.toggle('hidden', p !== 'invoice');
     $('accountPage').classList.toggle('hidden', p !== 'account');
+    $('settingsPage').classList.toggle('hidden', p !== 'settings');
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
@@ -537,7 +574,7 @@ body.drawer-open{overflow:hidden}
   }
 
   window.page = function(p) {
-    if (!['products', 'suppliers', 'add', 'invoice', 'account'].includes(p)) return;
+    if (!['products', 'suppliers', 'add', 'invoice', 'account', 'settings'].includes(p)) return;
     if (!handlingAppPopState && p !== currentAppPage) {
       history.pushState({ nadwaApp: true, page: p }, '', location.pathname + location.search);
     }
