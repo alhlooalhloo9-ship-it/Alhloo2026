@@ -560,11 +560,30 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     saveWorkspaceLocal();
   }
 
-  // إدارة زر الرجوع: الصفحات الداخلية ترجع خطوة، والرئيسية تطلب تأكيداً من أول ضغطة.
+  // إدارة زر الرجوع: الصفحات الداخلية ترجع بشكل طبيعي، والخروج من الرئيسية يتطلب ضغطتين ثم تأكيداً.
   let currentAppPage = 'products';
   let handlingAppPopState = false;
   let detailsHistoryOpen = false;
   let ignoreNextDetailsPopState = false;
+  let lastHomeBackPressAt = 0;
+  let allowAppExit = false;
+  let backPressNoticeTimer = null;
+
+  function showBackPressNotice(message) {
+    let notice = $('appBackNotice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'appBackNotice';
+      notice.setAttribute('role', 'status');
+      notice.setAttribute('aria-live', 'polite');
+      notice.style.cssText = 'position:fixed;z-index:10000;bottom:24px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:13px 18px;border-radius:12px;background:#173f32;color:#fff;box-shadow:0 5px 22px #0004;text-align:center;font:600 14px/1.6 system-ui;direction:rtl';
+      document.body.appendChild(notice);
+    }
+    notice.textContent = message;
+    notice.style.display = 'block';
+    clearTimeout(backPressNoticeTimer);
+    backPressNoticeTimer = setTimeout(() => { notice.style.display = 'none'; }, 2200);
+  }
 
   function showAppPage(p) {
     $('productsPage').classList.toggle('hidden', p !== 'products');
@@ -596,8 +615,9 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
 
   window.addEventListener('popstate', function(event) {
-    // إذا كانت تفاصيل المنتج مفتوحة، زر الرجوع في الهاتف يغلقها أولاً
-    // ويبقى المستخدم في نفس صفحة المنتجات دون إظهار تأكيد الخروج.
+    if (allowAppExit) return;
+
+    // زر الرجوع يغلق التفاصيل أولاً دون الخروج من التطبيق.
     if (ignoreNextDetailsPopState) {
       ignoreNextDetailsPopState = false;
       return;
@@ -614,11 +634,25 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       return;
     }
 
-    // على الصفحة الرئيسية يظهر التأكيد من أول ضغطة، ويتكرر إذا اختار المستخدم "لا".
     if (currentAppPage === 'products') {
+      const now = Date.now();
+      const secondPress = now - lastHomeBackPressAt <= 2000;
+      // نعيد حارس الصفحة فوراً حتى لا يخرج التطبيق مع الضغطة الأولى.
+      history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
+
+      if (!secondPress) {
+        lastHomeBackPressAt = now;
+        showBackPressNotice('للخروج اضغط زر الرجوع مرة ثانية خلال ثانيتين.');
+        return;
+      }
+
+      lastHomeBackPressAt = 0;
       const wantsToExit = window.confirm('هل تريد الخروج من التطبيق؟');
-      if (!wantsToExit) {
-        history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
+      if (wantsToExit) {
+        allowAppExit = true;
+        history.back();
+      } else {
+        showBackPressNotice('تم إلغاء الخروج. أنت ما زلت داخل التطبيق.');
       }
       return;
     }
@@ -630,7 +664,6 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     showAppPage(targetPage);
     handlingAppPopState = false;
 
-    // عند الرجوع إلى الرئيسية نعيد إنشاء الحارس فوراً.
     if (targetPage === 'products') {
       history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
     }
