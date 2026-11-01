@@ -230,6 +230,7 @@ body.drawer-open{overflow:hidden}
 @media print{.menu-toggle,.side-drawer,.drawer-backdrop{display:none!important}}
 
 .supplierSelect{width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px}
+.supplier-quick-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;background:#fff;border:1px solid #e4ebe6;border-radius:14px;box-shadow:0 3px 12px rgba(31,64,46,.04)}.supplier-quick-switch:before{content:"المخازن:";font-size:13px;font-weight:800;color:#50665a}.supplier-quick-switch button{background:#f0f5f1;color:#315744;border:1px solid #dce8df;padding:9px 13px;font-size:13px;white-space:nowrap}.supplier-quick-switch button.active{background:#174c3c;color:#fff;border-color:#174c3c;box-shadow:0 3px 9px #174c3c22}.supplier-quick-switch button:focus-visible{outline:3px solid #8bbba0;outline-offset:2px}
 #smartProductText{max-width:100%;min-height:110px}
 @media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}#invoicePage .no-print button{flex:1 1 46%}}
 </style>
@@ -312,6 +313,7 @@ body.drawer-open{overflow:hidden}
 </section>
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
+<div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
 <div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
 <button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
 <div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
@@ -1320,6 +1322,13 @@ body.drawer-open{overflow:hidden}
   }
 
   function supplierName(id) { return suppliers.find(x => x.id === id)?.name || 'مخزن عام'; }
+  function renderSupplierQuickSwitch() {
+    const root = $('supplierQuickSwitch');
+    if (!root) return;
+    const current = $('productSupplierFilter')?.value || 'all';
+    const buttons = [{id:'all',name:'كل المخازن'}, ...suppliers.map(x => ({id:String(x.id),name:x.name}))];
+    root.innerHTML = buttons.map(x => '<button type="button" data-supplier-filter="' + esc(x.id) + '" class="' + (String(current) === String(x.id) ? 'active' : '') + '" aria-pressed="' + (String(current) === String(x.id) ? 'true' : 'false') + '">' + esc(x.name) + '</button>').join('');
+  }
   function renderSupplierSelectors() {
     const options = suppliers.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
     if ($('productSupplier')) {
@@ -1341,7 +1350,7 @@ body.drawer-open{overflow:hidden}
       const destination = $('bulkMoveDestination').value || activeSupplierId || 'general';
       $('bulkMoveDestination').innerHTML = options;
       $('bulkMoveDestination').value = suppliers.some(x => x.id === destination) ? destination : (suppliers[0]?.id || 'general');
-    }
+    }    renderSupplierQuickSwitch();
   }
   function renderSupplierList() {
     if (!$('supplierList')) return;
@@ -1375,7 +1384,16 @@ body.drawer-open{overflow:hidden}
     renderProducts();
   }
   $('invoiceSupplier').addEventListener('change', e => switchSupplier(e.target.value));
-  $('productSupplierFilter').addEventListener('change', () => renderProducts());
+  $('productSupplierFilter').addEventListener('change', () => { renderSupplierQuickSwitch(); renderProducts(); });
+  $('supplierQuickSwitch').addEventListener('click', event => {
+    const button = event.target.closest('button[data-supplier-filter]');
+    if (!button) return;
+    const id = button.dataset.supplierFilter;
+    if (id !== 'all' && !suppliers.some(x => String(x.id) === String(id))) return;
+    $('productSupplierFilter').value = id;
+    renderSupplierQuickSwitch();
+    renderProducts();
+  });
   function invoiceSnapshot(issueNow) {
     const entries = Object.entries(cart).filter(([id,n]) => +n > 0 && products.some(p => String(p.id) === String(id) && (p.supplierId || 'general') === activeSupplierId));
     let sum = 0;
