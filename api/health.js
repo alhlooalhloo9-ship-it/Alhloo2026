@@ -1,6 +1,6 @@
 "use strict";
 
-const { getMongoClient } = require("./_lib/mongodb");
+const { getMongoClient } = require("../server/mongodb");
 const { getFirebaseAdmin } = (() => {
   // Keep health checks independent from exposing credentials or account details.
   return { getFirebaseAdmin: () => {
