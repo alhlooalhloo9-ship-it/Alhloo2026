@@ -312,12 +312,13 @@ body.drawer-open{overflow:hidden}
 </section>
 <section id="productsPage">
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
-<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">اضغط ضغطة عادية لإضافة المنتج للفاتورة، أو ضغطة مطوّلة لخيارات المنتج. ويمكنك تحديد عدة منتجات ونقلها دفعة واحدة.</p>
+<div class="box"><h3>المنتجات</h3><label for="productSupplierFilter">عرض منتجات المخزن</label><select id="productSupplierFilter" class="supplierSelect" style="width:100%;margin:5px 0 12px"><option value="all">كل المخازن</option></select><p class="muted">فعّل التحديد لتحديد كل المنتجات الظاهرة أو تحديد منتجات بعينها، ثم احذفها دفعة واحدة أو انقلها إلى مخزن آخر.</p>
 <button type="button" id="toggleBulkSelection" style="margin:8px 0">☑️ تفعيل التحديد للنقل</button>
 <div id="bulkMoveToolbar" style="display:none;border:1px solid #d6e0da;border-radius:10px;padding:12px;margin:10px 0;background:#f7faf8">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <button type="button" id="selectVisibleProducts">☑️ تحديد منتجات المخزن الظاهر</button>
+    <button type="button" id="selectVisibleProducts">☑️ تحديد الكل في القائمة الظاهرة</button>
     <button type="button" id="clearSelectedProducts">إلغاء التحديد</button>
+    <button type="button" class="danger" id="bulkDeleteConfirm">🗑️ حذف المنتجات المحددة</button>
     <span id="selectedProductsCount" class="badge">المحدد: 0</span>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
@@ -1114,7 +1115,7 @@ body.drawer-open{overflow:hidden}
   function updateBulkSelectionUI() {
     const toggle = $('toggleBulkSelection');
     const toolbar = $('bulkMoveToolbar');
-    if (toggle) toggle.textContent = bulkSelectionMode ? '✖ إلغاء وضع التحديد' : '☑️ تفعيل التحديد للنقل';
+    if (toggle) toggle.textContent = bulkSelectionMode ? '✖ إلغاء وضع التحديد' : '☑️ تحديد / حذف / نقل المنتجات';
     if (toolbar) toolbar.style.display = bulkSelectionMode ? 'block' : 'none';
     document.querySelectorAll('#products .bulkSelectLabel').forEach(label => label.style.display = bulkSelectionMode ? 'flex' : 'none');
     const count = $('selectedProductsCount');
@@ -1122,7 +1123,7 @@ body.drawer-open{overflow:hidden}
     const visible = Array.from(document.querySelectorAll('#products .bulkProductSelect'));
     if ($('selectVisibleProducts')) {
       const allChecked = visible.length > 0 && visible.every(x => x.checked);
-      $('selectVisibleProducts').textContent = allChecked ? '☑️ إلغاء تحديد الظاهر' : '☑️ تحديد منتجات المخزن الظاهر';
+      $('selectVisibleProducts').textContent = allChecked ? '☑️ إلغاء تحديد الكل الظاهر' : '☑️ تحديد الكل في القائمة الظاهرة';
     }
   }
   $('toggleBulkSelection').addEventListener('click', () => {
@@ -1149,6 +1150,28 @@ body.drawer-open{overflow:hidden}
     document.querySelectorAll('#products .bulkProductSelect').forEach(x => x.checked = false);
     updateBulkSelectionUI();
   });
+  $('bulkDeleteConfirm').addEventListener('click', () => {
+    const ids = new Set(Array.from(selectedProductIds, String));
+    const deleting = products.filter(p => ids.has(String(p.id)));
+    if (!deleting.length) return alert('حدد المنتجات التي تريد حذفها أولاً.');
+    const names = deleting.slice(0, 5).map(p => '• ' + p.name).join('\\n');
+    const extra = deleting.length > 5 ? '\\nو' + (deleting.length - 5) + ' منتجات أخرى' : '';
+    if (!confirm('⚠️ حذف نهائي\\n\\nسيتم حذف ' + deleting.length + ' منتجاً من جميع المخازن، وإزالتها من الفواتير الجارية.\\n\\n' + names + extra + '\\n\\nلا يمكن التراجع عن الحذف. هل تريد المتابعة؟')) return;
+    products = products.filter(p => !ids.has(String(p.id)));
+    for (const items of Object.values(supplierCarts)) {
+      if (!items || typeof items !== 'object') continue;
+      for (const id of ids) delete items[id];
+    }
+    for (const id of ids) delete cart[id];
+    selectedProductIds.clear();
+    save();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+    updateBulkSelectionUI();
+    alert('تم حذف ' + deleting.length + ' منتجاً بنجاح.');
+  });
+
   $('bulkMoveConfirm').addEventListener('click', () => {
     const ids = Array.from(selectedProductIds);
     if (!ids.length) return alert('حدد منتجاً واحداً على الأقل أولاً.');
