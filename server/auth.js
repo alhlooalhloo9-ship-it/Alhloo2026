@@ -1,27 +1,21 @@
 "use strict";
 
 const admin = require("firebase-admin");
+const { parseServiceAccount } = require("./firebase");
 
 function getFirebaseAdmin() {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) {
-    const error = new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not configured");
-    error.statusCode = 503;
-    throw error;
-  }
-
   let serviceAccount;
   try {
-    serviceAccount = JSON.parse(raw);
-  } catch (_) {
-    const error = new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON");
+    serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch (error) {
     error.statusCode = 503;
     throw error;
   }
 
   if (!admin.apps.length) {
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+      credential: admin.credential.cert(serviceAccount),
+      projectId: serviceAccount.project_id
     });
   }
   return admin;
