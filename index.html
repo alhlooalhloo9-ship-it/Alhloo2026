@@ -560,14 +560,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     saveWorkspaceLocal();
   }
 
-  // إدارة زر الرجوع: الصفحات الداخلية ترجع بشكل طبيعي، والخروج من الرئيسية يتطلب ضغطتين ثم تأكيداً.
+  // إدارة زر الرجوع: إظهار تأكيد الخروج فور أول ضغطة على الصفحة الرئيسية.
   let currentAppPage = 'products';
   let handlingAppPopState = false;
   let detailsHistoryOpen = false;
   let ignoreNextDetailsPopState = false;
-  let lastHomeBackPressAt = 0;
   let allowAppExit = false;
-  let backPressNoticeTimer = null;
 
   function showBackPressNotice(message) {
     let notice = $('appBackNotice');
@@ -581,8 +579,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
     notice.textContent = message;
     notice.style.display = 'block';
-    clearTimeout(backPressNoticeTimer);
-    backPressNoticeTimer = setTimeout(() => { notice.style.display = 'none'; }, 2200);
+    setTimeout(() => { notice.style.display = 'none'; }, 2200);
   }
 
   function showAppPage(p) {
@@ -610,14 +607,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     showAppPage(p);
   };
 
-  // نضع حالتين للصفحة الرئيسية حتى يبقى زر الرجوع داخل التطبيق.
+  // حالتا سجل للصفحة الرئيسية لمنع الرجوع خارج التطبيق دون تأكيد.
   history.replaceState({ nadwaApp: true, page: 'products', homeBase: true }, '', location.pathname + location.search);
   history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
 
   window.addEventListener('popstate', function(event) {
     if (allowAppExit) return;
 
-    // زر الرجوع يغلق التفاصيل أولاً دون الخروج من التطبيق.
     if (ignoreNextDetailsPopState) {
       ignoreNextDetailsPopState = false;
       return;
@@ -635,23 +631,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
 
     if (currentAppPage === 'products') {
-      const now = Date.now();
-      const secondPress = now - lastHomeBackPressAt <= 2000;
-      // نعيد حارس الصفحة فوراً حتى لا يخرج التطبيق مع الضغطة الأولى.
-      history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
-
-      if (!secondPress) {
-        lastHomeBackPressAt = now;
-        showBackPressNotice('للخروج اضغط زر الرجوع مرة ثانية خلال ثانيتين.');
-        return;
-      }
-
-      lastHomeBackPressAt = 0;
       const wantsToExit = window.confirm('هل تريد الخروج من التطبيق؟');
       if (wantsToExit) {
+        // نسمح للمتصفح/التطبيق بإكمال عملية الرجوع الحالية دون إعادة إضافة حارس.
         allowAppExit = true;
-        history.back();
       } else {
+        // إلغاء الرجوع: نعيد حارس الصفحة الرئيسية فوراً.
+        history.pushState({ nadwaApp: true, page: 'products', homeGuard: true }, '', location.pathname + location.search);
         showBackPressNotice('تم إلغاء الخروج. أنت ما زلت داخل التطبيق.');
       }
       return;
