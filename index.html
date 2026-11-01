@@ -440,7 +440,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   const auth = getAuth(app);
   const API_BASE = "https://alhloo2026.vercel.app/api";
 
-  let cloudUser = null, syncingCloud = false, cloudTimer = null, fullSyncRunning = false;
+  let cloudUser = null, syncingCloud = false, cloudTimer = null, cloudSaveTimer = null, fullSyncRunning = false;
   const $ = id => document.getElementById(id);
 
   // لا نحمّل منتجات أي حساب قبل اكتمال التحقق من هوية المستخدم.
@@ -536,8 +536,19 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   $('sypRate').value = sypRate;
 
   // حفظ محلي فقط: لا تُرفع المنتجات أو الفاتورة إلى أي خدمة سحابية.
+  function queueCloudSync() {
+    if (!cloudUser) return;
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = setTimeout(() => {
+      cloudSaveTimer = null;
+      if (fullSyncRunning) { queueCloudSync(); return; }
+      syncCloudSafely();
+    }, 1800);
+  }
+
   function save() {
     saveWorkspaceLocal();
+    queueCloudSync();
   }
 
   // إدارة زر الرجوع: إظهار تأكيد الخروج فور أول ضغطة على الصفحة الرئيسية.
@@ -1958,6 +1969,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     // احفظ بيانات الحساب في مساحته الخاصة قبل إنهاء الجلسة.
     saveWorkspaceLocal();
     if (cloudTimer) clearTimeout(cloudTimer);
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
     await signOut(auth);
     // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
     showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
@@ -2070,6 +2082,54 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     });
   }
 
+  function mergeRecordsById(remoteRows, localRows) {
+    const merged = new Map();
+    for (const row of Array.isArray(remoteRows) ? remoteRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    for (const row of Array.isArray(localRows) ? localRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    return Array.from(merged.values());
+  }
+
+  async function syncWorkspaceToCloud() {
+    if (!cloudUser) return;
+    const remoteResult = await apiRequest('/workspace');
+    const remote = remoteResult.workspace && typeof remoteResult.workspace === 'object' ? remoteResult.workspace : {};
+    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers);
+    const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
+    const mergedCarts = {};
+    const storeIds = new Set([
+      ...Object.keys(remote.supplierCarts || {}),
+      ...Object.keys(supplierCarts || {})
+    ]);
+    for (const storeId of storeIds) {
+      const remoteCart = remote.supplierCarts?.[storeId] || {};
+      const localCart = supplierCarts?.[storeId] || {};
+      mergedCarts[storeId] = { ...remoteCart, ...localCart };
+    }
+    if (!mergedCarts.general) mergedCarts.general = {};
+    const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
+    let nextActive = validSupplierIds.has(String(activeSupplierId))
+      ? String(activeSupplierId)
+      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'general');
+    suppliers = mergedSuppliers;
+    supplierCarts = mergedCarts;
+    invoiceArchive = mergedInvoices;
+    activeSupplierId = nextActive;
+    ensureSupplierData();
+    await apiRequest('/workspace', {
+      method: 'PUT',
+      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId }
+    });
+    saveLocalOnly();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+  }
+
   async function syncCloudSafely() {
     if (!cloudUser || fullSyncRunning) return;
     if (navigator.onLine === false) {
@@ -2080,6 +2140,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     try {
       showCloudMessage('جارٍ الاتصال بقاعدة البيانات عبر Vercel...');
       await syncProductsToCloud();
+      await syncWorkspaceToCloud();
       await loadCartFromCloud();
       await syncSettings();
       showCloudMessage('اكتملت المزامنة عبر Vercel API مع MongoDB بنجاح.');
