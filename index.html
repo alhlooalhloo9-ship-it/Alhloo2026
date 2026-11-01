@@ -1978,8 +1978,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     syncingCloud = true;
     try {
       showCloudMessage('جارٍ جلب المنتجات من قاعدة البيانات الجديدة...');
-      const data = await apiRequest('/products');
-      const remote = Array.isArray(data.products) ? data.products : [];
+      const remote = [];
+      for (let skip = 0; ; skip += 2) {
+        const page = await apiRequest('/products?skip=' + skip + '&limit=2');
+        const rows = Array.isArray(page.products) ? page.products : [];
+        remote.push(...rows);
+        if (rows.length < 2) break;
+      }
       const localIds = new Set(products.map(p => String(p.id)));
       for (const item of remote) {
         if (!localIds.has(String(item.id))) {
@@ -1987,14 +1992,17 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           localIds.add(String(item.id));
         }
       }
-      const result = await apiRequest('/products', {
-        method: 'POST',
-        body: { products: products.map(p => ({ ...p, id: String(p.id) })) }
-      });
+      let saved = 0;
+      for (let offset = 0; offset < products.length; offset += 2) {
+        const batch = products.slice(offset, offset + 2).map(p => ({ ...p, id: String(p.id) }));
+        const result = await apiRequest('/products', { method: 'POST', body: { products: batch } });
+        saved += Number(result.saved || batch.length);
+        showCloudMessage('جارٍ حفظ المنتجات عبر Vercel: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+      }
       saveLocalOnly();
       renderProducts();
       renderInvoice();
-      showCloudMessage('اكتملت مزامنة ' + (result.saved || products.length) + ' منتجاً مع MongoDB عبر Vercel.');
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً مع MongoDB عبر Vercel.');
     } finally { syncingCloud = false; }
   }
 
