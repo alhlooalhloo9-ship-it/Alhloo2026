@@ -5,9 +5,14 @@ const { MongoClient } = require("mongodb");
 let clientPromise;
 
 async function getMongoClient() {
-  const uri = process.env.MONGODB_URI;
+  const uri = String(process.env.MONGODB_URI || "").trim();
   if (!uri) {
-    const error = new Error("MONGODB_URI is not configured");
+    const error = new Error("MONGODB_URI is not configured in the Vercel Production environment");
+    error.statusCode = 503;
+    throw error;
+  }
+  if (!/^mongodb(?:\+srv)?:\/\//i.test(uri)) {
+    const error = new Error("MONGODB_URI must start with mongodb:// or mongodb+srv://");
     error.statusCode = 503;
     throw error;
   }
