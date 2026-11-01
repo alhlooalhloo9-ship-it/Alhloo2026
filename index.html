@@ -270,7 +270,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   <div class="drawer-account">
     <strong>الحساب الحالي</strong>
     <span id="drawerAccountName">جارٍ التحقق من الحساب...</span>
-    <div class="muted" style="font-size:12px;margin-top:5px">بيانات المنتجات محفوظة محلياً على هذا الجهاز، ولا توجد مزامنة سحابية.</div>
+    <div class="muted" style="font-size:12px;margin-top:5px">تُحفظ البيانات على هذا الجهاز وتُزامَن مع حسابك عند تسجيل الدخول ونجاح الاتصال.</div>
   </div>
   <nav class="drawer-nav">
     <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
@@ -1816,18 +1816,23 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   };
   window.share = function(){ $('invoiceShareBtn').click(); };
   window.saveRates = function() {
-    let t = +$('tryRate').value;
-    let s = +$('sypRate').value;
-    if (t <= 0 || s <= 0) {
+    const t = Number($('tryRate').value);
+    const s = Number($('sypRate').value);
+    if (!Number.isFinite(t) || !Number.isFinite(s) || t <= 0 || s <= 0) {
       alert('أدخل أسعار صرف صحيحة');
       return;
     }
     tryRate = t;
     sypRate = s;
-    localStorage.setItem('nadwa_try', t);
-    localStorage.setItem('nadwa_syp', s);
+    localStorage.setItem('nadwa_try', String(t));
+    localStorage.setItem('nadwa_syp', String(s));
     renderInvoice();
-    alert('تم حفظ أسعار الصرف');
+    if (cloudUser) {
+      syncSettings({ preferCloud: false })
+        .then(() => showCloudMessage('تم حفظ أسعار الصرف محلياً وسحابياً.'))
+        .catch(error => showCloudMessage('حُفظت الأسعار على هذا الجهاز، لكن تعذّر حفظها سحابياً: ' + (error.message || error)));
+    }
+    alert('تم حفظ أسعار الصرف على هذا الجهاز' + (cloudUser ? ' وبدأ حفظها سحابياً.' : '. سجّل الدخول لمزامنتها بين الأجهزة.'));
   };
 
   window.clearCart = function() {
@@ -2038,9 +2043,29 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     else if (Object.keys(cart).length) await syncCartToCloud();
   }
 
-  async function syncSettings() {
+  async function syncSettings(options = {}) {
     if (!cloudUser) return;
-    await apiRequest('/settings', { method: 'PUT', body: { settings: { tryRate, sypRate } } });
+    const preferCloud = options.preferCloud !== false;
+    const data = await apiRequest('/settings');
+    const remote = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
+
+    if (preferCloud && remote) {
+      const remoteTry = Number(remote.tryRate);
+      const remoteSyp = Number(remote.sypRate);
+      if (Number.isFinite(remoteTry) && remoteTry > 0) tryRate = remoteTry;
+      if (Number.isFinite(remoteSyp) && remoteSyp > 0) sypRate = remoteSyp;
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      if ($('tryRate')) $('tryRate').value = String(tryRate);
+      if ($('sypRate')) $('sypRate').value = String(sypRate);
+      renderInvoice();
+      return;
+    }
+
+    await apiRequest('/settings', {
+      method: 'PUT',
+      body: { settings: { tryRate, sypRate } }
+    });
   }
 
   async function syncCloudSafely() {
