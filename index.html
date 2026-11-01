@@ -242,7 +242,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 #products.layout-list .prod{display:grid;grid-template-columns:minmax(76px,28%) minmax(0,1fr);gap:6px 10px;text-align:right;align-items:center}
 #products.layout-list .prod .productPhoto{grid-column:1;grid-row:1 / span 4;height:100px;max-width:100%;margin:0}
 #products.layout-list .prod .name,#products.layout-list .prod .muted,#products.layout-list .prod .price,#products.layout-list .prod .tapControls,#products.layout-list .prod details{grid-column:2}
-#products.hide-image .productPhoto,#products.hide-image .uploadProductPhoto,#products.hide-name .name,#products.hide-price .price,#products.hide-supplier .prod>.muted,#products.hide-pieces .prod>.muted,#products.hide-taps .tapControls,#products.hide-actions .productDetails{display:none!important}
+#products.hide-image .productPhoto,#products.hide-image .uploadProductPhoto,#products.hide-name .name,#products.hide-price .price,#products.hide-supplier .productSupplierLabel,#products.hide-pieces .productPiecesLabel,#products.hide-taps .tapControls,#products.hide-actions .productDetails{display:none!important}
 .setting-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .setting-checks label{display:flex;align-items:center;gap:8px;background:#f5f8f6;border:1px solid #e4ebe6;border-radius:10px;padding:10px;font-size:14px}
 .setting-checks input{width:18px;height:18px;margin:0;flex:0 0 auto}
@@ -1271,6 +1271,35 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('detailsModal').classList.add('hidden');
   };
 
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true};
+  let uiSettings={...defaultUiSettings};
+  function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
+  function applyUiSettings(){
+    const s=uiSettings;
+    document.documentElement.style.setProperty('--user-columns',String([2,3,4].includes(+s.columns)?+s.columns:2));
+    document.documentElement.style.setProperty('--user-font-scale',String(Math.min(1.3,Math.max(.85,(+s.fontSize||100)/100))));
+    document.documentElement.style.setProperty('--user-page-bg',/^#[0-9a-f]{6}$/i.test(s.pageColor)?s.pageColor:'#f4f7f5');
+    document.documentElement.style.setProperty('--user-card-bg',/^#[0-9a-f]{6}$/i.test(s.cardColor)?s.cardColor:'#fff');
+    document.documentElement.style.setProperty('--user-accent',/^#[0-9a-f]{6}$/i.test(s.accentColor)?s.accentColor:'#174c3c');
+    document.body.style.fontFamily=s.font==='Tahoma'?'Tahoma,Arial,sans-serif':s.font==='system'?'system-ui,Arial,sans-serif':'Arial,sans-serif';
+    const root=$('products');if(root){root.classList.toggle('layout-list',s.layout==='list');root.classList.toggle('grid',s.layout!=='list');
+      for(const pair of [['hide-image','showImage'],['hide-name','showName'],['hide-price','showPrice'],['hide-supplier','showSupplier'],['hide-pieces','showPieces'],['hide-taps','showTaps'],['hide-actions','showActions']])root.classList.toggle(pair[0],s[pair[1]]===false);}
+  }
+  function fillUiSettings(){
+    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions'};
+    for(const [id,key] of Object.entries(map)){const el=$(id);if(el){if(el.type==='checkbox')el.checked=uiSettings[key]!==false;else el.value=uiSettings[key];}}
+    if($('uiFontSizeValue'))$('uiFontSizeValue').textContent=(+uiSettings.fontSize||100)+'%';
+  }
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};}catch(_){uiSettings={...defaultUiSettings};}fillUiSettings();applyUiSettings();}
+  function saveUiSettings(){
+    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked};
+    try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(e){$('uiSettingsStatus').textContent='تعذر حفظ الإعدادات: '+(e.message||e);return;}
+    applyUiSettings();renderProducts();if($('uiSettingsStatus'))$('uiSettingsStatus').textContent='تم حفظ الإعدادات وتطبيقها على الصفحة الرئيسية.';
+  }
+  $('saveUiSettings').addEventListener('click',saveUiSettings);
+  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiFontSize'])$(id).addEventListener('change',saveUiSettings);
+  $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
+  $('resetUiSettings').addEventListener('click',()=>{uiSettings={...defaultUiSettings};localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));fillUiSettings();applyUiSettings();renderProducts();$('uiSettingsStatus').textContent='تمت استعادة الإعدادات الافتراضية.';});
   function renderProducts() {
     sortByPopularityIfDue();
     let root = $('products');
@@ -1281,7 +1310,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">🔘 الكبسات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="التراجع عن كبسة بالخطأ">− كبسة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
@@ -1945,6 +1974,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   onAuthStateChanged(auth, user => {
     cloudUser = user || null;
     loadWorkspace(cloudUser?.uid || null);
+    loadUiSettings();
     refreshGeminiKeyUI();
     updateAuthUI();
     renderSupplierSelectors();
