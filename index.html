@@ -1178,17 +1178,14 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     let p = products.find(x => String(x.id) === String(id));
     if (!p) return;
     if ((p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
-    let taps = +(p.pickCount || 0);
-    if (taps <= 0) {
-      alert('عدد الإضافات لهذا المنتج صفر بالفعل.');
+    const currentQty = +(cart[id] || 0);
+    if (currentQty <= 0) {
+      alert('هذا المنتج غير موجود حالياً في الفاتورة.');
       return;
     }
-    if ((cart[id] || 0) > 0) {
-      let n = cart[id] - 1;
-      if (n <= 0) delete cart[id];
-      else cart[id] = n;
-    }
-    p.pickCount = Math.max(0, taps - 1);
+    if (currentQty === 1) delete cart[id];
+    else cart[id] = currentQty - 1;
+    p.pickCount = Math.max(0, (+(p.pickCount || 0)) - 1);
     save();
     renderProducts();
     renderInvoice();
@@ -1458,7 +1455,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">➕ الإضافة: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="إزالة إضافة بالخطأ">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">الإضافات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="addToInvoice" title="إضافة قطعة واحدة إلى الفاتورة">＋ إضافة</button><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
@@ -1546,6 +1543,11 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       priceEl.setAttribute('aria-label', 'السعر الحالي ' + (+p.price).toFixed(2) + ' دولار. انقر مرتين لتعديل السعر');
       el.querySelector('.name').title = 'اضغط على اسم المنتج لإضافته إلى الفاتورة';
       el.querySelector('.name').onclick = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        add(p.id);
+      };
+      el.querySelector('.addToInvoice').onclick = e => {
         e.preventDefault();
         e.stopPropagation();
         add(p.id);
