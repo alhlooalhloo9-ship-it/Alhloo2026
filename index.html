@@ -1107,7 +1107,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     const comparableImage = removeImg ? '' : (newImage || (editId !== null ? (products.find(z => z.id === editId)?.image || '') : ''));
     const otherProducts = products.filter(item => editId === null || String(item.id) !== String(editId));
     const normalizedName = normalizedProductName(n);
-    const sameName = otherProducts.find(item => normalizedProductName(item.name) === normalizedName);
+    const currentProduct = editId !== null ? products.find(item => String(item.id) === String(editId)) : null;
+    const isNameBeingChanged = !currentProduct || normalizedProductName(currentProduct.name) !== normalizedName;
+    // عند تعديل منتج موجود والسماح بإضافة صورة له، لا نعتبر اسمه الحالي تكراراً.
+    // يبقى منع التكرار فعالاً عند إضافة منتج جديد أو تغيير اسمه إلى اسم موجود.
+    const sameName = isNameBeingChanged
+      ? otherProducts.find(item => normalizedProductName(item.name) === normalizedName)
+      : null;
     let sameImage = null;
     if (comparableImage) {
       for (const item of otherProducts) {
