@@ -16,7 +16,7 @@ module.exports = async function productsHandler(req, res) {
       const skipValue = Number.parseInt(req.query && req.query.skip, 10);
       const limitValue = Number.parseInt(req.query && req.query.limit, 10);
       const skip = Number.isFinite(skipValue) ? Math.max(0, Math.min(100000, skipValue)) : 0;
-      const limit = Number.isFinite(limitValue) ? Math.max(1, Math.min(500, limitValue)) : 500;
+      const limit = Number.isFinite(limitValue) ? Math.max(1, Math.min(5000, limitValue)) : 500;
       const rows = await products
         .find({ userId })
         .sort({ id: 1 })
