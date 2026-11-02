@@ -1138,6 +1138,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       x.stock = s;
       x.pieces = pc;
       x.sellTry = st;
+      x.updatedAt = Date.now();
       const previousSupplierId = x.supplierId || 'general';
       if (previousSupplierId !== supplierId) {
         if (supplierCarts[previousSupplierId]) delete supplierCarts[previousSupplierId][x.id];
@@ -1148,7 +1149,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       if (removeImg) x.image = '';
     } else {
       const newProductId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ('p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
-      products.push({ id: newProductId, name: n, price: p, pieces: pc, sellTry: st, stock: s, image: newImage || '', supplierId });
+      products.push({ id: newProductId, name: n, price: p, pieces: pc, sellTry: st, stock: s, image: newImage || '', supplierId, updatedAt: Date.now() });
     }
     save();
     resetForm();
@@ -2153,7 +2154,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           uniqueByName.set(key, { ...item, __localPriority: !!isLocal });
           return;
         }
-        const keep = isLocal || !previous.__localPriority ? { ...previous, ...item, __localPriority: !!isLocal } : { ...item, ...previous };
+        const previousTime = Number(previous.updatedAt) || 0;
+        const itemTime = Number(item.updatedAt) || 0;
+        const itemIsNewer = itemTime > previousTime || (itemTime === previousTime && isLocal && !previous.__localPriority);
+        const keep = itemIsNewer
+          ? { ...previous, ...item, __localPriority: !!isLocal }
+          : { ...item, ...previous, __localPriority: !!previous.__localPriority };
         // لا نفقد صورة موجودة في أي نسخة من المنتج.
         if ((!keep.image || /^data:image\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
         if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
@@ -2162,7 +2168,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       for (const item of remote) addUnique(item, false);
       for (const item of products) {
         const previous = remoteById.get(String(item.id)) || {};
-        const next = { ...previous, ...item, id: item.id };
+        const localTime = Number(item.updatedAt) || 0;
+        const remoteTime = Number(previous.updatedAt) || 0;
+        const localIsNewer = localTime >= remoteTime;
+        const next = localIsNewer
+          ? { ...previous, ...item, id: item.id }
+          : { ...item, ...previous, id: item.id };
         if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
           next.image = item.image && item.image === previous.image ? item.image : previous.image;
           if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
