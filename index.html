@@ -2085,7 +2085,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   }
 
   async function prepareImageForCloud(sourceBlob) {
-    const maxBytes = 450 * 1024;
+    const maxBytes = 300 * 1024;
     if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp)$/i.test(sourceBlob.type)) return sourceBlob;
     if (!('createImageBitmap' in window)) {
       if (sourceBlob.size <= maxBytes) return sourceBlob;
@@ -2171,7 +2171,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       }
       products = Array.from(uniqueByName.values()).map(({ __localPriority, ...item }) => item);
       let saved = 0;
-      const batchSize = 25;
+      const batchSize = Math.max(1, products.length);
       for (let offset = 0; offset < products.length; offset += batchSize) {
         const batch = products.slice(offset, offset + batchSize);
         for (let i = 0; i < batch.length; i++) {
