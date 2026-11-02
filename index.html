@@ -2172,7 +2172,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           if (!response.ok || !payload.url) throw new Error(payload.error || 'فشل حفظ الصورة على الخادم (HTTP ' + response.status + ').');
           return payload;
         })(), 60000, 'انتهت مهلة رفع الصورة إلى MongoDB');
-        // لا نستبدل الصورة المحلية إلا بعد تأكيد الحفظ وإرجاع رابط الصورة.
+        // نحتفظ بالأصل على هذا الجهاز كنسخة احتياطية، ونستخدم الرابط السحابي للعرض والمزامنة.
+        if (!product.imageLocal) product.imageLocal = product.image;
         product.image = result.url;
         delete product.imagePath;
         return product;
@@ -2239,7 +2240,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
             await ensureProductImageInStorage(product);
           }
         }
-        const payload = batch.map(p => ({ ...p, id: String(p.id) }));
+        const payload = batch.map(p => {
+          const { imageLocal, ...cloudProduct } = p;
+          return { ...cloudProduct, id: String(p.id) };
+        });
         const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
         saved += Number(result.saved || payload.length);
         showCloudMessage('جارٍ حفظ المنتجات في MongoDB: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
