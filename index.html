@@ -264,6 +264,301 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 @media(max-width:420px){#products.grid{grid-template-columns:repeat(var(--user-columns),minmax(0,1fr))!important}.setting-checks{grid-template-columns:1fr}}
 
 #products .prod .name{font-size:calc(14px * var(--user-font-scale))}#products .prod .price{font-size:calc(16px * var(--user-font-scale))}#products .prod .muted,#products .prod .badge,#products .prod button,#products .prod summary{font-size:calc(13px * var(--user-font-scale))}
+
+
+/* الصفحة الرئيسية الجديدة: لوحة عمل فعلية وبطاقات مهام */
+.home-dashboard{margin:4px 0 18px}
+.home-welcome{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 20px;margin:0 0 14px;border-radius:22px;background:linear-gradient(120deg,#10263b 0%,#173b55 68%,#176b78 100%);color:#fff;box-shadow:0 12px 26px rgba(16,38,59,.15);overflow:hidden;position:relative}
+.home-welcome:after{content:"";position:absolute;width:180px;height:180px;border:1px solid #ffffff18;border-radius:50%;left:-50px;top:-95px}
+.home-welcome>div{position:relative;z-index:1}
+.home-eyebrow{font-size:11px;color:#a9d8dc;font-weight:700}
+.home-welcome h2{font-size:24px;margin:7px 0 4px;line-height:1.3}
+.home-welcome p{font-size:13px;color:#d6e7ec;margin:0}
+.home-welcome-icon{width:58px;height:58px;flex:0 0 58px;display:grid;place-items:center;border-radius:18px;background:#ffffff18;font-size:29px;border:1px solid #ffffff25}
+.home-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.home-action{display:flex;align-items:center;gap:10px;text-align:right;min-width:0;min-height:82px;padding:13px 11px;border:1px solid #dce5eb;border-radius:16px;background:#fff;color:#17324d;box-shadow:0 4px 13px #17324d0a}
+.home-action:active{transform:scale(.985)}
+.home-action-main{background:#eaf3f5;border-color:#c9e0e4}
+.home-action-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:12px;background:#eaf1f5;color:#176b78;font-size:22px}
+.home-action-main .home-action-icon{background:#17324d;color:#fff}
+.home-action>span:nth-child(2){display:grid;gap:5px;min-width:0;flex:1}
+.home-action b{font-size:13px;line-height:1.35}
+.home-action small{font-size:10px;color:#71818d;line-height:1.4;font-weight:400}
+.home-arrow{font-size:18px;color:#238b91}
+.home-section-heading{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:23px 3px 10px}
+.home-section-heading span:first-child{font-size:11px;color:#238b91;font-weight:800}
+.home-section-heading h3{font-size:20px;color:#17324d;margin:3px 0 0}
+.home-section-mark{font-size:9px;letter-spacing:1.4px;color:#9aaab4;font-weight:800}
+@media(max-width:360px){.home-actions{grid-template-columns:1fr}.home-action{min-height:70px}.home-welcome{padding:18px 15px}}
+@media(min-width:700px){.home-actions{grid-template-columns:repeat(4,minmax(0,1fr))}.home-action{min-height:105px;align-items:flex-start;flex-direction:column}.home-action>span:nth-child(2){width:100%}.home-arrow{display:none}}
+
+/* Professional navy + teal visual refresh — CSS only; application logic untouched */
+:root{
+  --brand:#17324d;
+  --brand-deep:#10263b;
+  --brand-soft:#e8f0f5;
+  --ink:#172b3a;
+  --muted:#687987;
+  --line:#dce5eb;
+  --surface:#ffffff;
+  --page:#f2f5f8;
+  --user-page-bg:#f2f5f8;
+  --user-card-bg:#ffffff;
+  --user-accent:#17324d;
+}
+body{
+  color:#172b3a;
+  background:linear-gradient(180deg,#f6f8fa 0%,#eef3f7 100%)!important;
+}
+.app-hero{
+  background:linear-gradient(125deg,#10263b 0%,#17324d 62%,#1b5361 100%)!important;
+  box-shadow:0 12px 30px rgba(16,38,59,.15);
+}
+.app-hero:before,.app-hero:after{border-color:rgba(255,255,255,.09)}
+.hero-mark{
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.17);
+  border-radius:16px;
+}
+.hero-kicker{color:#b9d5df}
+.app-hero p{color:#d9e7ed}
+.hero-chip{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.16)}
+.live-dot{background:#54d4c2;box-shadow:0 0 0 4px rgba(84,212,194,.14)}
+.box{
+  border-color:#dfe7ed;
+  box-shadow:0 5px 20px rgba(22,48,68,.045);
+}
+.box h3{color:#17324d}
+button{color:#24465b}
+.primary,.tabs button.primary{
+  background:linear-gradient(135deg,#17324d,#20546a)!important;
+  color:#fff!important;
+  box-shadow:0 4px 11px rgba(23,50,77,.16);
+}
+.badge,.prod details.productDetails summary{
+  background:#e8f1f5;
+  color:#1e5365;
+}
+input,.supplierSelect{
+  border-color:#d6e1e8;
+  background:#fbfcfd;
+}
+input:focus{border-color:#2b8790;box-shadow:0 0 0 3px rgba(43,135,144,.12)}
+.grid .prod{
+  border-color:#dfe7ed;
+  box-shadow:0 4px 15px rgba(22,48,68,.055);
+}
+.grid .prod:hover{border-color:#b9d1dc;box-shadow:0 8px 22px rgba(22,48,68,.09)}
+.prod img,.prod .productPhoto{background:#f2f6f8}
+.name{color:#203748}
+.price{color:#176b78}
+.prod .tapControls .badge{background:#eaf2f5;color:#31586b}
+.prod details.productDetails summary{background:#eaf2f5;color:#1d5365}
+.total{
+  background:#eaf3f5;
+  border-color:#d4e5e9;
+}
+.total .profitBox{background:#dceef0}
+#cloudPanel{border-top-color:#238b91}
+#productsPage .box>h3:before,#invoicePage .box h3:before{background:#238b91}
+.supplier-quick-switch{border-color:#dce5eb}
+.supplier-quick-switch button{background:#edf3f6;color:#28495d;border-color:#d9e4ea}
+.supplier-quick-switch button.active{background:#17324d;color:#fff;border-color:#17324d}
+.side-drawer{border-left:1px solid #dfe7ed}
+.drawer-head h2,.drawer-account strong{color:#17324d}
+.drawer-account{background:#edf3f6}
+.drawer-nav button{background:#f3f6f8;color:#243e50}
+.drawer-nav button:hover,.drawer-nav button:active{background:#e3eef2}
+.drawer-close{background:#edf2f5;color:#17324d}
+.detailsCard,.zoomPhotoCard{border:1px solid #dfe7ed;box-shadow:0 16px 48px rgba(12,32,48,.22)}
+@media(prefers-reduced-motion:no-preference){
+  .prod,button,.drawer-nav button{transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+}
+
+/* Premium dashboard refresh v2 — visual layer only */
+:root{
+  --brand:#17324d;--brand-deep:#10263b;--brand-soft:#e8f2f5;
+  --ink:#182d3b;--muted:#71818d;--line:#e2e9ed;
+  --surface:#fff;--page:#f3f6f8;--radius:20px;
+}
+html{background:#f3f6f8}
+body{
+  color:var(--ink)!important;
+  background:
+    radial-gradient(ellipse at 92% 5%,rgba(35,139,145,.10),transparent 28rem),
+    linear-gradient(180deg,#f7f9fb 0%,#eff3f6 100%)!important;
+  font-family:Tahoma,Arial,sans-serif;
+}
+.app-hero{
+  padding:30px 18px 42px!important;
+  background:linear-gradient(118deg,#10263b 0%,#17324d 52%,#176b78 100%)!important;
+  border-radius:0 0 32px 32px!important;
+  box-shadow:0 18px 42px rgba(16,38,59,.18)!important;
+}
+.hero-inner{max-width:1120px!important;gap:16px}
+.hero-mark{
+  width:64px!important;height:64px!important;flex-basis:64px!important;
+  border-radius:21px!important;background:linear-gradient(145deg,#ffffff26,#ffffff0b)!important;
+  box-shadow:0 8px 22px #071b2b30,inset 0 1px 0 #ffffff55!important;
+  font-size:31px!important;
+}
+.hero-kicker{font-size:12px!important;color:#a9dce0!important;letter-spacing:.2px}
+.app-hero h1{font-size:clamp(25px,5vw,34px)!important;letter-spacing:-.5px}
+.app-hero p{font-size:13px!important;color:#e0edf1!important}
+.hero-chip{padding:9px 13px!important;background:#ffffff15!important;border:1px solid #ffffff26!important}
+main{max-width:1120px!important;padding:22px 16px 48px!important}
+.menu-toggle{
+  width:46px!important;height:46px!important;right:16px!important;top:16px!important;
+  border-radius:15px!important;background:#ffffff18!important;backdrop-filter:blur(12px);
+}
+.home-dashboard{margin:0 0 22px!important}
+.home-welcome{
+  min-height:158px;padding:25px 24px!important;margin:0 0 16px!important;
+  border:1px solid #ffffff18;border-radius:25px!important;
+  background:
+    radial-gradient(circle at 12% 0%,#ffffff18 0 2px,transparent 3px),
+    linear-gradient(115deg,#132e48 0%,#1b4b62 60%,#21858a 100%)!important;
+  box-shadow:0 14px 34px rgba(19,46,72,.16)!important;
+}
+.home-welcome:after{width:250px!important;height:250px!important;left:-75px!important;top:-135px!important;border-color:#ffffff20!important}
+.home-eyebrow{font-size:12px!important;color:#aee4df!important;letter-spacing:.3px}
+.home-welcome h2{font-size:clamp(25px,5vw,31px)!important;margin:9px 0 6px!important;font-weight:800}
+.home-welcome p{font-size:13px!important;color:#e1f0f1!important}
+.home-welcome-icon{
+  width:68px!important;height:68px!important;flex-basis:68px!important;
+  border-radius:22px!important;background:#ffffff1b!important;border:1px solid #ffffff30!important;
+  box-shadow:0 8px 22px #082b3b33!important;font-size:33px!important;
+}
+.home-actions{gap:12px!important}
+.home-action{
+  min-height:100px!important;padding:16px!important;border-radius:19px!important;
+  border:1px solid #e1e9ee!important;background:linear-gradient(145deg,#fff,#fafdff)!important;
+  color:#1b3a50!important;box-shadow:0 6px 18px rgba(21,53,74,.055)!important;
+}
+.home-action:hover{transform:translateY(-2px);border-color:#b9d8dd!important;box-shadow:0 12px 24px rgba(21,53,74,.09)!important}
+.home-action-main{
+  background:linear-gradient(135deg,#eaf5f5,#f5fafb)!important;
+  border-color:#c8e2e3!important;
+}
+.home-action-icon{
+  width:46px!important;height:46px!important;flex-basis:46px!important;
+  border-radius:15px!important;background:#e8f1f5!important;color:#176b78!important;
+  font-size:23px!important;
+}
+.home-action-main .home-action-icon{background:linear-gradient(145deg,#17324d,#176b78)!important;color:#fff!important}
+.home-action b{font-size:14px!important;color:#18364c}
+.home-action small{font-size:11px!important;color:#748794!important}
+.home-arrow{color:#238b91!important;font-size:21px!important}
+.home-section-heading{
+  margin:28px 4px 12px!important;padding:0 2px 10px;
+  border-bottom:1px solid #dfe8ed;
+}
+.home-section-heading span:first-child{font-size:12px!important;color:#16818a!important}
+.home-section-heading h3{font-size:23px!important;color:#17324d!important;margin-top:4px!important}
+.home-section-mark{font-size:10px!important;color:#9aaab4!important;letter-spacing:2px}
+#productsPage>div[style*="display:flex"]{margin:0 0 13px!important}
+#productsPage>div[style*="display:flex"] button{
+  min-height:46px;border-radius:14px!important;padding:12px 19px!important;
+  box-shadow:0 7px 16px rgba(23,50,77,.14)!important;
+}
+.supplier-quick-switch{
+  padding:12px 14px!important;border-radius:16px!important;background:#ffffffd9!important;
+  box-shadow:0 5px 16px rgba(23,50,77,.045)!important;
+}
+.supplier-quick-switch button{border-radius:11px!important}
+#productsPage>.box{
+  padding:18px!important;border-radius:22px!important;
+  background:rgba(255,255,255,.92)!important;
+  box-shadow:0 9px 28px rgba(23,50,77,.055)!important;
+}
+#productsPage>.box>h3{
+  font-size:20px!important;margin-bottom:14px!important;color:#17324d!important;
+}
+#productsPage>.box>h3:before{height:25px!important;width:5px!important;border-radius:9px!important}
+.product-search-wrap input{
+  min-height:48px!important;border-radius:14px!important;background:#f8fbfc!important;
+  border-color:#dce7ec!important;padding:13px 15px!important;
+}
+#products.grid{gap:12px!important}
+#products .prod{
+  padding:12px 10px!important;border-radius:18px!important;
+  border:1px solid #e1e9ee!important;background:linear-gradient(155deg,#fff 0%,#fbfdfe 100%)!important;
+  box-shadow:0 5px 16px rgba(23,50,77,.05)!important;
+}
+#products .prod:hover{border-color:#b9d8dd!important;box-shadow:0 10px 23px rgba(23,50,77,.09)!important}
+#products .prod .productPhoto,#products .prod img{
+  height:122px!important;border-radius:13px!important;background:#f3f7f9!important;
+}
+#products .prod .name{color:#1c3548!important;font-size:14px!important;font-weight:800!important}
+#products .prod .price{color:#147985!important;font-size:17px!important;font-weight:900!important}
+#products .prod .tapControls .badge{background:#eaf4f5!important;color:#22616b!important}
+#products .prod details.productDetails summary{border-radius:11px!important;background:#edf4f7!important;color:#1e5365!important}
+button{
+  border-radius:12px!important;font-weight:700;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease!important;
+}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{
+  outline:3px solid rgba(35,139,145,.35)!important;outline-offset:3px!important;
+}
+.primary,.tabs button.primary{
+  background:linear-gradient(130deg,#17324d,#176b78)!important;color:#fff!important;
+  box-shadow:0 5px 13px rgba(23,50,77,.16)!important;
+}
+input,select,textarea,.supplierSelect{
+  border-radius:12px!important;border-color:#d8e3e9!important;background:#fbfdfe!important;
+}
+.box{
+  border:1px solid #e1e9ee!important;border-radius:20px!important;
+  box-shadow:0 6px 22px rgba(23,50,77,.045)!important;
+}
+.box h3{color:#17324d!important}
+.total{border-radius:16px!important;background:#eaf4f5!important;border-color:#d2e6e8!important}
+.side-drawer{
+  background:#fbfdfe!important;border-left:1px solid #dce7ec!important;
+  box-shadow:-14px 0 38px rgba(16,38,59,.16)!important;
+}
+.drawer-head h2,.drawer-account strong{color:#17324d!important}
+.drawer-account{background:#edf4f7!important;border:1px solid #dce8ed}
+.drawer-nav button{border:1px solid #e3ebef!important;border-radius:13px!important}
+.drawer-nav button:hover{background:#e8f3f5!important}
+.detailsCard,.zoomPhotoCard{border-radius:22px!important}
+@media(max-width:520px){
+  .app-hero{padding:25px 14px 39px!important}
+  .hero-inner{gap:11px}
+  .hero-chip{font-size:10px!important;padding:7px 9px!important}
+  .hero-mark{width:52px!important;height:52px!important;flex-basis:52px!important;border-radius:17px!important}
+  main{padding:16px 11px 36px!important}
+  .home-welcome{min-height:135px;padding:19px 16px!important;border-radius:20px!important}
+  .home-welcome h2{font-size:24px!important}
+  .home-welcome-icon{width:53px!important;height:53px!important;flex-basis:53px!important;font-size:27px!important}
+  .home-action{min-height:88px!important;padding:12px 10px!important;border-radius:16px!important;gap:8px!important}
+  .home-action-icon{width:39px!important;height:39px!important;flex-basis:39px!important;border-radius:12px!important}
+  .home-action b{font-size:12px!important}
+  .home-action small{font-size:10px!important}
+  #productsPage>.box{padding:13px!important;border-radius:17px!important}
+  #products .prod{padding:9px 7px!important;border-radius:15px!important}
+  #products .prod .productPhoto,#products .prod img{height:100px!important}
+}
+@media(min-width:760px){
+  .home-actions{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .home-action{min-height:118px!important;padding:17px!important}
+  .home-action-icon{width:48px!important;height:48px!important;flex-basis:48px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+
+.products-top-actions{display:flex;align-items:stretch;gap:10px;margin:8px 0 16px}
+.products-top-actions button{min-height:54px;border-radius:15px!important;padding:11px 15px!important;display:flex;align-items:center;justify-content:center;gap:9px}
+.add-product-action{flex:1;min-width:0;font-size:15px!important}
+.invoice-preview-action{flex:1;min-width:0;background:#fff!important;color:#17324d!important;border:1px solid #cbdde3!important;box-shadow:0 5px 16px rgba(23,50,77,.07)!important}
+.invoice-preview-icon{font-size:20px}
+.invoice-preview-label{font-size:14px;font-weight:800}
+.invoice-preview-action .badge{min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:99px!important;background:#176b78!important;color:#fff!important;font-size:12px;font-weight:900;padding:0 7px}
+.invoice-preview-hint{font-size:10px;color:#71818d;white-space:nowrap}
+@media(max-width:390px){.products-top-actions{gap:7px}.products-top-actions button{padding:9px 8px!important;gap:6px;min-height:50px}.invoice-preview-hint{display:none}.invoice-preview-label{font-size:13px}}
+
 </style>
 <script
   src="https://js-de.sentry-cdn.com/6b360d8f124aaa77eef803eb43f37a3c.min.js"
@@ -303,7 +598,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 </aside>
 <div class="tabs" role="navigation" aria-label="التنقل الرئيسي">
 <button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
-<button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
+<button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة</button>
 <button id="tabAccount" onclick="page('account')">⚙️ الحساب والإعدادات</button>
 </div>
 <main>
@@ -369,7 +664,15 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
 <div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
 <section id="productsPage">
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
+<div class="products-top-actions" aria-label="إجراءات المنتجات">
+  <button class="primary add-product-action" type="button" onclick="resetForm();page('add')">＋ إضافة منتج</button>
+  <button class="invoice-preview-action" type="button" onclick="page('invoice')" aria-label="فتح الفاتورة ومراجعة المنتجات المختارة">
+    <span class="invoice-preview-icon" aria-hidden="true">🧾</span>
+    <span class="invoice-preview-label">الفاتورة</span>
+    <span class="badge" id="count">0</span>
+    <span class="invoice-preview-hint">مراجعة المختار</span>
+  </button>
+</div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
 <div class="box"><h3>المنتجات</h3>
 <div class="product-search-wrap" style="position:relative;margin:10px 0 14px">
@@ -1769,7 +2072,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     return inv;
   }
   function invoiceHtml(inv) {
-    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
+    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}
+</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
   }
   function downloadTextFile(text, filename, mime='text/plain;charset=utf-8') {
     const blob = new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
