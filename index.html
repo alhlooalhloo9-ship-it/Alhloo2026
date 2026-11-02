@@ -1769,7 +1769,91 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     return inv;
   }
   function invoiceHtml(inv) {
-    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
+    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}
+/* Professional navy + teal visual refresh — CSS only; application logic untouched */
+:root{
+  --brand:#17324d;
+  --brand-deep:#10263b;
+  --brand-soft:#e8f0f5;
+  --ink:#172b3a;
+  --muted:#687987;
+  --line:#dce5eb;
+  --surface:#ffffff;
+  --page:#f2f5f8;
+  --user-page-bg:#f2f5f8;
+  --user-card-bg:#ffffff;
+  --user-accent:#17324d;
+}
+body{
+  color:#172b3a;
+  background:linear-gradient(180deg,#f6f8fa 0%,#eef3f7 100%)!important;
+}
+.app-hero{
+  background:linear-gradient(125deg,#10263b 0%,#17324d 62%,#1b5361 100%)!important;
+  box-shadow:0 12px 30px rgba(16,38,59,.15);
+}
+.app-hero:before,.app-hero:after{border-color:rgba(255,255,255,.09)}
+.hero-mark{
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.17);
+  border-radius:16px;
+}
+.hero-kicker{color:#b9d5df}
+.app-hero p{color:#d9e7ed}
+.hero-chip{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.16)}
+.live-dot{background:#54d4c2;box-shadow:0 0 0 4px rgba(84,212,194,.14)}
+.box{
+  border-color:#dfe7ed;
+  box-shadow:0 5px 20px rgba(22,48,68,.045);
+}
+.box h3{color:#17324d}
+button{color:#24465b}
+.primary,.tabs button.primary{
+  background:linear-gradient(135deg,#17324d,#20546a)!important;
+  color:#fff!important;
+  box-shadow:0 4px 11px rgba(23,50,77,.16);
+}
+.badge,.prod details.productDetails summary{
+  background:#e8f1f5;
+  color:#1e5365;
+}
+input,.supplierSelect{
+  border-color:#d6e1e8;
+  background:#fbfcfd;
+}
+input:focus{border-color:#2b8790;box-shadow:0 0 0 3px rgba(43,135,144,.12)}
+.grid .prod{
+  border-color:#dfe7ed;
+  box-shadow:0 4px 15px rgba(22,48,68,.055);
+}
+.grid .prod:hover{border-color:#b9d1dc;box-shadow:0 8px 22px rgba(22,48,68,.09)}
+.prod img,.prod .productPhoto{background:#f2f6f8}
+.name{color:#203748}
+.price{color:#176b78}
+.prod .tapControls .badge{background:#eaf2f5;color:#31586b}
+.prod details.productDetails summary{background:#eaf2f5;color:#1d5365}
+.total{
+  background:#eaf3f5;
+  border-color:#d4e5e9;
+}
+.total .profitBox{background:#dceef0}
+#cloudPanel{border-top-color:#238b91}
+#productsPage .box>h3:before,#invoicePage .box h3:before{background:#238b91}
+.supplier-quick-switch{border-color:#dce5eb}
+.supplier-quick-switch button{background:#edf3f6;color:#28495d;border-color:#d9e4ea}
+.supplier-quick-switch button.active{background:#17324d;color:#fff;border-color:#17324d}
+.side-drawer{border-left:1px solid #dfe7ed}
+.drawer-head h2,.drawer-account strong{color:#17324d}
+.drawer-account{background:#edf3f6}
+.drawer-nav button{background:#f3f6f8;color:#243e50}
+.drawer-nav button:hover,.drawer-nav button:active{background:#e3eef2}
+.drawer-close{background:#edf2f5;color:#17324d}
+.detailsCard,.zoomPhotoCard{border:1px solid #dfe7ed;box-shadow:0 16px 48px rgba(12,32,48,.22)}
+@media(prefers-reduced-motion:no-preference){
+  .prod,button,.drawer-nav button{transition:background .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+}
+
+</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
   }
   function downloadTextFile(text, filename, mime='text/plain;charset=utf-8') {
     const blob = new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
