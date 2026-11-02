@@ -2048,7 +2048,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           const previous = byId.get(String(item.id)) || {};
           const next = { ...previous, ...item, id: String(item.id) };
           // لا تسمح لنسخة محلية بلا صورة بمسح صورة الحساب المحفوظة سحابياً.
-          if ((!item.image || /^data:image\\//i.test(String(item.image))) && previous.image && !/^data:image\\//i.test(String(previous.image)) && !item.imagePath) {
+          if ((!item.image || /^data:image\//i.test(String(item.image))) && previous.image && !/^data:image\//i.test(String(previous.image)) && !item.imagePath) {
             next.image = previous.image;
             if (previous.imagePath) next.imagePath = previous.imagePath;
           }
@@ -2110,10 +2110,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         return product;
       } catch (error) {
         // إذا انتهى رابط التنزيل أو تغير، نحاول رفع الصورة المحلية إن كانت موجودة.
-        if (!product.image || !/^data:image\\//i.test(String(product.image))) throw error;
+        if (!product.image || !/^data:image\//i.test(String(product.image))) throw error;
       }
     }
-    if (product.image && /^data:image\\//i.test(String(product.image))) {
+    if (product.image && /^data:image\//i.test(String(product.image))) {
       const blob = dataUrlToBlob(product.image);
       if (blob.size > 5 * 1024 * 1024) throw new Error('صورة المنتج أكبر من 5 ميغابايت.');
       const safeId = String(product.id).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2150,7 +2150,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         const previous = remoteById.get(String(item.id)) || {};
         const next = { ...previous, ...item, id: item.id };
         // احتفظ بالصورة السحابية إذا كانت النسخة المحلية لا تحتوي صورة جديدة.
-        if ((!item.image || !/^data:image\\//i.test(String(item.image))) && previous.image) {
+        if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
           next.image = item.image && item.image === previous.image ? item.image : previous.image;
           if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
         }
@@ -2163,7 +2163,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         const batch = products.slice(offset, offset + batchSize);
         for (let i = 0; i < batch.length; i++) {
           const product = batch[i];
-          if (product.image && /^data:image\\//i.test(String(product.image)) || product.imagePath) {
+          if (product.image && /^data:image\//i.test(String(product.image)) || product.imagePath) {
             showCloudMessage('جارٍ رفع صور المنتجات إلى Firebase Storage: ' + (offset + i + 1) + ' من ' + products.length);
             await ensureProductImageInStorage(product);
           }
