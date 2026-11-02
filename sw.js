@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v56";
+const CACHE_VERSION = "v57";
 const APP_CACHE = "nadwa-app-" + CACHE_VERSION;
 const FIREBASE_CACHE = "nadwa-firebase-" + CACHE_VERSION;
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
