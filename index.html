@@ -443,6 +443,9 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     signOut, 
     onAuthStateChanged 
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import {
+    getStorage, ref as storageRef, uploadBytes, getDownloadURL
+  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD1iTNsgI-R12xywSKjyxmhQSF-sZ1qQ_Q",
@@ -457,6 +460,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   // Firebase Authentication + Realtime Database مباشرة عبر HTTPS.
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const storage = getStorage(app);
   const RTDB_BASE = "https://alhlooapp-default-rtdb.europe-west1.firebasedatabase.app";
 
   let cloudUser = null, syncingCloud = false, cloudTimer = null, cloudSaveTimer = null, fullSyncRunning = false;
@@ -2040,7 +2044,17 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         const raw = await requestRtdb(target, "GET");
         const rows = Array.isArray(raw) ? raw.filter(Boolean) : (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
         const byId = new Map(rows.filter(x => x && x.id != null).map(x => [String(x.id), x]));
-        for (const item of incoming) if (item && item.id != null) byId.set(String(item.id), { ...byId.get(String(item.id)), ...item, id: String(item.id) });
+        for (const item of incoming) if (item && item.id != null) {
+          const previous = byId.get(String(item.id)) || {};
+          const next = { ...previous, ...item, id: String(item.id) };
+          // لا تسمح لنسخة محلية بلا صورة بمسح صورة الحساب المحفوظة سحابياً.
+          if ((!item.image || /^data:image\\//i.test(String(item.image))) && previous.image && !/^data:image\\//i.test(String(previous.image)) && !item.imagePath) {
+            next.image = previous.image;
+            if (previous.imagePath) next.imagePath = previous.imagePath;
+          }
+          if (!item.imagePath && previous.imagePath && (!item.image || item.image === previous.image)) next.imagePath = previous.imagePath;
+          byId.set(String(item.id), next);
+        }
         const merged = Array.from(byId.values());
         await requestRtdb(target, "PUT", merged);
         return { ok: true, saved: incoming.length };
@@ -2076,11 +2090,50 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     throw new Error("طلب مزامنة غير مدعوم: " + cleanPath);
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+    if (!match) throw new Error('صيغة صورة المنتج غير صالحة.');
+    const mime = match[1] || 'image/jpeg';
+    const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function ensureProductImageInStorage(product) {
+    if (!cloudUser || !product) return product;
+    const uid = cloudUser.uid;
+    if (product.imagePath) {
+      try {
+        const url = await getDownloadURL(storageRef(storage, product.imagePath));
+        product.image = url;
+        return product;
+      } catch (error) {
+        // إذا انتهى رابط التنزيل أو تغير، نحاول رفع الصورة المحلية إن كانت موجودة.
+        if (!product.image || !/^data:image\\//i.test(String(product.image))) throw error;
+      }
+    }
+    if (product.image && /^data:image\\//i.test(String(product.image))) {
+      const blob = dataUrlToBlob(product.image);
+      if (blob.size > 5 * 1024 * 1024) throw new Error('صورة المنتج أكبر من 5 ميغابايت.');
+      const safeId = String(product.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const path = 'users/' + uid + '/product-images/' + safeId + '_' + Date.now() + '.jpg';
+      const objectRef = storageRef(storage, path);
+      await uploadBytes(objectRef, blob, { contentType: blob.type || 'image/jpeg', customMetadata: { productId: String(product.id) } });
+      const url = await getDownloadURL(objectRef);
+      // لا نستبدل الصورة المحلية إلا بعد تأكيد الرفع والحصول على رابط التنزيل.
+      product.imagePath = path;
+      product.image = url;
+      return product;
+    }
+    return product;
+  }
+
   async function syncProductsToCloud() {
     if (!cloudUser || syncingCloud) return;
     syncingCloud = true;
     try {
-      showCloudMessage('جارٍ جلب المنتجات من قاعدة البيانات الجديدة...');
+      showCloudMessage('جارٍ جلب المنتجات من Firebase...');
       const remote = [];
       const pageSize = 500;
       for (let skip = 0; ; skip += pageSize) {
@@ -2089,25 +2142,41 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         remote.push(...rows);
         if (rows.length < pageSize) break;
       }
-      const localIds = new Set(products.map(p => String(p.id)));
-      for (const item of remote) {
-        if (!localIds.has(String(item.id))) {
-          products.push({ ...item, id: item.id });
-          localIds.add(String(item.id));
+      const remoteById = new Map(remote.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      const localById = new Map(products.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      const merged = new Map();
+      for (const item of remote) merged.set(String(item.id), { ...item });
+      for (const item of products) {
+        const previous = remoteById.get(String(item.id)) || {};
+        const next = { ...previous, ...item, id: item.id };
+        // احتفظ بالصورة السحابية إذا كانت النسخة المحلية لا تحتوي صورة جديدة.
+        if ((!item.image || !/^data:image\\//i.test(String(item.image))) && previous.image) {
+          next.image = item.image && item.image === previous.image ? item.image : previous.image;
+          if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
         }
+        merged.set(String(item.id), next);
       }
+      products = Array.from(merged.values());
       let saved = 0;
-      const batchSize = 100;
+      const batchSize = 25;
       for (let offset = 0; offset < products.length; offset += batchSize) {
-        const batch = products.slice(offset, offset + batchSize).map(p => ({ ...p, id: String(p.id) }));
-        const result = await apiRequest('/products', { method: 'POST', body: { products: batch } });
-        saved += Number(result.saved || batch.length);
-        showCloudMessage('جارٍ حفظ المنتجات عبر Firebase: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+        const batch = products.slice(offset, offset + batchSize);
+        for (let i = 0; i < batch.length; i++) {
+          const product = batch[i];
+          if (product.image && /^data:image\\//i.test(String(product.image)) || product.imagePath) {
+            showCloudMessage('جارٍ رفع صور المنتجات إلى Firebase Storage: ' + (offset + i + 1) + ' من ' + products.length);
+            await ensureProductImageInStorage(product);
+          }
+        }
+        const payload = batch.map(p => ({ ...p, id: String(p.id) }));
+        const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
+        saved += Number(result.saved || payload.length);
+        showCloudMessage('جارٍ حفظ المنتجات ومسارات الصور في Firebase: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
       }
       saveLocalOnly();
       renderProducts();
       renderInvoice();
-      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً مع Firebase Realtime Database.');
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً. الصور محفوظة في Firebase Storage ومساراتها في Realtime Database.');
     } finally { syncingCloud = false; }
   }
 
