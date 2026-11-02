@@ -439,10 +439,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     measurementId: "G-360V9996CH"
   };
 
-  // Firebase Authentication فقط لتسجيل الدخول؛ لا يوجد أي اتصال Firestore من المتصفح.
+  // Firebase Authentication + Realtime Database مباشرة عبر HTTPS.
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const API_BASE = "https://alhloo2026.vercel.app/api";
+  const RTDB_BASE = "https://alhlooapp-default-rtdb.europe-west1.firebasedatabase.app";
 
   let cloudUser = null, syncingCloud = false, cloudTimer = null, cloudSaveTimer = null, fullSyncRunning = false;
   const $ = id => document.getElementById(id);
@@ -1982,16 +1982,79 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   async function apiRequest(path, options = {}) {
     if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
     const token = await cloudUser.getIdToken();
-    const response = await fetch(API_BASE + path, {
-      method: options.method || "GET",
-      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      cache: "no-store"
-    });
-    let data = {};
-    try { data = await response.json(); } catch (_) {}
-    if (!response.ok || data.ok === false) throw new Error(data.error || ("فشل طلب الخادم (" + response.status + ")"));
-    return data;
+    const uid = encodeURIComponent(cloudUser.uid);
+    const method = String(options.method || "GET").toUpperCase();
+    const cleanPath = String(path || "").split("?")[0].replace(/^\\/+|\\/+$/g, "");
+    const parts = cleanPath.split("/");
+    const resource = parts[0];
+    const basePath = RTDB_BASE + "/users/" + uid;
+    async function requestRtdb(target, httpMethod, body) {
+      const url = target + ".json?auth=" + encodeURIComponent(token);
+      const response = await fetch(url, {
+        method: httpMethod,
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store"
+      });
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok) {
+        const detail = data && data.error ? data.error : ("HTTP " + response.status);
+        throw new Error("Firebase Realtime Database: " + detail);
+      }
+      return data;
+    }
+
+    if (resource === "products") {
+      const target = basePath + "/products";
+      if (method === "GET") {
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) : (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        const query = new URLSearchParams(String(path).split("?")[1] || "");
+        const skip = Math.max(0, Number(query.get("skip")) || 0);
+        const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
+        return { ok: true, products: rows.slice(skip, skip + limit) };
+      }
+      if (method === "POST") {
+        const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
+        if (incoming.length > 5000) throw new Error("عدد المنتجات المرسلة أكبر من الحد المسموح.");
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) : (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        const byId = new Map(rows.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+        for (const item of incoming) if (item && item.id != null) byId.set(String(item.id), { ...byId.get(String(item.id)), ...item, id: String(item.id) });
+        const merged = Array.from(byId.values());
+        await requestRtdb(target, "PUT", merged);
+        return { ok: true, saved: incoming.length };
+      }
+    }
+
+    if (resource === "cart") {
+      const target = basePath + "/cart";
+      if (method === "GET") return { ok: true, ...(await requestRtdb(target, "GET") || { items: {} }) };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || { items: {} });
+        return { ok: true };
+      }
+    }
+
+    if (resource === "settings") {
+      const target = basePath + "/settings";
+      if (method === "GET") return { ok: true, settings: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body && options.body.settings ? options.body.settings : {});
+        return { ok: true };
+      }
+    }
+
+    if (resource === "workspace") {
+      const target = basePath + "/workspace";
+      if (method === "GET") return { ok: true, workspace: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || {});
+        return { ok: true };
+      }
+    }
+    throw new Error("طلب مزامنة غير مدعوم: " + cleanPath);
   }
 
   async function syncProductsToCloud() {
@@ -2020,12 +2083,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         const batch = products.slice(offset, offset + batchSize).map(p => ({ ...p, id: String(p.id) }));
         const result = await apiRequest('/products', { method: 'POST', body: { products: batch } });
         saved += Number(result.saved || batch.length);
-        showCloudMessage('جارٍ حفظ المنتجات عبر Vercel: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+        showCloudMessage('جارٍ حفظ المنتجات عبر Firebase: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
       }
       saveLocalOnly();
       renderProducts();
       renderInvoice();
-      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً مع MongoDB عبر Vercel.');
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً مع Firebase Realtime Database.');
     } finally { syncingCloud = false; }
   }
 
@@ -2057,7 +2120,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     saveLocalOnly();
     renderProducts();
     renderInvoice();
-    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من MongoDB.');
+    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من Firebase.');
     else if (Object.keys(cart).length) await syncCartToCloud();
   }
 
@@ -2142,16 +2205,16 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
     fullSyncRunning = true;
     try {
-      showCloudMessage('جارٍ الاتصال بقاعدة البيانات عبر Vercel...');
+      showCloudMessage('جارٍ الاتصال بقاعدة بيانات Firebase...');
       await syncProductsToCloud();
       await syncWorkspaceToCloud();
       await loadCartFromCloud();
       await syncSettings();
-      showCloudMessage('اكتملت المزامنة عبر Vercel API مع MongoDB بنجاح.');
+      showCloudMessage('اكتملت المزامنة مع Firebase Realtime Database بنجاح.');
     } catch (e) {
       const message = String(e?.message || 'خطأ غير معروف');
       showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
-      console.error('Vercel API synchronization failed:', e);
+      console.error('Firebase synchronization failed:', e);
     } finally { fullSyncRunning = false; }
   }
 
@@ -2226,7 +2289,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     renderProducts();
     renderInvoice();
     if (cloudUser) {
-      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بقاعدة البيانات عبر Vercel...');
+      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بقاعدة بيانات Firebase...');
       window.setTimeout(() => syncCloudSafely(), 500);
     }
   });
