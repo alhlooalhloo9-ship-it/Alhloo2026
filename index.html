@@ -1400,12 +1400,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('detailsModal').classList.add('hidden');
     if (detailsHistoryOpen) {
       detailsHistoryOpen = false;
-      if (skipHistory) {
-        ignoreNextDetailsPopState = true;
-        history.back();
-      } else {
-        history.back();
-      }
+      // إغلاق النافذة بزر «إغلاق» أو الانتقال للتعديل لا يجب أن يُفسَّر كطلب خروج.
+      // نتجاهل حدث الرجوع الناتج عن إزالة سجل نافذة التفاصيل فقط.
+      ignoreNextDetailsPopState = true;
+      history.back();
     }
   };
 
