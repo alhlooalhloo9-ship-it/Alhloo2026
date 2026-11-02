@@ -2026,26 +2026,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     }
 
     if (resource === "products") {
+      const target = basePath + "/products";
       const query = new URLSearchParams(String(path).split("?")[1] || "");
       if (method === "GET") {
-        // MongoDB هو المصدر الأساسي. نضم السجلات القديمة من Realtime Database
-        // دون حذفها، مع إعطاء MongoDB الأولوية عند تكرار المعرّف.
-        const response = await fetch(API_BASE + "/products?skip=0&limit=5000", {
-          method: "GET", headers: { Authorization: "Bearer " + token }, cache: "no-store"
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || "تعذر جلب المنتجات من MongoDB (HTTP " + response.status + ").");
-        const merged = new Map();
-        for (const item of Array.isArray(result.products) ? result.products : []) {
-          if (item && item.id != null) merged.set(String(item.id), item);
-        }
-        const legacy = await requestRtdb(basePath + "/products", "GET");
-        const legacyRows = Array.isArray(legacy) ? legacy.filter(Boolean) :
-          (legacy && typeof legacy === "object" ? Object.values(legacy).filter(Boolean) : []);
-        for (const item of legacyRows) {
-          if (item && item.id != null && !merged.has(String(item.id))) merged.set(String(item.id), item);
-        }
-        const rows = Array.from(merged.values());
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) :
+          (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
         const skip = Math.max(0, Number(query.get("skip")) || 0);
         const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
         return { ok: true, products: rows.slice(skip, skip + limit) };
@@ -2053,14 +2039,9 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       if (method === "POST") {
         const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
         if (incoming.length > 5000) throw new Error("عدد المنتجات المرسلة أكبر من الحد المسموح.");
-        const response = await fetch(API_BASE + "/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-          body: JSON.stringify({ products: incoming }), cache: "no-store"
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || "تعذر حفظ المنتجات في MongoDB (HTTP " + response.status + ").");
-        return result;
+        // Realtime Database يخزّن بيانات المنتج والصورة المضغوطة ضمن سجل الحساب نفسه.
+        await requestRtdb(target, "PUT", incoming);
+        return { ok: true, saved: incoming.length };
       }
     }
 
@@ -2104,15 +2085,15 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   }
 
   async function prepareImageForCloud(sourceBlob) {
-    const maxBytes = 2.8 * 1024 * 1024;
-    if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp|gif)$/i.test(sourceBlob.type)) return sourceBlob;
+    const maxBytes = 450 * 1024;
+    if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp)$/i.test(sourceBlob.type)) return sourceBlob;
     if (!('createImageBitmap' in window)) {
       if (sourceBlob.size <= maxBytes) return sourceBlob;
-      throw new Error('الصورة كبيرة ولا يدعم هذا المتصفح ضغطها تلقائياً. بقيت النسخة الأصلية محفوظة على الجهاز.');
+      throw new Error('تعذر ضغط الصورة على هذا المتصفح. بقيت النسخة الأصلية محفوظة على الجهاز.');
     }
     const bitmap = await createImageBitmap(sourceBlob);
     try {
-      const scale = Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height));
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
       canvas.height = Math.max(1, Math.round(bitmap.height * scale));
@@ -2120,79 +2101,39 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       context.fillStyle = '#ffffff';
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      for (const quality of [0.86, 0.78, 0.68, 0.58]) {
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
         const compressed = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
         if (compressed && compressed.size <= maxBytes) return compressed;
       }
-      throw new Error('تعذر ضغط الصورة إلى الحجم الآمن للرفع. بقيت النسخة الأصلية محفوظة على الجهاز.');
+      throw new Error('حجم الصورة أكبر من الحد الآمن للمزامنة. بقيت النسخة الأصلية محفوظة على الجهاز.');
     } finally { bitmap.close?.(); }
   }
 
-  function blobToBase64(blob) {
+  async function blobToDataUrl(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const value = String(reader.result || '');
-        const comma = value.indexOf(',');
-        if (comma < 0) return reject(new Error('تعذر تجهيز الصورة للرفع.'));
-        resolve(value.slice(comma + 1));
-      };
-      reader.onerror = () => reject(reader.error || new Error('تعذر قراءة الصورة.'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('تعذرت قراءة الصورة بعد ضغطها.'));
       reader.readAsDataURL(blob);
     });
   }
 
-  function withTimeout(promise, ms, label) {
-    let timer;
-    return Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(label + ' — انتهت المهلة بعد ' + Math.round(ms / 1000) + ' ثانية.')), ms);
-      })
-    ]).finally(() => clearTimeout(timer));
-  }
-
   async function ensureProductImageInStorage(product) {
-    if (!cloudUser || !product || !product.image || !/^data:image\//i.test(String(product.image))) return product;
-    const originalBlob = dataUrlToBlob(product.image);
-    const blob = await prepareImageForCloud(originalBlob);
-    const token = await cloudUser.getIdToken();
-    let lastError;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        showCloudMessage('رفع صورة ' + String(product.name || product.id) + ' إلى MongoDB — المحاولة ' + attempt + ' من 3');
-        const result = await withTimeout((async () => {
-          const response = await fetch(API_BASE + '/images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ productId: String(product.id), mimeType: blob.type || 'image/jpeg', data: await blobToBase64(blob) }),
-            cache: 'no-store'
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok || !payload.url) throw new Error(payload.error || 'فشل حفظ الصورة على الخادم (HTTP ' + response.status + ').');
-          return payload;
-        })(), 60000, 'انتهت مهلة رفع الصورة إلى MongoDB');
-        // نحتفظ بالأصل على هذا الجهاز كنسخة احتياطية، ونستخدم الرابط السحابي للعرض والمزامنة.
-        if (!product.imageLocal) product.imageLocal = product.image;
-        product.image = result.url;
-        delete product.imagePath;
-        return product;
-      } catch (error) {
-        lastError = error;
-        if (attempt < 3) {
-          showCloudMessage('تعذّر رفع صورة ' + String(product.name || product.id) + '؛ إعادة المحاولة ' + (attempt + 1) + ' من 3...');
-          await new Promise(resolve => setTimeout(resolve, attempt * 1500));
-        }
-      }
+    if (!product || !product.image || !/^data:image\//i.test(String(product.image))) return product;
+    const original = String(product.image);
+    const blob = await prepareImageForCloud(dataUrlToBlob(original));
+    if (blob.size < dataUrlToBlob(original).size) {
+      if (!product.imageLocal) product.imageLocal = original;
+      product.image = await blobToDataUrl(blob);
     }
-    throw new Error('فشل رفع صورة المنتج «' + String(product.name || product.id) + '» بعد 3 محاولات: ' + String(lastError?.message || lastError));
+    return product;
   }
 
   async function syncProductsToCloud() {
     if (!cloudUser || syncingCloud) return;
     syncingCloud = true;
     try {
-      showCloudMessage('جارٍ جلب المنتجات من MongoDB وترحيل السجلات القديمة...');
+      showCloudMessage('جارٍ جلب المنتجات من Firebase Realtime Database...');
       const remote = [];
       const pageSize = 500;
       for (let skip = 0; ; skip += pageSize) {
@@ -2236,7 +2177,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         for (let i = 0; i < batch.length; i++) {
           const product = batch[i];
           if (product.image && /^data:image\//i.test(String(product.image)) || product.imagePath) {
-            showCloudMessage('جارٍ حفظ صور المنتجات في MongoDB: ' + (offset + i + 1) + ' من ' + products.length);
+            showCloudMessage('جارٍ ضغط صور المنتجات وتجهيزها للمزامنة: ' + (offset + i + 1) + ' من ' + products.length);
             await ensureProductImageInStorage(product);
           }
         }
@@ -2246,12 +2187,12 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         });
         const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
         saved += Number(result.saved || payload.length);
-        showCloudMessage('جارٍ حفظ المنتجات في MongoDB: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+        showCloudMessage('جارٍ مزامنة المنتجات والصور: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
       }
       saveLocalOnly();
       renderProducts();
       renderInvoice();
-      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً. المنتجات والصور محفوظة في MongoDB.');
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً وصورة عبر Firebase Realtime Database.');
     } finally { syncingCloud = false; }
   }
 
@@ -2373,7 +2314,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       await syncWorkspaceToCloud();
       await loadCartFromCloud();
       await syncSettings();
-      showCloudMessage('اكتملت المزامنة بنجاح مع MongoDB (المنتجات والصور) وFirebase (بيانات الفواتير والإعدادات).');
+      showCloudMessage('اكتملت المزامنة بنجاح مع Firebase (المنتجات والصور والفواتير والإعدادات).');
     } catch (e) {
       const message = String(e?.message || 'خطأ غير معروف');
       showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
