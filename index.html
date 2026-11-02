@@ -1984,7 +1984,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     const token = await cloudUser.getIdToken();
     const uid = encodeURIComponent(cloudUser.uid);
     const method = String(options.method || "GET").toUpperCase();
-    const cleanPath = String(path || "").split("?")[0].replace(/^\\/+|\\/+$/g, "");
+    const cleanPath = String(path || "").split("?")[0].replace(/^\/+|\/+$/g, "");
     const parts = cleanPath.split("/");
     const resource = parts[0];
     const basePath = RTDB_BASE + "/users/" + uid;
