@@ -265,6 +265,33 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 
 #products .prod .name{font-size:calc(14px * var(--user-font-scale))}#products .prod .price{font-size:calc(16px * var(--user-font-scale))}#products .prod .muted,#products .prod .badge,#products .prod button,#products .prod summary{font-size:calc(13px * var(--user-font-scale))}
 
+
+/* الصفحة الرئيسية الجديدة: لوحة عمل فعلية وبطاقات مهام */
+.home-dashboard{margin:4px 0 18px}
+.home-welcome{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:22px 20px;margin:0 0 14px;border-radius:22px;background:linear-gradient(120deg,#10263b 0%,#173b55 68%,#176b78 100%);color:#fff;box-shadow:0 12px 26px rgba(16,38,59,.15);overflow:hidden;position:relative}
+.home-welcome:after{content:"";position:absolute;width:180px;height:180px;border:1px solid #ffffff18;border-radius:50%;left:-50px;top:-95px}
+.home-welcome>div{position:relative;z-index:1}
+.home-eyebrow{font-size:11px;color:#a9d8dc;font-weight:700}
+.home-welcome h2{font-size:24px;margin:7px 0 4px;line-height:1.3}
+.home-welcome p{font-size:13px;color:#d6e7ec;margin:0}
+.home-welcome-icon{width:58px;height:58px;flex:0 0 58px;display:grid;place-items:center;border-radius:18px;background:#ffffff18;font-size:29px;border:1px solid #ffffff25}
+.home-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.home-action{display:flex;align-items:center;gap:10px;text-align:right;min-width:0;min-height:82px;padding:13px 11px;border:1px solid #dce5eb;border-radius:16px;background:#fff;color:#17324d;box-shadow:0 4px 13px #17324d0a}
+.home-action:active{transform:scale(.985)}
+.home-action-main{background:#eaf3f5;border-color:#c9e0e4}
+.home-action-icon{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border-radius:12px;background:#eaf1f5;color:#176b78;font-size:22px}
+.home-action-main .home-action-icon{background:#17324d;color:#fff}
+.home-action>span:nth-child(2){display:grid;gap:5px;min-width:0;flex:1}
+.home-action b{font-size:13px;line-height:1.35}
+.home-action small{font-size:10px;color:#71818d;line-height:1.4;font-weight:400}
+.home-arrow{font-size:18px;color:#238b91}
+.home-section-heading{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:23px 3px 10px}
+.home-section-heading span:first-child{font-size:11px;color:#238b91;font-weight:800}
+.home-section-heading h3{font-size:20px;color:#17324d;margin:3px 0 0}
+.home-section-mark{font-size:9px;letter-spacing:1.4px;color:#9aaab4;font-weight:800}
+@media(max-width:360px){.home-actions{grid-template-columns:1fr}.home-action{min-height:70px}.home-welcome{padding:18px 15px}}
+@media(min-width:700px){.home-actions{grid-template-columns:repeat(4,minmax(0,1fr))}.home-action{min-height:105px;align-items:flex-start;flex-direction:column}.home-action>span:nth-child(2){width:100%}.home-arrow{display:none}}
+
 /* Professional navy + teal visual refresh — CSS only; application logic untouched */
 :root{
   --brand:#17324d;
@@ -452,6 +479,19 @@ input:focus{border-color:#2b8790;box-shadow:0 0 0 3px rgba(43,135,144,.12)}
 <button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
 <div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
 <section id="productsPage">
+<div class="home-dashboard">
+  <div class="home-welcome">
+    <div><span class="home-eyebrow">مساحة إدارة الندوة</span><h2>أهلاً بك 👋</h2><p>كل شغلك اليومي صار واضح وبوصول سريع.</p></div>
+    <div class="home-welcome-icon" aria-hidden="true">📦</div>
+  </div>
+  <div class="home-actions">
+    <button type="button" class="home-action home-action-main" onclick="resetForm();page('add')"><span class="home-action-icon">＋</span><span><b>إضافة منتج</b><small>أدخل صنف جديد للمخزون</small></span><span class="home-arrow">←</span></button>
+    <button type="button" class="home-action" onclick="page('invoice')"><span class="home-action-icon">🧾</span><span><b>الفاتورة الحالية</b><small>راجع المبيعات وأكمل الفاتورة</small></span><span class="home-arrow">←</span></button>
+    <button type="button" class="home-action" onclick="page('suppliers')"><span class="home-action-icon">🏬</span><span><b>إدارة المخازن</b><small>تنظيم المنتجات حسب المخزن</small></span><span class="home-arrow">←</span></button>
+    <button type="button" class="home-action" onclick="page('account')"><span class="home-action-icon">☁️</span><span><b>الحساب والنسخ الاحتياطي</b><small>المزامنة ونقل البيانات</small></span><span class="home-arrow">←</span></button>
+  </div>
+  <div class="home-section-heading"><div><span>إدارة المخزون</span><h3>منتجاتك</h3></div><span class="home-section-mark">PRODUCTS</span></div>
+</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
 <div class="box"><h3>المنتجات</h3>
