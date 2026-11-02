@@ -362,6 +362,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   <label for="authEmail">اسم المستخدم</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="اسم المستخدم">
   <label for="authPassword">كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
   <button type="button" class="primary" id="signInBtn" style="width:100%">تسجيل الدخول</button>
+  <button type="button" id="signUpBtn" style="width:100%;margin-top:8px">إنشاء حساب جديد</button>
 </div>
 <div id="authActions" class="hidden"><button type="button" class="primary" id="syncCloudBtn" style="width:100%;margin:8px 0">☁️ مزامنة المنتجات والصور بين الأجهزة</button><button type="button" id="signOutBtn" style="width:100%">تسجيل الخروج</button></div>
 <div id="connectionDiagnostics" class="hidden"></div><pre id="connectionDiagnosticsText" class="hidden"></pre>
@@ -2268,6 +2269,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   });
   $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
+  $('signUpBtn').addEventListener('click', () => doSignUp().catch(e => showCloudMessage(e.message)));
   $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
   $('drawerSignOut').addEventListener('click', () => {
     if (cloudUser && confirm('تسجيل الخروج؟ ستبقى بيانات الحساب محفوظة على هذا الجهاز.')) doSignOut().then(closeDrawer).catch(e => showCloudMessage(e.message));
