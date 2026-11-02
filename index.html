@@ -444,7 +444,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     onAuthStateChanged 
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
   import {
-    getStorage, ref as storageRef, uploadBytes, getDownloadURL
+    getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL
   } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
   const firebaseConfig = {
@@ -2103,31 +2103,95 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     return new Blob([bytes], { type: mime });
   }
 
+  function withTimeout(promise, ms, label) {
+    let timer;
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label + ' — انتهت المهلة بعد ' + Math.round(ms / 1000) + ' ثانية.')), ms);
+      })
+    ]).finally(() => clearTimeout(timer));
+  }
+
+  function uploadImageWithProgress(objectRef, blob, metadata, product, attempt) {
+    return new Promise((resolve, reject) => {
+      const task = uploadBytesResumable(objectRef, blob, metadata);
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try { task.cancel(); } catch (_) {}
+        reject(new Error('توقف رفع الصورة ' + String(product.name || product.id) + ' بعد 60 ثانية دون اكتمال. تحقق من اتصال الإنترنت وصلاحيات Firebase Storage.'));
+      }, 60000);
+      task.on('state_changed',
+        snapshot => {
+          const percent = snapshot.totalBytes ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100) : 0;
+          showCloudMessage('رفع صورة ' + String(product.name || product.id) + ' — المحاولة ' + attempt + ' — ' + percent + '%');
+        },
+        error => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          reject(error);
+        },
+        () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          resolve(task.snapshot);
+        }
+      );
+    });
+  }
+
   async function ensureProductImageInStorage(product) {
     if (!cloudUser || !product) return product;
     const uid = cloudUser.uid;
     if (product.imagePath) {
       try {
-        const url = await getDownloadURL(storageRef(storage, product.imagePath));
+        const url = await withTimeout(
+          getDownloadURL(storageRef(storage, product.imagePath)),
+          20000,
+          'تعذّر جلب رابط الصورة من Firebase Storage'
+        );
         product.image = url;
         return product;
       } catch (error) {
-        // إذا انتهى رابط التنزيل أو تغير، نحاول رفع الصورة المحلية إن كانت موجودة.
-        if (!product.image || !/^data:image\//i.test(String(product.image))) throw error;
+        // إذا تعذر الوصول للصورة السحابية، لا نستبدلها إلا إذا كانت النسخة المحلية الأصلية موجودة.
+        if (!product.image || !/^data:image\\//i.test(String(product.image))) throw error;
       }
     }
-    if (product.image && /^data:image\//i.test(String(product.image))) {
+    if (product.image && /^data:image\\//i.test(String(product.image))) {
       const blob = dataUrlToBlob(product.image);
       if (blob.size > 5 * 1024 * 1024) throw new Error('صورة المنتج أكبر من 5 ميغابايت.');
       const safeId = String(product.id).replace(/[^a-zA-Z0-9_-]/g, '_');
-      const path = 'users/' + uid + '/product-images/' + safeId + '_' + Date.now() + '.jpg';
-      const objectRef = storageRef(storage, path);
-      await uploadBytes(objectRef, blob, { contentType: blob.type || 'image/jpeg', customMetadata: { productId: String(product.id) } });
-      const url = await getDownloadURL(objectRef);
-      // لا نستبدل الصورة المحلية إلا بعد تأكيد الرفع والحصول على رابط التنزيل.
-      product.imagePath = path;
-      product.image = url;
-      return product;
+      let lastError;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const path = 'users/' + uid + '/product-images/' + safeId + '_' + Date.now() + '_' + attempt + '.jpg';
+        const objectRef = storageRef(storage, path);
+        try {
+          await uploadImageWithProgress(objectRef, blob, {
+            contentType: blob.type || 'image/jpeg',
+            customMetadata: { productId: String(product.id) }
+          }, product, attempt);
+          const url = await withTimeout(
+            getDownloadURL(objectRef),
+            20000,
+            'تم رفع الصورة لكن تعذّر الحصول على رابطها'
+          );
+          // لا نستبدل الصورة المحلية إلا بعد تأكيد الرفع والحصول على رابط التنزيل.
+          product.imagePath = path;
+          product.image = url;
+          return product;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 3) {
+            showCloudMessage('تعذّر رفع صورة ' + String(product.name || product.id) + '؛ إعادة المحاولة ' + (attempt + 1) + ' من 3...');
+            await new Promise(resolve => setTimeout(resolve, attempt * 1500));
+          }
+        }
+      }
+      throw new Error('فشل رفع صورة المنتج «' + String(product.name || product.id) + '» بعد 3 محاولات: ' + String(lastError?.message || lastError));
     }
     return product;
   }
