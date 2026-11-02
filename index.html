@@ -2404,9 +2404,11 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
           existingIds.add(String(id));
           return {
             id, name: String(p.name).trim(), price: Number(p.price),
-            pieces: 1, sellTry: Number(p.sellTry), sellSyp: Number(p.sellSyp),
+            pieces: Math.max(1, Math.floor(Number(p.pieces) || 1)),
+            sellTry: Number(p.sellTry), sellSyp: Number(p.sellSyp),
             unitPriceUsd: Number(p.price), unitPriceTry: Number(p.sellTry),
-            unitPriceSyp: Number(p.sellSyp), stock: 0, image: '',
+            unitPriceSyp: Number(p.sellSyp),
+            stock: Math.max(0, Math.floor(Number(p.stock) || 0)), image: p.image || '',
             supplierId: target.id
           };
         });
