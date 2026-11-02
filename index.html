@@ -2158,7 +2158,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         }
         const keep = isLocal || !previous.__localPriority ? { ...previous, ...item, __localPriority: !!isLocal } : { ...item, ...previous };
         // لا نفقد صورة موجودة في أي نسخة من المنتج.
-        if ((!keep.image || /^data:image\\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
+        if ((!keep.image || /^data:image\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
         if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
         uniqueByName.set(key, keep);
       };
@@ -2166,7 +2166,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       for (const item of products) {
         const previous = remoteById.get(String(item.id)) || {};
         const next = { ...previous, ...item, id: item.id };
-        if ((!item.image || !/^data:image\\//i.test(String(item.image))) && previous.image) {
+        if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
           next.image = item.image && item.image === previous.image ? item.image : previous.image;
           if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
         }
