@@ -2162,16 +2162,20 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const id=$('archivedPdfPreviewModal')?.dataset.invoiceId;
     if(id)exportArchivedInvoice(id,'pdf');
   };
-  window.previewArchivedInvoicePdf=function(id){
-    const inv=invoiceArchive.find(x=>String(x.id)===String(id));if(!inv)return;
-    const modal=$('archivedPdfPreviewModal');
-    $('archivedPdfPreviewTitle').textContent='معاينة فاتورة '+(inv.buyerName||'بدون اسم مشتري');
-    $('archivedPdfPreviewMeta').textContent=(inv.supplierName||'')+' · '+new Date(inv.issuedAt).toLocaleString('ar');
-    const frame=$('archivedPdfPreviewFrame');
-    frame.srcdoc=invoiceHtml(inv);
-    modal.dataset.invoiceId=String(inv.id);
-    modal.classList.remove('hidden');
-    document.body.classList.add('modal-open');
+  window.previewArchivedInvoicePdf = async function(id) {
+    const inv = invoiceArchive.find(x => String(x.id) === String(id));
+    if (!inv) {
+      alert('لم يتم العثور على الفاتورة المحفوظة.');
+      return;
+    }
+    try {
+      await previewInvoiceAsPdf(inv);
+      $('archivedPdfPreviewTitle').textContent = 'معاينة فاتورة ' + (inv.buyerName || 'بدون اسم مشتري');
+      $('archivedPdfPreviewModal').dataset.invoiceId = String(inv.id);
+    } catch (error) {
+      console.error('Archived invoice PDF preview failed:', error);
+      alert(error && error.message ? error.message : 'تعذرت معاينة ملف PDF. حاول مرة أخرى.');
+    }
   };
   function invoiceTableText(inv) {
     const lines = [
