@@ -955,10 +955,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     invoiceArchive.forEach(x=>{if(String(x.supplierId)==='general')x.supplierId='main';});
     if (!suppliers.length && !deletedSet.has('main')) suppliers.push({id:'main',name:'المخزن الرئيسي'});
     if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>String(x.supplierId)==='main') && !deletedSet.has('main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
-    if (!supplierCarts.main) supplierCarts.main=cart&&typeof cart==='object'?cart:{};
+    if (!supplierCarts.main && suppliers.some(x=>String(x.id)==='main')) supplierCarts.main=cart&&typeof cart==='object'?cart:{};
     if(String(activeSupplierId)==='general')activeSupplierId='main';
-    if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'main';
-    cart=supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={});
+    if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'';
+    cart=activeSupplierId?(supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={})):{};
   }
   function workspaceStorageKeys(uid) {
     const suffix = uid ? String(uid) : 'guest';
@@ -2285,14 +2285,15 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     deletedSupplierIds = (deletedSupplierIds||[]).filter(x=>String(x)!==String(id));
     suppliers.push({id,name:name.slice(0,80)});
     supplierCarts[id] = {};
+    if(!activeSupplierId){activeSupplierId=id;cart=supplierCarts[id];}
     $('newSupplierName').value = '';
     save(); renderSupplierSelectors(); renderSupplierList(); $('productSupplier').value = id;
   });
   function switchSupplier(id) {
-    if (!suppliers.some(x => x.id === id)) id = 'main';
-    supplierCarts[activeSupplierId] = cart;
+    if (!suppliers.some(x => String(x.id) === String(id))) id = suppliers[0]?.id || '';
+    if(activeSupplierId)supplierCarts[activeSupplierId] = cart;
     activeSupplierId = id;
-    cart = supplierCarts[id] || (supplierCarts[id] = {});
+    cart = id ? (supplierCarts[id] || (supplierCarts[id] = {})) : {};
     if($('invoiceSupplierName'))$('invoiceSupplierName').value=supplierName(activeSupplierId);
     save();
     if ($('invoiceSupplier')) $('invoiceSupplier').value = id;
