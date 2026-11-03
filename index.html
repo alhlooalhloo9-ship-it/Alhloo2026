@@ -2045,7 +2045,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const pad = value => String(value).padStart(2, '0');
     const hour24 = issued.getHours();
     const hour12 = hour24 % 12 || 12;
-    const date = pad(issued.getDate()) + '/' + (issued.getMonth() + 1) + '/' + issued.getFullYear() +
+    const date = pad(issued.getDate()) + '/' + pad(issued.getMonth() + 1) + '/' + issued.getFullYear() +
       ' - ' + pad(hour12) + ':' + pad(issued.getMinutes()) + (hour24 < 12 ? ' ص' : ' م');
     const money = value => '$' + (Number(value) || 0).toFixed(2);
     const tryExchangeRate = Number(inv.rates?.tryRate ?? tryRate) || tryRate;
@@ -2055,9 +2055,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const formatTry = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 3 });
     const formatSyp = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
     return [
-      'فاتورة ' + (inv.buyerName || inv.supplierName || 'بضاعة الندوة'),
+      '{بسم الله الرحمن الرحيم}',
+      '',
+      'تاريخ الاصدار👇',
       '📅 ' + date,
-      '🏪 ' + (inv.supplierName || '—') + ' - بضاعة الندوة',
+      '🏪 محل : ' + (inv.supplierName || '—'),
       '━━━━━━━━━━━━━━',
       '',
       ...(inv.lines || []).flatMap((x, i) => [
@@ -2072,8 +2074,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       'TL: ' + formatTry(totalTry) + ' (' + String(tryExchangeRate) + ')',
       'SYP الجديد: ' + formatSyp(totalSyp) + ' (' + String(sypExchangeRate) + ')',
       '━━━━━━━━━━━━━━',
-      'شكراً لزيارتكم - بضاعة الندوة'
-    ].join('\n');
+      'ملاحظة : سعر الصرف',
+      'من تاريخ اصدار الفاتورة'
+    ].join('\\n');
   }
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
