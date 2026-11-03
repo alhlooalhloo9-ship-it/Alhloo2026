@@ -2091,7 +2091,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     products.filter(p =>
       (filterId === 'all' || (p.supplierId || 'main') === filterId) &&
       (!searchTerm || normalizedProductName(p.name).includes(searchTerm))
-    ).forEach(p => {
+    ).sort((a, b) => Number(!!String(b.image || '').trim()) - Number(!!String(a.image || '').trim()))
+     .forEach(p => {
       let el = document.createElement('div');
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
