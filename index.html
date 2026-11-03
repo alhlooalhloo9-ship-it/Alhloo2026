@@ -345,6 +345,24 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
 .archived-pdf-preview-actions{display:flex;gap:8px;flex-wrap:wrap}
 .archived-pdf-preview-actions button{flex:1;min-width:130px;min-height:44px}
 @media(max-width:480px){.archived-pdf-preview-card{padding:8px}.archived-pdf-frame{min-height:55dvh}}
+.archived-pdf-preview{padding:5px;overflow:hidden}
+.archived-pdf-preview-card{width:100%;height:calc(100dvh - 10px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));max-height:none;max-width:100%;padding:7px;gap:5px;overflow:hidden;box-sizing:border-box}
+.archived-pdf-preview-heading{flex:0 0 auto}
+.archived-pdf-preview-heading h3{font-size:14px}
+.archived-pdf-preview-heading small{font-size:10px}
+.archived-pdf-fit-viewport{flex:1 1 auto;min-height:0;width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #dce6df;border-radius:7px}
+.archived-pdf-fit-page{position:relative;overflow:hidden;flex:0 0 auto}
+.archived-pdf-fit-inner{position:absolute;top:0;right:0;width:760px;box-sizing:border-box;padding:10px;background:#fff;color:#172b24;font-family:Arial,sans-serif;direction:rtl;transform-origin:top right}
+.archived-pdf-fit-inner h1{font-size:22px;margin:0 0 8px}
+.archived-pdf-fit-inner h3{font-size:13px;margin:5px 0}
+.archived-pdf-fit-inner p{font-size:11px;margin:5px 0}
+.archived-pdf-fit-inner table{width:100%;border-collapse:collapse;margin-top:8px;table-layout:fixed}
+.archived-pdf-fit-inner th,.archived-pdf-fit-inner td{font-size:11px;padding:4px 3px;line-height:1.25;overflow-wrap:anywhere}
+.archived-pdf-fit-inner .product-img{width:34px;height:34px;object-fit:contain}
+.archived-pdf-fit-inner .sum{font-size:12px;line-height:1.5;margin-top:8px}
+.archived-pdf-preview-actions{flex:0 0 auto;display:flex;gap:6px}
+.archived-pdf-preview-actions button{min-height:42px;padding:6px;font-size:12px}
+@media(max-width:480px){.archived-pdf-preview-card{padding:5px}.archived-pdf-fit-inner{padding:8px}}
 </style>
 <style>
 .home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
@@ -535,22 +553,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 </div>
 <div id="archivedPdfPreviewModal" class="detailsPanel archived-pdf-preview hidden" role="dialog" aria-modal="true" aria-labelledby="archivedPdfPreviewTitle">
   <div class="detailsCard archived-pdf-preview-card">
-    <div class="archived-note-heading"><div><h3 id="archivedPdfPreviewTitle">معاينة الفاتورة</h3><small id="archivedPdfPreviewMeta" class="muted"></small></div><span class="archived-note-lock">🔒 للقراءة فقط</span></div>
-    <div class="archived-pdf-preview-hint">راجع تفاصيل الفاتورة أدناه، وبعدها اضغط «مشاركة ملف PDF» لإرسالها كمستند.</div>
-    <iframe id="archivedPdfPreviewFrame" title="معاينة محتوى الفاتورة قبل مشاركتها PDF" class="archived-pdf-preview-frame"></iframe>
-    <div class="archived-note-actions">
-      <button type="button" class="primary" onclick="sharePreviewedArchivedPdf()">📤 مشاركة ملف PDF</button>
-      <button type="button" onclick="closeArchivedPdfPreview()">إغلاق المعاينة</button>
-    </div>
-  </div>
-</div>
-<div id="archivedPdfPreviewModal" class="detailsPanel archived-pdf-preview hidden" role="dialog" aria-modal="true" aria-labelledby="archivedPdfPreviewTitle">
-  <div class="detailsCard archived-pdf-preview-card">
     <div class="archived-pdf-preview-heading">
       <div><h3 id="archivedPdfPreviewTitle">📄 معاينة الفاتورة PDF</h3><small id="archivedPdfStatus" class="muted">جارٍ تجهيز الفاتورة للمعاينة…</small></div>
       <button type="button" onclick="closeArchivedPdfPreview()">إغلاق</button>
     </div>
-    <iframe id="archivedPdfFrame" title="معاينة ملف الفاتورة PDF" class="archived-pdf-frame"></iframe>
+    <div id="archivedPdfFitViewport" class="archived-pdf-fit-viewport" aria-label="معاينة كاملة للفاتورة"><div id="archivedPdfFitPage" class="archived-pdf-fit-page"></div></div>
     <div class="archived-pdf-preview-actions">
       <button type="button" id="archivedPdfShareButton" class="primary" disabled onclick="sharePreviewedArchivedPdf()">📤 مشاركة ملف PDF</button>
       <button type="button" onclick="closeArchivedPdfPreview()">رجوع للفاتورة</button>
@@ -2244,6 +2251,24 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       page.remove();
     }
   }
+  function fitArchivedInvoiceToScreen() {
+    const viewport = $('archivedPdfFitViewport');
+    const page = $('archivedPdfFitPage');
+    const inner = page && page.querySelector('.archived-pdf-fit-inner');
+    if (!viewport || !page || !inner) return;
+    inner.style.transform = 'none';
+    inner.style.width = '760px';
+    const naturalWidth = 760;
+    const naturalHeight = Math.max(inner.scrollHeight, inner.getBoundingClientRect().height, 1);
+    const availableWidth = Math.max(1, viewport.clientWidth - 8);
+    const availableHeight = Math.max(1, viewport.clientHeight - 8);
+    const scale = Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight);
+    inner.style.transformOrigin = 'top right';
+    inner.style.transform = 'scale(' + scale + ')';
+    page.style.width = Math.ceil(naturalWidth * scale) + 'px';
+    page.style.height = Math.ceil(naturalHeight * scale) + 'px';
+    page.style.margin = '0 auto';
+  }
   function closeArchivedPdfPreview() {
     const modal = $('archivedPdfPreviewModal');
     if (modal) modal.classList.add('hidden');
@@ -2251,8 +2276,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     archivedPdfBlob = null;
     archivedPdfUrl = null;
     archivedPdfFile = null;
-    const frame = $('archivedPdfFrame');
-    if (frame) frame.removeAttribute('src');
+    const fitPage = $('archivedPdfFitPage');
+    if (fitPage) fitPage.replaceChildren();
     document.body.classList.remove('modal-open');
   }
   async function sharePreviewedArchivedPdf() {
@@ -2277,10 +2302,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   window.sharePreviewedArchivedPdf = sharePreviewedArchivedPdf;
   async function previewInvoiceAsPdf(inv) {
     const modal = $('archivedPdfPreviewModal');
-    const frame = $('archivedPdfFrame');
+    const viewport = $('archivedPdfFitViewport');
+    const fitPage = $('archivedPdfFitPage');
     const status = $('archivedPdfStatus');
     const shareButton = $('archivedPdfShareButton');
-    if (!modal || !frame || !status || !shareButton) throw new Error('نافذة معاينة PDF غير موجودة.');
+    if (!modal || !viewport || !fitPage || !status || !shareButton) throw new Error('نافذة معاينة الفاتورة غير مكتملة.');
     closeArchivedPdfPreview();
     status.textContent = 'جارٍ تجهيز الفاتورة للمعاينة…';
     shareButton.disabled = true;
@@ -2289,12 +2315,18 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     try {
       archivedPdfBlob = await buildInvoicePdfBlob(inv);
       archivedPdfFile = new File([archivedPdfBlob], safeInvoiceName(inv, 'pdf'), { type: 'application/pdf' });
-      archivedPdfUrl = URL.createObjectURL(archivedPdfBlob);
-      frame.src = archivedPdfUrl;
-      status.textContent = 'معاينة الفاتورة — راجع الصفحات ثم اضغط مشاركة PDF.';
+      const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
+      const sourceStyles = Array.from(parsed.head.querySelectorAll('style')).map(node => node.textContent).join('\\n');
+      fitPage.innerHTML = '<style>' + sourceStyles + '</style>' +
+        '<div class="archived-pdf-fit-inner">' + parsed.body.innerHTML + '</div>';
+      await Promise.all(Array.from(fitPage.querySelectorAll('img')).map(img => img.complete ? Promise.resolve() :
+        new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      fitArchivedInvoiceToScreen();
+      status.textContent = 'كل الفاتورة ظاهرة ضمن الشاشة. اضغط مشاركة PDF لإرسال الملف الأصلي.';
       shareButton.disabled = false;
     } catch (error) {
-      status.textContent = error.message || 'تعذر إنشاء معاينة PDF.';
+      status.textContent = error.message || 'تعذر تجهيز معاينة الفاتورة.';
       throw error;
     }
   }
