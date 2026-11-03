@@ -553,6 +553,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <script type="module">
   // تحميل Firebase بشكل غير حاجب: تعطل CDN أو انقطاع الشبكة لا يعطّل واجهة التطبيق وأزراره.
   let firebaseAuthApi = null;
+  let firebaseFirestoreApi = null;
+  let firestoreDb = null;
+  let legacyFirestoreProductsCache = null;
   let auth = null;
   const firebaseConfig = {
     apiKey: "AIzaSyD1iTNsgI-R12xywSKjyxmhQSF-sZ1qQ_Q",
@@ -567,25 +570,39 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const moduleSources = [
       [
         "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-        "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+        "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+        "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
       ],
       [
         "https://esm.sh/firebase@10.8.0/app",
-        "https://esm.sh/firebase@10.8.0/auth"
+        "https://esm.sh/firebase@10.8.0/auth",
+        "https://esm.sh/firebase@10.8.0/firestore"
       ],
       [
         "https://cdn.jsdelivr.net/npm/firebase@10.8.0/app/+esm",
-        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/auth/+esm"
+        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/auth/+esm",
+        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/firestore/+esm"
       ]
     ];
     let lastError = null;
-    for (const [appUrl, authUrl] of moduleSources) {
+    for (const [appUrl, authUrl, firestoreUrl] of moduleSources) {
       try {
-        const [appModule, authModule] = await Promise.all([import(appUrl), import(authUrl)]);
+        const [appModule, authModule, firestoreModule] = await Promise.all([
+          import(appUrl), import(authUrl), import(firestoreUrl)
+        ]);
         const app = appModule.initializeApp(firebaseConfig);
         auth = authModule.getAuth(app);
         firebaseAuthApi = authModule;
-        console.info("Firebase authentication modules loaded successfully.");
+        try {
+          firestoreDb = firestoreModule.initializeFirestore(app, {
+            experimentalAutoDetectLongPolling: true,
+            useFetchStreams: false
+          });
+        } catch (_) {
+          firestoreDb = firestoreModule.getFirestore(app);
+        }
+        firebaseFirestoreApi = firestoreModule;
+        console.info("Firebase authentication and legacy Firestore modules loaded successfully.");
         return true;
       } catch (error) {
         lastError = error;
@@ -2239,6 +2256,45 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
   }
 
+  async function readLegacyFirestoreProducts() {
+    if (!cloudUser || !firebaseFirestoreApi || !firestoreDb) return [];
+    if (legacyFirestoreProductsCache) return legacyFirestoreProductsCache;
+    legacyFirestoreProductsCache = (async () => {
+      const { collection, query, where, getDocsFromServer, getDocs } = firebaseFirestoreApi;
+      const productsQuery = query(
+        collection(firestoreDb, "products"),
+        where("user_id", "==", cloudUser.uid)
+      );
+      let snapshot;
+      try {
+        snapshot = await getDocsFromServer(productsQuery);
+      } catch (serverError) {
+        console.warn("Firestore server read failed; trying its available cache:", serverError);
+        snapshot = await getDocs(productsQuery);
+      }
+      return snapshot.docs.map(docSnap => {
+        const data = docSnap.data() || {};
+        return {
+          id: data.id !== undefined && data.id !== null ? data.id : docSnap.id,
+          docId: docSnap.id,
+          name: String(data.name || "منتج"),
+          price: Number(data.purchase_price_usd) || 0,
+          pieces: Math.max(1, Number(data.pieces_per_package) || 1),
+          sellTry: Number(data.selling_price_try) || 0,
+          stock: Math.max(0, Number(data.stock) || 0),
+          image: data.image || "",
+          pickCount: Math.max(0, Number(data.pick_count) || 0)
+        };
+      });
+    })();
+    try {
+      return await legacyFirestoreProductsCache;
+    } catch (error) {
+      legacyFirestoreProductsCache = null;
+      throw error;
+    }
+  }
+
   async function apiRequest(path, options = {}) {
     if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
     const token = await cloudUser.getIdToken();
@@ -2272,9 +2328,23 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         const raw = await requestRtdb(target, "GET");
         const rows = Array.isArray(raw) ? raw.filter(Boolean) :
           (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        // استعادة آمنة للمنتجات القديمة التي بقيت في Firestore قبل نقل المزامنة إلى Realtime Database.
+        let legacyRows = [];
+        try {
+          legacyRows = await readLegacyFirestoreProducts();
+        } catch (legacyError) {
+          console.warn("Legacy Firestore read unavailable; keeping Realtime Database data:", legacyError);
+        }
+        const combined = new Map();
+        for (const item of legacyRows) if (item && item.id != null) combined.set(String(item.id), item);
+        for (const item of rows) if (item && item.id != null) {
+          const key = String(item.id);
+          combined.set(key, { ...(combined.get(key) || {}), ...item, id: item.id });
+        }
+        const allRows = Array.from(combined.values());
         const skip = Math.max(0, Number(query.get("skip")) || 0);
         const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
-        return { ok: true, products: rows.slice(skip, skip + limit) };
+        return { ok: true, products: allRows.slice(skip, skip + limit) };
       }
       if (method === "POST") {
         const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
@@ -2610,6 +2680,48 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     return merged;
   }
 
+  // استرجاع الأرشيف والمخازن القديمة من مساحة الزائر دون حذف نسخة الزائر.
+  function mergeGuestWorkspaceIntoAccount(uid) {
+    if (!uid) return 0;
+    const readArray = key => {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(value) ? value : [];
+      } catch (_) { return []; }
+    };
+    const readObject = key => {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      } catch (_) { return {}; }
+    };
+    const guestInvoices = readArray("nadwa_invoice_archive_guest");
+    const legacyInvoices = readArray("nadwa_invoice_archive");
+    const guestSuppliers = readArray("nadwa_suppliers_guest");
+    const guestCarts = readObject("nadwa_supplier_carts_guest");
+    const guestActive = localStorage.getItem("nadwa_active_supplier_guest") || "general";
+    const beforeInvoices = invoiceArchive.length;
+    const beforeSuppliers = suppliers.length;
+    if (guestInvoices.length || legacyInvoices.length) {
+      invoiceArchive = mergeRecordsById([...legacyInvoices, ...guestInvoices], invoiceArchive);
+    }
+    if (guestSuppliers.length) suppliers = mergeRecordsById(guestSuppliers, suppliers);
+    const mergedCarts = { ...guestCarts, ...(supplierCarts || {}) };
+    for (const [storeId, items] of Object.entries(guestCarts)) {
+      mergedCarts[storeId] = { ...(items || {}), ...((supplierCarts || {})[storeId] || {}) };
+    }
+    supplierCarts = mergedCarts;
+    if (activeSupplierId === "general" && guestActive !== "general" &&
+        suppliers.some(item => String(item.id) === String(guestActive))) {
+      activeSupplierId = guestActive;
+    }
+    ensureSupplierData();
+    const restored = Math.max(0, invoiceArchive.length - beforeInvoices) +
+      Math.max(0, suppliers.length - beforeSuppliers);
+    if (restored || Object.keys(guestCarts).length) saveWorkspaceLocal();
+    return restored;
+  }
+
   async function runCloudSyncFromButton() {
     const button = $('syncCloudBtn');
     if (!cloudUser) {
@@ -2647,8 +2759,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       cloudUser = user || null;
       loadWorkspace(cloudUser?.uid || null);
       if (cloudUser) {
+        legacyFirestoreProductsCache = null;
         const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
-        if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+        const guestWorkspaceMerged = mergeGuestWorkspaceIntoAccount(cloudUser.uid);
+        if (guestMerged || guestWorkspaceMerged) {
+          showCloudMessage('تم استرجاع بيانات مساحة الزائر إلى الحساب دون حذف النسخ الأصلية: ' +
+            guestMerged + ' منتجاً، و' + guestWorkspaceMerged + ' سجلاً من الفواتير والمخازن.');
+        }
       }
       loadUiSettings();
       refreshGeminiKeyUI();
