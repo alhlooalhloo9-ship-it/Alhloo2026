@@ -3451,7 +3451,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!cloudUser) return;
     const remoteResult = await apiRequest('/workspace');
     const remote = remoteResult.workspace && typeof remoteResult.workspace === 'object' ? remoteResult.workspace : {};
-    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers);
+    // سجل الحذف السحابي يمنع رجوع أي مخزن محذوف من نسخة جهاز أو مزامنة قديمة.
+    const mergedDeletedSupplierIds = Array.from(new Set([
+      ...(Array.isArray(remote.deletedSupplierIds) ? remote.deletedSupplierIds : []),
+      ...(Array.isArray(deletedSupplierIds) ? deletedSupplierIds : [])
+    ].map(String)));
+    const deletedSupplierSet = new Set(mergedDeletedSupplierIds);
+    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers)
+      .filter(item => !deletedSupplierSet.has(String(item.id)));
     const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
     const mergedCarts = {};
     const storeIds = new Set([
@@ -3468,6 +3475,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     let nextActive = validSupplierIds.has(String(activeSupplierId))
       ? String(activeSupplierId)
       : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'main');
+    deletedSupplierIds = mergedDeletedSupplierIds;
     suppliers = mergedSuppliers;
     supplierCarts = mergedCarts;
     invoiceArchive = mergedInvoices;
@@ -3475,7 +3483,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     ensureSupplierData();
     await apiRequest('/workspace', {
       method: 'PUT',
-      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId }
+      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId, deletedSupplierIds }
     });
     saveLocalOnly();
     renderSupplierSelectors();
