@@ -5,7 +5,7 @@ function setCors(req,res){
   const allowed=["https://alhlooalhloo9-ship-it.github.io","https://alhloo2026.vercel.app"];
   if(allowed.includes(origin)){res.setHeader("Access-Control-Allow-Origin",origin);res.setHeader("Vary","Origin");}
   res.setHeader("Access-Control-Allow-Headers","Authorization, Content-Type");
-  res.setHeader("Access-Control-Allow-Methods","GET, POST, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS");
 }
 async function authenticate(req,res){
   setCors(req,res);

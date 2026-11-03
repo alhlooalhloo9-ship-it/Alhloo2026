@@ -793,6 +793,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <div id="archivedNoteModal" class="detailsPanel archived-note-panel hidden" role="dialog" aria-modal="true" aria-labelledby="archivedNoteTitle" onclick="if(event.target===this)closeArchivedInvoiceNote()">
   <div class="detailsCard archived-note-card">
     <div class="archived-note-heading"><div><h3 id="archivedNoteTitle">ملاحظة الفاتورة</h3><small id="archivedNoteMeta" class="muted"></small></div><span class="archived-note-lock">🔒 للقراءة فقط</span></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap"><label for="archivedNoteFontSize">حجم خط المعاينة</label><input id="archivedNoteFontSize" type="range" min="12" max="30" step="1" value="16"><output id="archivedNoteFontSizeValue">16px</output></div>
     <div id="archivedNoteBody" class="archived-note-body"></div>
     <div class="archived-note-actions">
       <button type="button" class="primary" onclick="shareArchivedInvoiceNote('image')">📷 مشاركة صورة</button>
@@ -936,15 +937,24 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   let suppliers = [];
   let supplierCarts = {};
   let invoiceArchive = [];
-  let activeSupplierId = 'general';
+  let activeSupplierId = 'main';
   function ensureSupplierData() {
     if (!Array.isArray(suppliers)) suppliers = [];
-    if (!suppliers.some(x => x.id === 'general')) suppliers.unshift({id:'general',name:'مخزن عام'});
     if (!supplierCarts || typeof supplierCarts !== 'object' || Array.isArray(supplierCarts)) supplierCarts = {};
-    if (!supplierCarts.general) supplierCarts.general = cart && typeof cart === 'object' ? cart : {};
     if (!Array.isArray(invoiceArchive)) invoiceArchive = [];
-    if (!suppliers.some(x => x.id === activeSupplierId)) activeSupplierId = suppliers[0]?.id || 'general';
-    cart = supplierCarts[activeSupplierId] || (supplierCarts[activeSupplierId] = {});
+    const legacyStore = suppliers.find(x => String(x.id) === 'general');
+    if (legacyStore) { legacyStore.id='main'; if(!legacyStore.name || legacyStore.name==='مخزن عام') legacyStore.name='المخزن الرئيسي'; }
+    if (supplierCarts.general && !supplierCarts.main) supplierCarts.main=supplierCarts.general;
+    else if (supplierCarts.general && supplierCarts.main) supplierCarts.main={...supplierCarts.general,...supplierCarts.main};
+    delete supplierCarts.general;
+    products.forEach(p=>{if(!p.supplierId||String(p.supplierId)==='general')p.supplierId='main';});
+    invoiceArchive.forEach(x=>{if(String(x.supplierId)==='general')x.supplierId='main';});
+    if (!suppliers.length) suppliers.push({id:'main',name:'المخزن الرئيسي'});
+    if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>String(x.supplierId)==='main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
+    if (!supplierCarts.main) supplierCarts.main=cart&&typeof cart==='object'?cart:{};
+    if(String(activeSupplierId)==='general')activeSupplierId='main';
+    if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'main';
+    cart=supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={});
   }
   function workspaceStorageKeys(uid) {
     const suffix = uid ? String(uid) : 'guest';
@@ -981,7 +991,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     try { suppliers = JSON.parse(localStorage.getItem('nadwa_suppliers_' + (uid || 'guest')) || '[]'); } catch (_) { suppliers = []; }
     try { supplierCarts = JSON.parse(localStorage.getItem('nadwa_supplier_carts_' + (uid || 'guest')) || '{}'); } catch (_) { supplierCarts = {}; }
     try { invoiceArchive = JSON.parse(localStorage.getItem('nadwa_invoice_archive_' + (uid || 'guest')) || '[]'); } catch (_) { invoiceArchive = []; }
-    activeSupplierId = localStorage.getItem('nadwa_active_supplier_' + (uid || 'guest')) || 'general';
+    activeSupplierId = localStorage.getItem('nadwa_active_supplier_' + (uid || 'guest')) || 'main';if(String(activeSupplierId)==='general')activeSupplierId='main';
     ensureSupplierData();
   }
   // إذا تغيّر UID المحلي لأي سبب، استعد نسخة الجهاز الوحيدة غير الفارغة دون حذف مصدرها.
@@ -1002,7 +1012,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         if (prefix === "nadwa_cart_" || prefix === "nadwa_supplier_carts_") {
           return value && typeof value === "object" && Object.keys(value).length > 0;
         }
-        return typeof value === "string" && value !== "general";
+        return typeof value === "string" && value !== "main";
       } catch (_) { return false; }
     };
     for (let i = 0; i < localStorage.length; i++) {
@@ -1041,7 +1051,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     copyIfEmpty("nadwa_supplier_carts_" + uid, "nadwa_supplier_carts_" + source, raw => {
       try { return !raw || !Object.keys(JSON.parse(raw)).length; } catch (_) { return true; }
     });
-    copyIfEmpty("nadwa_active_supplier_" + uid, "nadwa_active_supplier_" + source, raw => !raw || raw === "general");
+    copyIfEmpty("nadwa_active_supplier_" + uid, "nadwa_active_supplier_" + source, raw => !raw || raw === "main");
     if (restored) loadWorkspace(uid);
     return restored;
   }
@@ -1634,7 +1644,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     let s = +$('stock').value;
     let pc = Math.max(1, +$('pieces').value || 1);
     let st = Math.max(0, +$('sellTry').value || 0);
-    let supplierId = $('productSupplier').value || 'general';
+    let supplierId = $('productSupplier').value || 'main';
     if (!n || p < 0 || s < 0) return;
 
     const comparableImage = removeImg ? '' : (newImage || (editId !== null ? (products.find(z => z.id === editId)?.image || '') : ''));
@@ -1658,8 +1668,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
     if (sameName || sameImage) {
       const messages = [];
-      if (sameName) messages.push('اسم المنتج «' + sameName.name + '» موجود مسبقاً في مخزن «' + supplierName(sameName.supplierId || 'general') + '».');
-      if (sameImage) messages.push('الصورة مطابقة أو متشابهة جداً مع صورة المنتج «' + sameImage.name + '» الموجود في مخزن «' + supplierName(sameImage.supplierId || 'general') + '».');
+      if (sameName) messages.push('اسم المنتج «' + sameName.name + '» موجود مسبقاً في مخزن «' + supplierName(sameName.supplierId || 'main') + '».');
+      if (sameImage) messages.push('الصورة مطابقة أو متشابهة جداً مع صورة المنتج «' + sameImage.name + '» الموجود في مخزن «' + supplierName(sameImage.supplierId || 'main') + '».');
       alert('⚠️ لم يتم حفظ المنتج لتجنب التكرار بين المخازن:\n\n' + messages.join('\n\n') + '\n\nراجع المنتج الموجود قبل إضافة نسخة جديدة.');
       return;
     }
@@ -1672,7 +1682,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       x.pieces = pc;
       x.sellTry = st;
       x.updatedAt = Date.now();
-      const previousSupplierId = x.supplierId || 'general';
+      const previousSupplierId = x.supplierId || 'main';
       if (previousSupplierId !== supplierId) {
         if (supplierCarts[previousSupplierId]) delete supplierCarts[previousSupplierId][x.id];
         if (previousSupplierId === activeSupplierId) cart = supplierCarts[activeSupplierId] || {};
@@ -1703,7 +1713,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     $('pieces').value = p.pieces || 1;
     $('sellTry').value = p.sellTry ?? 5;
     renderSupplierSelectors();
-    $('productSupplier').value = p.supplierId || 'general';
+    $('productSupplier').value = p.supplierId || 'main';
     $('formTitle').textContent = '✏️ تعديل المنتج';
     $('preview').innerHTML = p.image ? '<img style="width:110px;height:110px;object-fit:contain;border-radius:8px" src="' + p.image + '" alt="معاينة الصورة"><br><button type="button" onclick="startRecrop()">تعديل القصّ والتكبير</button> <button type="button" onclick="removeImage()">إزالة الصورة</button>' : '<p class="muted">لا توجد صورة محفوظة.</p>';
     $('cropBox').classList.add('hidden');
@@ -1717,6 +1727,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!product) return;
     if (!confirm('⚠️ تأكيد حذف المنتج\n\nهل أنت متأكد أنك تريد حذف «' + product.name + '» نهائيًا؟\nلن يمكن التراجع عن هذا الحذف.')) return;
     products = products.filter(p => String(p.id) !== String(id));
+    rememberDeletedProductIds([id]);publishProductDeletions([id]).catch(error=>{console.error('Product deletion sync failed:',error);showCloudMessage('تم الحذف محلياً وسيُعاد إرسال سجل الحذف عند عودة الاتصال.');});
     Object.values(supplierCarts).forEach(items => { if (items) delete items[id]; });
     delete cart[id];
     save();
@@ -1726,7 +1737,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 
   window.add = function(id) {
     let p = products.find(x => String(x.id) === String(id));
-    if (p && (p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
+    if (p && (p.supplierId || 'main') !== activeSupplierId) switchSupplier(p.supplierId || 'main');
     cart[id] = (cart[id] || 0) + 1;
     if (p) p.pickCount = (+(p.pickCount || 0)) + 1;
     save();
@@ -1748,7 +1759,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   window.undoTap = function(id) {
     let p = products.find(x => String(x.id) === String(id));
     if (!p) return;
-    if ((p.supplierId || 'general') !== activeSupplierId) switchSupplier(p.supplierId || 'general');
+    if ((p.supplierId || 'main') !== activeSupplierId) switchSupplier(p.supplierId || 'main');
     const currentQty = +(cart[id] || 0);
     if (currentQty <= 0) {
       alert('هذا المنتج غير موجود حالياً في الفاتورة.');
@@ -1847,6 +1858,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const extra = deleting.length > 5 ? '\\nو' + (deleting.length - 5) + ' منتجات أخرى' : '';
     if (!confirm('⚠️ حذف نهائي\\n\\nسيتم حذف ' + deleting.length + ' منتجاً من جميع المخازن، وإزالتها من الفواتير الجارية.\\n\\n' + names + extra + '\\n\\nلا يمكن التراجع عن الحذف. هل تريد المتابعة؟')) return;
     products = products.filter(p => !ids.has(String(p.id)));
+    rememberDeletedProductIds(Array.from(ids));publishProductDeletions(Array.from(ids)).catch(error=>{console.error('Bulk deletion sync failed:',error);showCloudMessage('تم الحذف محلياً وسيُعاد إرسال سجل الحذف عند عودة الاتصال.');});
     for (const items of Object.values(supplierCarts)) {
       if (!items || typeof items !== 'object') continue;
       for (const id of ids) delete items[id];
@@ -1866,12 +1878,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!ids.length) return alert('حدد منتجاً واحداً على الأقل أولاً.');
     const destination = $('bulkMoveDestination').value;
     if (!suppliers.some(s => s.id === destination)) return alert('اختر المخزن المستهدف.');
-    const moving = products.filter(p => ids.includes(String(p.id)) && (p.supplierId || 'general') !== destination);
+    const moving = products.filter(p => ids.includes(String(p.id)) && (p.supplierId || 'main') !== destination);
     if (!moving.length) return alert('كل المنتجات المحددة موجودة أصلاً في هذا المخزن.');
     const targetName = supplierName(destination);
     if (!confirm('سيتم نقل ' + moving.length + ' منتج إلى مخزن «' + targetName + '». هل تريد المتابعة؟')) return;
     moving.forEach(p => {
-      const previous = p.supplierId || 'general';
+      const previous = p.supplierId || 'main';
       if (supplierCarts[previous]) delete supplierCarts[previous][p.id];
       p.supplierId = destination;
       if (!supplierCarts[destination]) supplierCarts[destination] = {};
@@ -1887,7 +1899,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!p) return;
     const select = $('moveProductSupplier');
     select.innerHTML = suppliers.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>').join('');
-    select.value = p.supplierId || 'general';
+    select.value = p.supplierId || 'main';
     $('moveProductTitle').textContent = 'خيارات المنتج: ' + p.name;
     $('moveProductModal').dataset.productId = String(p.id);
     $('moveProductModal').classList.remove('hidden');
@@ -1899,7 +1911,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!p) return closeMoveProduct();
     const destination = $('moveProductSupplier').value;
     if (!suppliers.some(s => s.id === destination)) return alert('اختر مخزناً صحيحاً.');
-    const previous = p.supplierId || 'general';
+    const previous = p.supplierId || 'main';
     if (previous === destination) { closeMoveProduct(); return alert('المنتج موجود أصلاً بهذا المخزن.'); }
     if (supplierCarts[previous]) delete supplierCarts[previous][p.id];
     if (previous === activeSupplierId) cart = supplierCarts[activeSupplierId] || {};
@@ -1978,7 +1990,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if($('uiFontSizeValue'))$('uiFontSizeValue').textContent=(+uiSettings.fontSize||100)+'%';
     if($('uiProductNameSizeValue'))$('uiProductNameSizeValue').textContent=(+uiSettings.productNameSize||85)+'%';
   }
-  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}fillUiSettings();applyUiSettings();}
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}fillUiSettings();applyUiSettings();if(uiSettings.rotationLock===true)applyRotationLock(true);}
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uiSettings.rotationLock===true)applyRotationLock(true);});
+  document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&uiSettings.rotationLock===true)applyRotationLock(true);});
   function applyRotationLock(enabled){
     if(!screen.orientation || typeof screen.orientation.lock!=='function'){
       if($('uiSettingsStatus'))$('uiSettingsStatus').textContent=enabled?'هذا المتصفح لا يدعم قفل تدوير الشاشة.':'تم إيقاف قفل تدوير الشاشة.';
@@ -2014,7 +2028,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
     const filterId = $('productSupplierFilter')?.value || 'all';
     const matches = products.filter(p =>
-      (filterId === 'all' || (p.supplierId || 'general') === filterId) &&
+      (filterId === 'all' || (p.supplierId || 'main') === filterId) &&
       normalizedProductName(p.name).startsWith(query)
     ).slice(0, 8);
     if (!matches.length) {
@@ -2024,7 +2038,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
     list.innerHTML = matches.map(p =>
       '<button type="button" role="option" data-product-search-id="' + esc(String(p.id)) + '" style="display:block;width:100%;text-align:right;padding:11px 13px;border:0;border-bottom:1px solid #edf1ee;background:transparent;font:inherit;color:inherit;cursor:pointer">' +
-      '<span style="font-weight:600">' + esc(p.name) + '</span><small style="display:block;color:#718078;margin-top:3px">🏬 ' + esc(suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام') + '</small></button>'
+      '<span style="font-weight:600">' + esc(p.name) + '</span><small style="display:block;color:#718078;margin-top:3px">🏬 ' + esc(suppliers.find(x => x.id === (p.supplierId || 'main'))?.name || 'المخزن الرئيسي') + '</small></button>'
     ).join('');
     list.classList.remove('hidden');
   }
@@ -2064,13 +2078,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const filterId = $('productSupplierFilter')?.value || 'all';
     const searchTerm = normalizedProductName($('productSearchInput')?.value || '');
     products.filter(p =>
-      (filterId === 'all' || (p.supplierId || 'general') === filterId) &&
+      (filterId === 'all' || (p.supplierId || 'main') === filterId) &&
       (!searchTerm || normalizedProductName(p.name).includes(searchTerm))
     ).forEach(p => {
       let el = document.createElement('div');
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
-      const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
+      const supplierName = suppliers.find(x => x.id === (p.supplierId || 'main'))?.name || 'المخزن الرئيسي';
       el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted productSupplierLabel">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><button type="button" class="addToInvoiceBtn primary" title="إضافة قطعة واحدة إلى الفاتورة">⊕ إضافة</button><span class="badge productCartQty" aria-label="الكمية في الفاتورة">' + (+(cart[p.id] || 0)) + '</span><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
@@ -2175,7 +2189,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     $('count').textContent = Object.values(cart).reduce((a, b) => a + b, 0);
   }
 
-  function supplierName(id) { return suppliers.find(x => x.id === id)?.name || 'مخزن عام'; }
+  function supplierName(id) { return suppliers.find(x => x.id === id)?.name || 'المخزن الرئيسي'; }
   function renderSupplierQuickSwitch() {
     const root = $('supplierQuickSwitch');
     if (!root) return;
@@ -2186,7 +2200,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   function renderSupplierSelectors() {
     const options = suppliers.map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>').join('');
     if ($('productSupplier')) {
-      const current = $('productSupplier').value || 'general';
+      const current = $('productSupplier').value || 'main';
       $('productSupplier').innerHTML = options;
       $('productSupplier').value = suppliers.some(x => x.id === current) ? current : activeSupplierId;
     }
@@ -2201,23 +2215,23 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       filter.value = (current === 'all' || suppliers.some(x => x.id === current)) ? current : 'all';
     }
     if ($('bulkMoveDestination')) {
-      const destination = $('bulkMoveDestination').value || activeSupplierId || 'general';
+      const destination = $('bulkMoveDestination').value || activeSupplierId || 'main';
       $('bulkMoveDestination').innerHTML = options;
-      $('bulkMoveDestination').value = suppliers.some(x => x.id === destination) ? destination : (suppliers[0]?.id || 'general');
+      $('bulkMoveDestination').value = suppliers.some(x => x.id === destination) ? destination : (suppliers[0]?.id || 'main');
     }    renderSupplierQuickSwitch();
   }
   function renderSupplierList() {
     if (!$('supplierList')) return;
     $('supplierList').innerHTML = suppliers.map(x => {
-      const count = products.filter(p => (p.supplierId || 'general') === x.id).length;
-      const actions = x.id === 'general' ? '' :
+      const count = products.filter(p => (p.supplierId || 'main') === x.id).length;
+      const actions = x.id === 'main' ? '' :
         '<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" onclick="renameSupplier(\'' + esc(x.id) + '\')">✏️ إعادة تسمية</button><button type="button" class="danger" onclick="deleteSupplier(\'' + esc(x.id) + '\')">🗑️ حذف المخزن</button></div>';
       return '<div class="row"><div class="info"><b>' + esc(x.name) + '</b><small>' + count + ' منتج</small></div>' + actions + '</div>';
     }).join('');
   }
   window.renameSupplier = function(id) {
     const item = suppliers.find(x => x.id === id);
-    if (!item || item.id === 'general') return;
+    if (!item || item.id === 'main') return;
     const name = prompt('اكتب الاسم الجديد للمخزن:', item.name);
     if (!name || !name.trim()) return;
     const clean = name.trim().slice(0,80);
@@ -2226,31 +2240,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     save(); renderSupplierList(); renderSupplierSelectors(); renderProducts(); renderInvoice();
   };
   window.deleteSupplier = function(id) {
-    const item = suppliers.find(x => x.id === id);
-    if (!item || item.id === 'general') return;
-    const count = products.filter(p => (p.supplierId || 'general') === id).length;
-    const message = count
-      ? 'المخزن «' + item.name + '» يحتوي على ' + count + ' منتج.\nسيتم نقل هذه المنتجات إلى «مخزن عام» قبل حذف المخزن.\nلن تُحذف المنتجات أو الفواتير السابقة. هل تريد المتابعة؟'
-      : 'هل تريد حذف المخزن «' + item.name + '»؟';
-    if (!confirm(message)) return;
-    products.forEach(p => { if ((p.supplierId || 'general') === id) p.supplierId = 'general'; });
-    const oldCart = supplierCarts[id] || {};
-    if (!supplierCarts.general) supplierCarts.general = {};
-    Object.entries(oldCart).forEach(([productId, qty]) => {
-      if (products.some(p => String(p.id) === String(productId) && (p.supplierId || 'general') === 'general')) {
-        supplierCarts.general[productId] = (+(supplierCarts.general[productId] || 0)) + (+qty || 0);
-      }
-    });
-    delete supplierCarts[id];
-    suppliers = suppliers.filter(x => x.id !== id);
-    if (activeSupplierId === id) {
-      supplierCarts[activeSupplierId] = cart;
-      activeSupplierId = 'general';
-      cart = supplierCarts.general || (supplierCarts.general = {});
-    }
-    if ($('productSupplierFilter')?.value === id) $('productSupplierFilter').value = 'all';
-    save(); renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
-    alert('تم حذف المخزن. المنتجات نُقلت إلى مخزن عام، والفواتير السابقة بقيت محفوظة.');
+    const item=suppliers.find(x=>String(x.id)===String(id));if(!item||String(item.id)==='main')return;
+    const count=products.filter(p=>String(p.supplierId||'main')===String(id)).length;
+    if(count){alert('لا يمكن حذف هذا المخزن لأنه يحتوي على '+count+' منتج. انقل المنتجات أولاً إلى مخزن آخر، ثم أعد الحذف. لن يتم نقلها أو حذفها تلقائياً.');return;}
+    if(!confirm('هل تريد حذف المخزن «'+item.name+'»؟ الفواتير السابقة ستبقى محفوظة في الأرشيف.'))return;
+    delete supplierCarts[id];suppliers=suppliers.filter(x=>String(x.id)!==String(id));
+    if(String(activeSupplierId)===String(id)){activeSupplierId=suppliers[0]?.id||'main';cart=supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={});}
+    if($('productSupplierFilter')?.value===id)$('productSupplierFilter').value='all';
+    save();renderSupplierSelectors();renderSupplierList();renderProducts();renderInvoice();
   };
   $('addSupplierBtn').addEventListener('click', () => {
     const name = $('newSupplierName').value.trim();
@@ -2263,7 +2260,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     save(); renderSupplierSelectors(); renderSupplierList(); $('productSupplier').value = id;
   });
   function switchSupplier(id) {
-    if (!suppliers.some(x => x.id === id)) id = 'general';
+    if (!suppliers.some(x => x.id === id)) id = 'main';
     supplierCarts[activeSupplierId] = cart;
     activeSupplierId = id;
     cart = supplierCarts[id] || (supplierCarts[id] = {});
@@ -2285,7 +2282,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     renderProducts();
   });
   function invoiceSnapshot(issueNow) {
-    const entries = Object.entries(cart).filter(([id,n]) => +n > 0 && products.some(p => String(p.id) === String(id) && (p.supplierId || 'general') === activeSupplierId));
+    const entries = Object.entries(cart).filter(([id,n]) => +n > 0 && products.some(p => String(p.id) === String(id) && (p.supplierId || 'main') === activeSupplierId));
     let sum = 0;
     const lines = entries.map(([id,n]) => {
       const p = products.find(x => String(x.id) === String(id));
@@ -2338,7 +2335,6 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
     invoiceArchive.unshift(inv);
-    if (invoiceArchive.length > 300) invoiceArchive = invoiceArchive.slice(0,300);
     save();
     renderInvoiceArchive();
     return inv;
@@ -2354,7 +2350,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   function safeInvoiceName(inv,ext) { return ('فاتورة-'+inv.supplierName+'-'+new Date(inv.issuedAt).toISOString().slice(0,10)).replace(/[\\/:*?"<>|]/g,'-')+'.'+ext; }
   window.renderInvoice = function() {
     const root=$('items'); let sum=0,profitTry=0; root.innerHTML='';
-    const entries=Object.entries(cart).filter(([id,n])=>+n>0&&products.some(p=>String(p.id)===String(id)&&(p.supplierId||'general')===activeSupplierId));
+    const entries=Object.entries(cart).filter(([id,n])=>+n>0&&products.some(p=>String(p.id)===String(id)&&(p.supplierId||'main')===activeSupplierId));
     const itemCount=entries.reduce((total,[,quantity])=>total+(+quantity||0),0);
     $('invoiceSupplierInfo').textContent='فاتورة المخزن الحالي: '+supplierName(activeSupplierId)+' — عدّل الكميات قبل الحفظ، وبعد الحفظ تصبح الفاتورة سجلاً ثابتاً.';
     $('count').textContent=String(itemCount);
@@ -2390,7 +2386,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   };
   function renderInvoiceArchive() {
     const root=$('invoiceArchiveList'); if(!root)return;
-    const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
+    const list=[...invoiceArchive].sort((a,b)=>new Date(b.issuedAt||0)-new Date(a.issuedAt||0));
     root.innerHTML='';
     if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
     list.forEach(inv=>{
@@ -2427,6 +2423,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const total=document.createElement('div');total.className='archived-note-total';
     total.innerHTML='<b>الإجمالي بالدولار: $'+(+inv.totalUsd||0).toFixed(2)+'</b><br>بالليرة التركية: '+fmt(+inv.totalTry||0)+' ل.ت<br>بالليرة السورية الجديدة: '+fmt(+inv.totalSyp||0)+' ل.س';
     body.appendChild(total);
+    const fontKey='nadwa_archived_invoice_font_'+(cloudUser?.uid||'guest');const savedFont=Math.min(30,Math.max(12,Number(localStorage.getItem(fontKey))||16));const fontControl=$('archivedNoteFontSize');if(fontControl){fontControl.value=String(savedFont);$('archivedNoteFontSizeValue').textContent=savedFont+'px';body.style.fontSize=savedFont+'px';fontControl.oninput=()=>{const size=Math.min(30,Math.max(12,Number(fontControl.value)||16));body.style.fontSize=size+'px';$('archivedNoteFontSizeValue').textContent=size+'px';localStorage.setItem(fontKey,String(size));};}
     $('archivedNoteModal').dataset.invoiceId=String(inv.id);
     $('archivedNoteModal').classList.remove('hidden');
     document.body.classList.add('modal-open');
@@ -3168,20 +3165,25 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     return product;
   }
 
+  function deletedProductIdsKey(){return 'nadwa_deleted_product_ids_'+(cloudUser?.uid||'guest');}
+  function readDeletedProductIds(){try{const a=JSON.parse(localStorage.getItem(deletedProductIdsKey())||'[]');return Array.isArray(a)?Array.from(new Set(a.map(String))):[];}catch(_){return [];}}
+  function rememberDeletedProductIds(ids){const set=new Set(readDeletedProductIds());ids.forEach(id=>set.add(String(id)));localStorage.setItem(deletedProductIdsKey(),JSON.stringify([...set]));}
+  async function publishProductDeletions(ids){const clean=[...new Set(ids.map(String))];if(!clean.length)return;if(cloudUser&&navigator.onLine!==false){await apiRequest('/products',{method:'DELETE',body:{ids:clean}});const pending=new Set(readDeletedProductIds());clean.forEach(id=>pending.delete(id));localStorage.setItem(deletedProductIdsKey(),JSON.stringify([...pending]));}else rememberDeletedProductIds(clean);}
   async function syncProductsToCloud() {
     if (!cloudUser || syncingCloud) return;
     syncingCloud = true;
     try {
-      showCloudMessage('جارٍ جلب المنتجات من Firebase Realtime Database...');
-      const remote = [];
+      showCloudMessage('جارٍ جلب المنتجات وسجل الحذف من قاعدة البيانات...');
+      const pendingDeletes=readDeletedProductIds();if(pendingDeletes.length){await apiRequest('/products',{method:'DELETE',body:{ids:pendingDeletes}});localStorage.setItem(deletedProductIdsKey(),'[]');}
+      const remote = [];const deletedIds=new Set();
       const pageSize = 500;
       for (let skip = 0; ; skip += pageSize) {
         const page = await apiRequest('/products?skip=' + skip + '&limit=' + pageSize);
-        const rows = Array.isArray(page.products) ? page.products : [];
-        remote.push(...rows);
+        const rows=Array.isArray(page.products)?page.products:[];(Array.isArray(page.deletedIds)?page.deletedIds:[]).forEach(id=>deletedIds.add(String(id)));remote.push(...rows);
         if (rows.length < pageSize) break;
       }
-      const remoteById = new Map(remote.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      if(deletedIds.size){products=products.filter(x=>!deletedIds.has(String(x.id)));for(const items of Object.values(supplierCarts||{}))for(const id of deletedIds)if(items)delete items[id];for(const id of deletedIds)delete cart[id];saveLocalOnly();}
+      const remoteById = new Map(remote.filter(x=>x&&x.id!=null&&!deletedIds.has(String(x.id))).map(x=>[String(x.id),x]));
       // إزالة التكرار بالاسم بعد توحيد المسافات والحروف؛ المحلي له الأولوية لأنه يمثل آخر تعديل على هذا الجهاز.
       const uniqueByName = new Map();
       const addUnique = (item, isLocal) => {
@@ -3203,8 +3205,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
         uniqueByName.set(key, keep);
       };
-      for (const item of remote) addUnique(item, false);
-      for (const item of products) {
+      for (const item of remote) if(!deletedIds.has(String(item.id))) addUnique(item, false);
+      for (const item of products) { if(deletedIds.has(String(item.id)))continue;
         const previous = remoteById.get(String(item.id)) || {};
         const localTime = Number(item.updatedAt) || 0;
         const remoteTime = Number(previous.updatedAt) || 0;
@@ -3333,11 +3335,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       const localCart = supplierCarts?.[storeId] || {};
       mergedCarts[storeId] = { ...remoteCart, ...localCart };
     }
-    if (!mergedCarts.general) mergedCarts.general = {};
+    if (!mergedCarts.main) mergedCarts.main = {};
     const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
     let nextActive = validSupplierIds.has(String(activeSupplierId))
       ? String(activeSupplierId)
-      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'general');
+      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'main');
     suppliers = mergedSuppliers;
     supplierCarts = mergedCarts;
     invoiceArchive = mergedInvoices;
@@ -3432,7 +3434,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const legacyInvoices = readArray("nadwa_invoice_archive");
     const guestSuppliers = readArray("nadwa_suppliers_guest");
     const guestCarts = readObject("nadwa_supplier_carts_guest");
-    const guestActive = localStorage.getItem("nadwa_active_supplier_guest") || "general";
+    const guestActive = localStorage.getItem("nadwa_active_supplier_guest") || "main";
     const beforeInvoices = invoiceArchive.length;
     const beforeSuppliers = suppliers.length;
     if (guestInvoices.length || legacyInvoices.length) {
@@ -3444,7 +3446,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       mergedCarts[storeId] = { ...(items || {}), ...((supplierCarts || {})[storeId] || {}) };
     }
     supplierCarts = mergedCarts;
-    if (activeSupplierId === "general" && guestActive !== "general" &&
+    if (activeSupplierId === "main" && guestActive !== "main" &&
         suppliers.some(item => String(item.id) === String(guestActive))) {
       activeSupplierId = guestActive;
     }
@@ -3652,11 +3654,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
         throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
       }
-      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'general',name:'مخزن عام'}];
+      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'main',name:'المخزن الرئيسي'}];
       if (sourceSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
         throw new Error('قائمة المخازن داخل الملف غير صالحة.');
       }
-      if (!sourceSuppliers.some(x => String(x.id) === 'general')) sourceSuppliers.unshift({id:'general',name:'مخزن عام'});
+      if (!sourceSuppliers.some(x => String(x.id) === 'main')) sourceSuppliers.unshift({id:'main',name:'المخزن الرئيسي'});
       const supplierIds = new Set(sourceSuppliers.map(x => String(x.id)));
       const sourceIdMap = new Map();
       const usedProductIds = new Set();
@@ -3670,7 +3672,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       const restoredProducts = backup.products.map((p, index) => ({
         ...p,
         id: sourceIdMap.get(String(p.id)),
-        supplierId: supplierIds.has(String(p.supplierId || 'general')) ? (p.supplierId || 'general') : 'general'
+        supplierId: supplierIds.has(String(p.supplierId || 'main')) ? (p.supplierId || 'main') : 'main'
       }));
 
       const remapCart = sourceCart => {
@@ -3689,8 +3691,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
           restoredSupplierCarts[String(storeId)] = remapCart(sourceCart);
         }
       }
-      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'general'))
-        ? String(backup.activeSupplierId || 'general') : 'general';
+      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'main'))
+        ? String(backup.activeSupplierId || 'main') : 'main';
       if (!Object.prototype.hasOwnProperty.call(restoredSupplierCarts, restoredActiveSupplierId)) {
         restoredSupplierCarts[restoredActiveSupplierId] = remapCart(backup.cart);
       }
@@ -3700,7 +3702,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.trim()).length;
 
       const hasExistingData = (Array.isArray(products) && products.length > 0) ||
-        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
+        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'main')) ||
         (Array.isArray(invoiceArchive) && invoiceArchive.length > 0);
       const warning = 'سيتم نقل نسخة الحساب المصدر كما هي إلى هذا الحساب. ' +
         (hasExistingData ? 'سيتم استبدال المنتجات والمخازن والفواتير الموجودة حالياً في الحساب المستهدف.' : 'سيتم تحميل المنتجات والمخازن والفواتير من الملف.') +
