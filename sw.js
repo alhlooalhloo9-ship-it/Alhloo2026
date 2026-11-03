@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v77";
+const CACHE_VERSION = "v78";
 const APP_CACHE = "nadwa-app-" + CACHE_VERSION;
 const FIREBASE_CACHE = "nadwa-firebase-" + CACHE_VERSION;
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
@@ -65,6 +65,25 @@ self.addEventListener("fetch", event => {
         })
       );
     }
+    return;
+  }
+
+  // Exchange rates must be network-first so the five-hour JSON update is never stuck in cache.
+  if (url.pathname.endsWith("/rates.json")) {
+    event.respondWith((async () => {
+      const cache = await caches.open(APP_CACHE);
+      try {
+        const response = await fetch(request, { cache: "no-store" });
+        if (response && response.ok) await cache.put(request, response.clone());
+        return response;
+      } catch (error) {
+        const cached = await cache.match(request, { ignoreSearch: true });
+        return cached || new Response("أسعار الصرف غير متاحة دون اتصال.", {
+          status: 503,
+          headers: { "Content-Type": "text/plain; charset=utf-8" }
+        });
+      }
+    })());
     return;
   }
 
