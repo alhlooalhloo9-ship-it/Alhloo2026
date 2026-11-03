@@ -790,7 +790,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <p class="muted">خصص شكل عرض المنتجات والخط والألوان. تُحفظ اختياراتك تلقائياً على هذا الجهاز لهذا الحساب.</p>
 <label for="uiColumns">عدد الأعمدة في شبكة المنتجات</label><select id="uiColumns" class="supplierSelect"><option value="1">عمود واحد</option><option value="2">عمودان</option><option value="3">ثلاثة أعمدة</option><option value="4">أربعة أعمدة</option></select><p class="muted">اختار عدد البطاقات بكل صف، وبيتطبق الاختيار مباشرة على الصفحة الرئيسية وبينحفظ لهالحساب على هالجهاز.</p>
 <label for="uiLayout">طريقة العرض</label><select id="uiLayout" class="supplierSelect"><option value="grid">شبكة بطاقات</option><option value="list">قائمة طولية</option></select>
-<label style="display:flex;align-items:center;gap:9px;margin-top:12px"><input type="checkbox" id="uiRotationLock"> 🔒 قفل تدوير الشاشة (تثبيت التطبيق بالوضع العمودي)</label><p class="muted">يمنع تدوير التطبيق عند تدوير الهاتف إذا كان المتصفح أو التطبيق يدعم قفل اتجاه الشاشة.</p>
+<label style="display:flex;align-items:center;gap:9px;margin-top:12px"><input type="checkbox" id="uiRotationLock" checked disabled> 🔒 تدوير الشاشة مقفول دائماً — الوضع العمودي فقط</label><p class="muted">تم تثبيت التطبيق على الوضع العمودي، ولا يمكن تغيير هذا الخيار من الإعدادات.</p>
 <label for="uiFont">نوع الخط</label><select id="uiFont" class="supplierSelect"><option value="Arial">Arial</option><option value="Tahoma">Tahoma</option><option value="system">خط الجهاز</option></select>
 <label for="uiFontSize">حجم الخط العام: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
 <label for="uiProductPriceSize">حجم أرقام الأسعار: <b id="uiProductPriceSizeValue">100%</b></label><input id="uiProductPriceSize" type="range" min="0" max="100" step="1" value="100"><p class="muted">كبّر أو صغّر أرقام الأسعار على جميع بطاقات المنتجات بشكل مستقل عن أسماء المنتجات.</p>
@@ -2065,7 +2065,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:false,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
@@ -2091,8 +2091,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if($('uiProductPriceSizeValue'))$('uiProductPriceSizeValue').textContent=(+uiSettings.productPriceSize||100)+'%';
     if($('uiProductImageSizeValue'))$('uiProductImageSizeValue').textContent=(+uiSettings.productImageSize||100)+'%';
   }
-  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}fillUiSettings();applyUiSettings();if(uiSettings.rotationLock===true)applyRotationLock(true);}
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uiSettings.rotationLock===true)applyRotationLock(true);});
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyRotationLock(true);});
+  window.addEventListener('orientationchange',()=>applyRotationLock(true));
   document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&uiSettings.rotationLock===true)applyRotationLock(true);});
   function applyRotationLock(enabled){
     if(!screen.orientation || typeof screen.orientation.lock!=='function'){
@@ -2107,18 +2108,17 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     });
   }
   function saveUiSettings(){
-    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,productImageSize:+$('uiProductImageSize').value,rotationLock:$('uiRotationLock').checked,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
+    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,productImageSize:+$('uiProductImageSize').value,rotationLock:true,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
     try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(e){$('uiSettingsStatus').textContent='تعذر حفظ الإعدادات: '+(e.message||e);return;}
     applyUiSettings();renderProducts();if($('uiSettingsStatus'))$('uiSettingsStatus').textContent='تم حفظ الإعدادات وتطبيقها على الصفحة الرئيسية.';applyRotationLock(uiSettings.rotationLock===true);
   }
   $('saveUiSettings').addEventListener('click',saveUiSettings);
-  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiProductImageSize','uiRotationLock'])$(id).addEventListener('change',saveUiSettings);
+  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiProductImageSize'])$(id).addEventListener('change',saveUiSettings);
   $('uiProductImageSize').addEventListener('input',()=>{$('uiProductImageSizeValue').textContent=$('uiProductImageSize').value+'%';uiSettings.productImageSize=+$('uiProductImageSize').value;applyUiSettings();});
   $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
   $('uiProductNameSize').addEventListener('input',()=>{const value=Number($('uiProductNameSize').value);$('uiProductNameSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-name-scale',String(value/100));});
   $('uiProductPriceSize').addEventListener('input',()=>{const value=Math.min(100,Math.max(0,Number($('uiProductPriceSize').value)||0));$('uiProductPriceSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-price-scale',String(value/100));});
   $('resetUiSettings').addEventListener('click',()=>{uiSettings={...defaultUiSettings};localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));fillUiSettings();applyUiSettings();renderProducts();$('uiSettingsStatus').textContent='تمت استعادة الإعدادات الافتراضية.';});
-  $('resetUiSettings').addEventListener('click',()=>applyRotationLock(false));
   function renderProductSearchSuggestions() {
     const input = $('productSearchInput');
     const list = $('productSearchSuggestions');
