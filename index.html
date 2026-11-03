@@ -2041,23 +2041,38 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     return {id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),buyerName,supplierId:activeSupplierId,supplierName:customSupplierName || supplierName(activeSupplierId),issuedAt:issueNow?new Date().toISOString():null,lines,totalUsd:sum,totalTry:sum*tryRate,totalSyp:sum*sypRate,rates:{tryRate,sypRate}};
   }
   function invoiceText(inv) {
-    const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير محفوظة بعد';
+    const issued = inv.issuedAt ? new Date(inv.issuedAt) : new Date();
+    const pad = value => String(value).padStart(2, '0');
+    const hour24 = issued.getHours();
+    const hour12 = hour24 % 12 || 12;
+    const date = pad(issued.getDate()) + '/' + (issued.getMonth() + 1) + '/' + issued.getFullYear() +
+      ' - ' + pad(hour12) + ':' + pad(issued.getMinutes()) + (hour24 < 12 ? ' ص' : ' م');
     const money = value => '$' + (Number(value) || 0).toFixed(2);
+    const tryExchangeRate = Number(inv.rates?.tryRate ?? tryRate) || tryRate;
+    const sypExchangeRate = Number(inv.rates?.sypRate ?? sypRate) || sypRate;
+    const totalTry = Number(inv.totalTry ?? ((Number(inv.totalUsd) || 0) * tryExchangeRate)) || 0;
+    const totalSyp = Number(inv.totalSyp ?? ((Number(inv.totalUsd) || 0) * sypExchangeRate)) || 0;
+    const formatTry = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 3 });
+    const formatSyp = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
     return [
-      'فاتورة بضاعة الندوة',
-      inv.buyerName ? 'المشتري: ' + inv.buyerName : '',
-      'المخزن: ' + (inv.supplierName || '—'),
-      'التاريخ: ' + date,
+      'فاتورة ' + (inv.buyerName || inv.supplierName || 'بضاعة الندوة'),
+      '📅 ' + date,
+      '🏪 ' + (inv.supplierName || '—') + ' - بضاعة الندوة',
+      '━━━━━━━━━━━━━━',
       '',
-      'تفاصيل المنتجات',
-      ...(inv.lines || []).map((x, i) =>
-        (i + 1) + ') ' + (x.name || '—') + ' — ' + (x.quantity ?? 0) +
-        ' عبوة، سعر العبوة ' + money(x.unitPrice) + '، الإجمالي ' + money(x.lineTotal)
-      ),
-      '',
-      'الإجمالي بالدولار: ' + money(inv.totalUsd),
-      'الإجمالي بالليرة التركية: ' + (Number(inv.totalTry) || 0).toLocaleString('ar') + ' ل.ت',
-      'الإجمالي بالليرة السورية الجديدة: ' + (Number(inv.totalSyp) || 0).toLocaleString('ar') + ' ل.س'
+      ...(inv.lines || []).flatMap((x, i) => [
+        (i + 1) + '- ' + (x.name || '—'),
+        '   الكمية: ' + (x.quantity ?? 0) + ' عبوة',
+        '   سعر القطعة: ' + money(x.unitPrice),
+        '   الإجمالي: ' + money(x.lineTotal),
+        ''
+      ]),
+      '━━━━━━━━━━━━━━',
+      'الإجمالي: ' + money(inv.totalUsd),
+      'TL: ' + formatTry(totalTry) + ' (' + String(tryExchangeRate) + ')',
+      'SYP الجديد: ' + formatSyp(totalSyp) + ' (' + String(sypExchangeRate) + ')',
+      '━━━━━━━━━━━━━━',
+      'شكراً لزيارتكم - بضاعة الندوة'
     ].join('\n');
   }
   function issueCurrentInvoice() {
