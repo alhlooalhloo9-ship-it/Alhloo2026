@@ -2236,24 +2236,39 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   let archivedPdfFile = null;
   async function buildInvoicePdfBlob(inv) {
     await loadPdfLibraries();
-    const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
-    const page = document.createElement('div');
-    page.dir = 'rtl';
-    page.lang = 'ar';
-    page.style.cssText = 'position:fixed;left:0;top:0;width:760px;min-height:120px;padding:0;margin:0;box-sizing:border-box;background:#fff;color:#172b24;z-index:1;pointer-events:none;display:block;visibility:visible;opacity:1;overflow:visible;';
-    const sourceStyles = Array.from(parsed.head.querySelectorAll('style')).map(node => node.textContent).join('\\n');
-    const style = document.createElement('style');
-    style.textContent = sourceStyles + '\\nhtml,body{margin:0;padding:0;background:#fff;color:#172b24}body{font-family:Tajawal,Cairo,Arial,sans-serif;direction:rtl}table{width:100%;border-collapse:collapse}tr{break-inside:avoid;page-break-inside:avoid}td,th{font-size:13px}img{max-width:64px}*{box-sizing:border-box}';
-    page.appendChild(style);
-    const content = document.createElement('div');
-    content.dir = 'rtl';
-    content.style.cssText = 'display:block;width:100%;min-height:100px;background:#fff;color:#172b24;direction:rtl;';
-    content.appendChild(parsed.body.cloneNode(true));
-    page.appendChild(content);
-    document.body.appendChild(page);
+    // Render the invoice in a separate document so the app's dark-mode styles,
+    // CSS variables, filters and inherited theme can never affect the PDF.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.tabIndex = -1;
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:800px;height:1200px;border:0;opacity:1;pointer-events:none;background:#ffffff;color-scheme:light;';
+    document.body.appendChild(frame);
     try {
-      if (document.fonts && document.fonts.ready) await document.fonts.ready;
-      const images = Array.from(page.querySelectorAll('img'));
+      const frameDoc = frame.contentDocument;
+      if (!frameDoc) throw new Error('تعذر تجهيز صفحة مستقلة للف PDF.');
+      frameDoc.open();
+      frameDoc.write(invoiceHtml(inv));
+      frameDoc.close();
+      await new Promise((resolve, reject) => {
+        if (frameDoc.readyState === 'complete') return resolve();
+        frame.addEventListener('load', resolve, { once: true });
+        setTimeout(() => reject(new Error('انتهت مهلة تجهيز صفحة الفاتورة للطباعة.')), 10000);
+      });
+      frameDoc.documentElement.style.cssText = 'background:#ffffff !important;color:#172b24 !important;color-scheme:light !important;filter:none !important;';
+      frameDoc.body.style.cssText += ';width:760px;min-height:120px;margin:0;padding:24px;box-sizing:border-box;background:#ffffff !important;color:#172b24 !important;color-scheme:light !important;filter:none !important;opacity:1 !important;';
+      const forceLight = frameDoc.createElement('style');
+      forceLight.textContent = `
+        :root,html,body{color-scheme:light!important;background-color:#fff!important;color:#172b24!important;filter:none!important}
+        body{background:#fff!important;color:#172b24!important;opacity:1!important}
+        table{background:#fff!important}
+        tbody tr,td{background-color:#fff!important}
+        th{background-color:#edf5ef!important;color:#172b24!important}
+        img{opacity:1!important;filter:none!important}
+        *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-shadow:none}
+      `;
+      frameDoc.head.appendChild(forceLight);
+      if (frame.contentWindow.document.fonts?.ready) await frame.contentWindow.document.fonts.ready;
+      const images = Array.from(frameDoc.querySelectorAll('img'));
       const toDataUrl = blob => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ''));
@@ -2279,9 +2294,17 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       };
       await Promise.all(images.map(waitForImage));
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const canvas = await window.html2canvas(page, {
+      const naturalHeight = Math.max(frameDoc.body.scrollHeight, frameDoc.documentElement.scrollHeight, 120);
+      frame.style.height = (naturalHeight + 20) + 'px';
+      const canvas = await window.html2canvas(frameDoc.body, {
         scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-        scrollX: 0, scrollY: 0, windowWidth: 900
+        scrollX: 0, scrollY: 0, windowWidth: 800, windowHeight: naturalHeight,
+        onclone: clonedDoc => {
+          clonedDoc.documentElement.style.setProperty('background-color', '#ffffff', 'important');
+          clonedDoc.documentElement.style.setProperty('color-scheme', 'light', 'important');
+          clonedDoc.body.style.setProperty('background-color', '#ffffff', 'important');
+          clonedDoc.body.style.setProperty('color', '#172b24', 'important');
+        }
       });
       if (!canvas || typeof canvas.getContext !== 'function' || canvas.width < 10 || canvas.height < 10) {
         throw new Error('تعذر تصوير محتوى الفاتورة. لم تُرجع مكتبة التصوير صورة صالحة.');
@@ -2313,7 +2336,6 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         sliceCtx.fillRect(0, 0, slice.width, slice.height);
         sliceCtx.drawImage(canvas, 0, y, canvas.width, currentHeight, 0, 0, canvas.width, currentHeight);
         if (pageIndex > 0) pdf.addPage();
-        // Paint the complete PDF sheet white first so viewers never show a dark/transparent page.
         pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pageWidth, pageHeight, 'F');
         const renderedHeight = currentHeight * usableWidth / canvas.width;
@@ -2325,7 +2347,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       if (!blob || blob.size < 1000) throw new Error('ملف PDF الناتج فارغ أو غير مكتمل.');
       return blob;
     } finally {
-      page.remove();
+      frame.remove();
     }
   }
   function fitArchivedInvoiceToScreen() {
