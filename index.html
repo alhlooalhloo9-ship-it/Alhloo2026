@@ -2313,6 +2313,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         sliceCtx.fillRect(0, 0, slice.width, slice.height);
         sliceCtx.drawImage(canvas, 0, y, canvas.width, currentHeight, 0, 0, canvas.width, currentHeight);
         if (pageIndex > 0) pdf.addPage();
+        // Paint the complete PDF sheet white first so viewers never show a dark/transparent page.
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
         const renderedHeight = currentHeight * usableWidth / canvas.width;
         pdf.addImage(slice.toDataURL('image/jpeg', 0.96), 'JPEG', marginLeft, marginTop, usableWidth, renderedHeight, undefined, 'FAST');
         y += currentHeight;
