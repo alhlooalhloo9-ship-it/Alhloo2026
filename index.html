@@ -1814,8 +1814,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
         el.innerHTML=(p.image?'<img class="invoice-line-photo" src="'+esc(p.image)+'" alt="'+esc(p.name)+'">':'<div class="invoice-line-no-photo" aria-label="لا توجد صورة">📦</div>')+
           '<div class="invoice-line-info"><b>'+esc(p.name)+'</b><small>سعر العبوة: $'+(+p.price||0).toFixed(2)+' · '+pieces+' قطعة بالعبوة</small><small>إجمالي السطر: <strong>$'+line.toFixed(2)+'</strong></small></div>'+
           '<div class="invoice-line-controls"><button type="button" class="minus" aria-label="إنقاص الكمية">−</button><input type="number" min="0" step="1" inputmode="numeric" value="'+n+'" aria-label="كمية '+esc(p.name)+'"><button type="button" class="plus" aria-label="زيادة الكمية">+</button></div>';
-        el.querySelector('.minus').onclick=()=>qty(id,-1);
-        el.querySelector('.plus').onclick=()=>qty(id,1);
+        el.querySelector('.minus').onclick=()=>qty(p.id,-1);
+        el.querySelector('.plus').onclick=()=>qty(p.id,1);
         el.querySelector('input').addEventListener('change',e=>setInvoiceQty(id,e.target.value));
         root.appendChild(el);
       });
