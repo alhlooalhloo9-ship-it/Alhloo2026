@@ -3161,6 +3161,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         catch (rtdbError) { console.warn("Realtime Database read unavailable; checking legacy Firestore:", rtdbError); }
         const rows = Array.isArray(raw) ? raw.filter(Boolean) :
           (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        // سجل حذف دائم حتى لا تعود المنتجات المحذوفة من نسخة Firestore القديمة.
+        let deletedRaw = {};
+        try { deletedRaw = await requestRtdb(basePath + "/productsDeleted", "GET") || {}; }
+        catch (deletedReadError) { console.warn("Product deletion ledger read failed:", deletedReadError); }
+        const deletedIds = Array.isArray(deletedRaw) ? deletedRaw.filter(Boolean).map(String) :
+          (deletedRaw && typeof deletedRaw === "object" ? Object.keys(deletedRaw).filter(id => deletedRaw[id]).map(String) : []);
+        const deletedSet = new Set(deletedIds);
         // استعادة آمنة للمنتجات القديمة التي بقيت في Firestore قبل نقل المزامنة إلى Realtime Database.
         let legacyRows = [];
         try {
@@ -3169,15 +3176,35 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
           console.warn("Legacy Firestore read unavailable; keeping Realtime Database data:", legacyError);
         }
         const combined = new Map();
-        for (const item of legacyRows) if (item && item.id != null) combined.set(String(item.id), item);
-        for (const item of rows) if (item && item.id != null) {
+        for (const item of legacyRows) if (item && item.id != null && !deletedSet.has(String(item.id))) combined.set(String(item.id), item);
+        for (const item of rows) if (item && item.id != null && !deletedSet.has(String(item.id))) {
           const key = String(item.id);
           combined.set(key, { ...(combined.get(key) || {}), ...item, id: item.id });
         }
         const allRows = Array.from(combined.values());
         const skip = Math.max(0, Number(query.get("skip")) || 0);
         const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
-        return { ok: true, products: allRows.slice(skip, skip + limit) };
+        return { ok: true, products: allRows.slice(skip, skip + limit), deletedIds };
+      }
+      if (method === "DELETE") {
+        const ids = Array.isArray(options.body && options.body.ids)
+          ? Array.from(new Set(options.body.ids.filter(id => id != null).map(String)))
+          : [];
+        if (ids.length > 5000) throw new Error("عدد المنتجات المطلوب حذفها أكبر من الحد المسموح.");
+        if (ids.length) {
+          const current = await requestRtdb(target, "GET");
+          const currentRows = Array.isArray(current) ? current.filter(Boolean) :
+            (current && typeof current === "object" ? Object.values(current).filter(Boolean) : []);
+          const deletedSet = new Set(ids);
+          await requestRtdb(target, "PUT", currentRows.filter(item => !deletedSet.has(String(item && item.id))));
+          const oldLedger = await requestRtdb(basePath + "/productsDeleted", "GET") || {};
+          const ledger = Array.isArray(oldLedger)
+            ? Object.fromEntries(oldLedger.filter(Boolean).map(id => [String(id), true]))
+            : (oldLedger && typeof oldLedger === "object" ? { ...oldLedger } : {});
+          ids.forEach(id => { ledger[id] = true; });
+          await requestRtdb(basePath + "/productsDeleted", "PUT", ledger);
+        }
+        return { ok: true, deleted: ids.length };
       }
       if (method === "POST") {
         const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
