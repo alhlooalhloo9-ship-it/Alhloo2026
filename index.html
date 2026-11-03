@@ -470,6 +470,23 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   src="https://js-de.sentry-cdn.com/6b360d8f124aaa77eef803eb43f37a3c.min.js"
   crossorigin="anonymous"
 ></script>
+<style>
+/* Final mobile product-card layout override */
+#products .prod,#products .prod>*{min-width:0;max-width:100%;box-sizing:border-box}
+#products .prod{height:auto;min-height:0;overflow:hidden}
+#products .prod .name,#products .prod .muted,#products .prod .price,#products .prod .badge,#products .prod summary,#products .prod button{max-width:100%;overflow-wrap:anywhere;word-break:normal;line-height:1.45}
+#products .prod .name{display:block;min-height:0;max-height:none;white-space:normal;overflow:visible;margin:5px 0}
+#products .prod .price{display:block;white-space:normal;margin:6px 0}
+#products .prod .tapControls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:6px;width:100%}
+#products .prod .tapControls .badge{grid-column:1/-1;justify-self:center;white-space:normal;text-align:center}
+#products .prod .tapControls button{width:100%;min-width:0;min-height:38px;padding:7px 4px;white-space:normal}
+#products .prod details.productDetails{width:100%;min-width:0}
+#products .prod details.productDetails summary{width:100%;white-space:normal;text-align:center;padding:9px 6px}
+#products .prod details.productDetails .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%}
+#products .prod details.productDetails .actions button{width:100%;min-width:0;min-height:38px;white-space:normal;padding:7px 4px}
+@media(max-width:420px){#products.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}#products .prod{padding:8px 6px}#products .prod .tapControls button,#products .prod details.productDetails .actions button{font-size:12px}}
+
+</style>
 </head>
 <body>
 <header class="app-hero">
