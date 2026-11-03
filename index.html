@@ -937,9 +937,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   let suppliers = [];
   let supplierCarts = {};
   let invoiceArchive = [];
+  let deletedSupplierIds = [];
   let activeSupplierId = 'main';
   function ensureSupplierData() {
     if (!Array.isArray(suppliers)) suppliers = [];
+    if (!Array.isArray(deletedSupplierIds)) deletedSupplierIds = [];
+    const deletedSet = new Set(deletedSupplierIds.map(String));
+    suppliers = suppliers.filter(x => x && !deletedSet.has(String(x.id)));
     if (!supplierCarts || typeof supplierCarts !== 'object' || Array.isArray(supplierCarts)) supplierCarts = {};
     if (!Array.isArray(invoiceArchive)) invoiceArchive = [];
     const legacyStore = suppliers.find(x => String(x.id) === 'general');
@@ -949,8 +953,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     delete supplierCarts.general;
     products.forEach(p=>{if(!p.supplierId||String(p.supplierId)==='general')p.supplierId='main';});
     invoiceArchive.forEach(x=>{if(String(x.supplierId)==='general')x.supplierId='main';});
-    if (!suppliers.length) suppliers.push({id:'main',name:'المخزن الرئيسي'});
-    if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>String(x.supplierId)==='main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
+    if (!suppliers.length && !deletedSet.has('main')) suppliers.push({id:'main',name:'المخزن الرئيسي'});
+    if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>String(x.supplierId)==='main') && !deletedSet.has('main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
     if (!supplierCarts.main) supplierCarts.main=cart&&typeof cart==='object'?cart:{};
     if(String(activeSupplierId)==='general')activeSupplierId='main';
     if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'main';
@@ -991,6 +995,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     try { suppliers = JSON.parse(localStorage.getItem('nadwa_suppliers_' + (uid || 'guest')) || '[]'); } catch (_) { suppliers = []; }
     try { supplierCarts = JSON.parse(localStorage.getItem('nadwa_supplier_carts_' + (uid || 'guest')) || '{}'); } catch (_) { supplierCarts = {}; }
     try { invoiceArchive = JSON.parse(localStorage.getItem('nadwa_invoice_archive_' + (uid || 'guest')) || '[]'); } catch (_) { invoiceArchive = []; }
+    try { deletedSupplierIds = JSON.parse(localStorage.getItem('nadwa_deleted_suppliers_' + (uid || 'guest')) || '[]'); } catch (_) { deletedSupplierIds = []; }
+    if (!Array.isArray(deletedSupplierIds)) deletedSupplierIds = [];
     activeSupplierId = localStorage.getItem('nadwa_active_supplier_' + (uid || 'guest')) || 'main';if(String(activeSupplierId)==='general')activeSupplierId='main';
     ensureSupplierData();
   }
@@ -1065,6 +1071,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     localStorage.setItem('nadwa_suppliers_' + suffix, JSON.stringify(suppliers));
     localStorage.setItem('nadwa_supplier_carts_' + suffix, JSON.stringify(supplierCarts));
     localStorage.setItem('nadwa_invoice_archive_' + suffix, JSON.stringify(invoiceArchive));
+    localStorage.setItem('nadwa_deleted_suppliers_' + suffix, JSON.stringify(deletedSupplierIds));
     localStorage.setItem('nadwa_active_supplier_' + suffix, activeSupplierId);
   }
   let tryRate = +(localStorage.getItem('nadwa_try') || 49.7);
@@ -2224,14 +2231,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!$('supplierList')) return;
     $('supplierList').innerHTML = suppliers.map(x => {
       const count = products.filter(p => (p.supplierId || 'main') === x.id).length;
-      const actions = x.id === 'main' ? '' :
+      const actions =
         '<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" onclick="renameSupplier(\'' + esc(x.id) + '\')">✏️ إعادة تسمية</button><button type="button" class="danger" onclick="deleteSupplier(\'' + esc(x.id) + '\')">🗑️ حذف المخزن</button></div>';
       return '<div class="row"><div class="info"><b>' + esc(x.name) + '</b><small>' + count + ' منتج</small></div>' + actions + '</div>';
     }).join('');
   }
   window.renameSupplier = function(id) {
-    const item = suppliers.find(x => x.id === id);
-    if (!item || item.id === 'main') return;
+    const item = suppliers.find(x => String(x.id) === String(id));
+    if (!item) return;
     const name = prompt('اكتب الاسم الجديد للمخزن:', item.name);
     if (!name || !name.trim()) return;
     const clean = name.trim().slice(0,80);
@@ -2240,13 +2247,34 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     save(); renderSupplierList(); renderSupplierSelectors(); renderProducts(); renderInvoice();
   };
   window.deleteSupplier = function(id) {
-    const item=suppliers.find(x=>String(x.id)===String(id));if(!item||String(item.id)==='main')return;
+    const item=suppliers.find(x=>String(x.id)===String(id));if(!item)return;
+    const destinations=suppliers.filter(x=>String(x.id)!==String(id));
     const count=products.filter(p=>String(p.supplierId||'main')===String(id)).length;
-    if(count){alert('لا يمكن حذف هذا المخزن لأنه يحتوي على '+count+' منتج. انقل المنتجات أولاً إلى مخزن آخر، ثم أعد الحذف. لن يتم نقلها أو حذفها تلقائياً.');return;}
-    if(!confirm('هل تريد حذف المخزن «'+item.name+'»؟ الفواتير السابقة ستبقى محفوظة في الأرشيف.'))return;
-    delete supplierCarts[id];suppliers=suppliers.filter(x=>String(x.id)!==String(id));
-    if(String(activeSupplierId)===String(id)){activeSupplierId=suppliers[0]?.id||'main';cart=supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={});}
-    if($('productSupplierFilter')?.value===id)$('productSupplierFilter').value='all';
+    if(count&&!destinations.length){alert('هذا المخزن يحتوي على '+count+' منتج. أضف مخزناً بديلاً أولاً، ثم احذف هذا المخزن حتى لا نفقد المنتجات.');return;}
+    let destinationId='';
+    if(count){
+      const choices=destinations.map((x,i)=>(i+1)+' - '+x.name).join('\\n');
+      const answer=prompt('المخزن يحتوي على '+count+' منتج. اكتب رقم المخزن الذي تريد نقل المنتجات إليه قبل الحذف:\\n'+choices,'1');
+      if(answer===null)return;
+      const index=Number(answer)-1;
+      if(!Number.isInteger(index)||index<0||index>=destinations.length){alert('رقم المخزن غير صحيح. لم يتم حذف أي شيء.');return;}
+      destinationId=String(destinations[index].id);
+    }
+    if(!confirm('تأكيد حذف المخزن «'+item.name+'» نهائياً؟'+(count?' سيتم نقل منتجاته وسلة فواتيره المفتوحة إلى «'+supplierName(destinationId)+'» دون حذفها.':'')+' ولن يعود بعد تحديث الصفحة أو المزامنة.'))return;
+    if(count){
+      products.forEach(p=>{if(String(p.supplierId||'main')===String(id)){p.supplierId=destinationId;p.updatedAt=Date.now();}});
+      const oldCart=supplierCarts[id]||{};
+      const targetCart=supplierCarts[destinationId]||(supplierCarts[destinationId]={});
+      for(const [productId,quantity] of Object.entries(oldCart))targetCart[productId]=(Number(targetCart[productId])||0)+(Number(quantity)||0);
+    }
+    deletedSupplierIds=Array.from(new Set([...(deletedSupplierIds||[]).map(String),String(id)]));
+    delete supplierCarts[id];
+    suppliers=suppliers.filter(x=>String(x.id)!==String(id));
+    if(String(activeSupplierId)===String(id)){
+      activeSupplierId=destinationId||String(suppliers[0]?.id||'');
+      cart=activeSupplierId?(supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={})):{};
+    }
+    if($('productSupplierFilter')?.value===String(id))$('productSupplierFilter').value='all';
     save();renderSupplierSelectors();renderSupplierList();renderProducts();renderInvoice();
   };
   $('addSupplierBtn').addEventListener('click', () => {
@@ -2254,6 +2282,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!name) { alert('اكتب اسم صاحب المخزن أولاً.'); return; }
     if (suppliers.some(x => x.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) { alert('هذا المخزن موجود مسبقاً.'); return; }
     const id = 'sup-' + Date.now();
+    deletedSupplierIds = (deletedSupplierIds||[]).filter(x=>String(x)!==String(id));
     suppliers.push({id,name:name.slice(0,80)});
     supplierCarts[id] = {};
     $('newSupplierName').value = '';
@@ -2390,9 +2419,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     root.innerHTML='';
     if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
     list.forEach(inv=>{
+      const wrap=document.createElement('div');
+      wrap.className='invoice-archive-entry';
+      wrap.style.cssText='display:flex;align-items:stretch;gap:8px;margin:8px 0;min-width:0';
       const card=document.createElement('button');
-      card.type='button';
-      card.className='invoice-archive-card invoice-note-card';
+      card.type='button';card.className='invoice-archive-card invoice-note-card';
+      card.style.cssText='flex:1;min-width:0;margin:0';
       card.setAttribute('aria-label','فتح ملاحظة الفاتورة '+(inv.buyerName||'بدون اسم مشتري'));
       const info=document.createElement('span');info.className='invoice-note-info';
       const title=document.createElement('strong');title.textContent='📝 '+(inv.buyerName||'فاتورة بدون اسم مشتري');
@@ -2401,11 +2433,22 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       const lock=document.createElement('small');lock.className='invoice-note-lock';lock.textContent='🔒 ملاحظة محفوظة — للقراءة والمشاركة فقط';
       info.append(title,meta,lock);
       const open=document.createElement('span');open.className='invoice-note-open';open.textContent='فتح الملاحظة ←';
-      card.append(info,open);
-      card.addEventListener('click',()=>openArchivedInvoiceNote(inv.id));
-      root.appendChild(card);
+      card.append(info,open);card.addEventListener('click',()=>openArchivedInvoiceNote(inv.id));
+      const remove=document.createElement('button');remove.type='button';remove.className='danger';remove.textContent='🗑️ حذف';
+      remove.style.cssText='flex:0 0 auto;align-self:center;padding:9px 10px;white-space:nowrap';
+      remove.setAttribute('aria-label','حذف الفاتورة '+(inv.buyerName||'بدون اسم مشتري'));
+      remove.addEventListener('click',event=>{event.stopPropagation();deleteArchivedInvoice(inv.id);});
+      wrap.append(card,remove);root.appendChild(wrap);
     });
   }
+  window.deleteArchivedInvoice = function(id) {
+    const inv=invoiceArchive.find(x=>String(x.id)===String(id));if(!inv)return;
+    const label=inv.buyerName||'فاتورة بدون اسم مشتري';
+    if(!confirm('هل تريد حذف الفاتورة المحفوظة «'+label+'» نهائياً؟ لن يمكن استعادتها من هذا الجهاز.'))return;
+    invoiceArchive=invoiceArchive.filter(x=>String(x.id)!==String(id));
+    save();renderInvoiceArchive();
+    if($('archivedNoteModal')?.dataset.invoiceId===String(id))closeArchivedInvoiceNote();
+  };
   function openArchivedInvoiceNote(id) {
     const inv=invoiceArchive.find(x=>String(x.id)===String(id)); if(!inv)return;
     $('archivedNoteTitle').textContent='📝 '+(inv.buyerName||'فاتورة بدون اسم مشتري');
