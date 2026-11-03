@@ -906,7 +906,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 </div>
 <div class="box">
 <h3>💱 أسعار الصرف التلقائية</h3>
-<label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.001" readonly value="49.7">
+<label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.01" readonly value="49.7">
 <label>الدولار مقابل الليرة السورية الجديدة</label><input id="sypRate" type="number" min="0.01" step="0.01" readonly value="140">
 <p class="muted">المصدر: موقع ليرتنا — أسعار إدلب. يعتمد الحساب على سعر مبيع الدولار وسعر شراء الليرة التركية لحماية تكلفة إعادة شراء البضاعة.</p>
 <p class="muted">الليرة السورية الجديدة: كل 100 ليرة قديمة = ليرة سورية جديدة واحدة.</p>
@@ -1224,7 +1224,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       if (status) status.textContent = 'آخر تحديث من ليرتنا — إدلب: ' +
         new Date(data.updatedAt).toLocaleString('ar') +
         ' · سعر مبيع الدولار: ' + Number(data.sypRate).toLocaleString('en-US') +
-        ' ل.س جديدة · سعر الدولار المحسوب: ' + Number(data.tryRate).toFixed(3) + ' ل.ت.';
+        ' ل.س جديدة · سعر الدولار المحسوب: ' + Number(data.tryRate).toFixed(2) + ' ل.ت.';
       if (changed) {
         if (typeof window.renderProducts === 'function') window.renderProducts();
         if (typeof window.renderInvoice === 'function') window.renderInvoice();
