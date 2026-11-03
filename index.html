@@ -2042,6 +2042,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   }
   function invoiceText(inv) {
     const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير محفوظة بعد';
+    const money = value => '$' + (Number(value) || 0).toFixed(2);
     return [
       'فاتورة بضاعة الندوة',
       inv.buyerName ? 'المشتري: ' + inv.buyerName : '',
@@ -2051,7 +2052,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       'تفاصيل المنتجات',
       ...(inv.lines || []).map((x, i) =>
         (i + 1) + ') ' + (x.name || '—') + ' — ' + (x.quantity ?? 0) +
-        ' عبوة، سعر العبوة 
+        ' عبوة، سعر العبوة ' + money(x.unitPrice) + '، الإجمالي ' + money(x.lineTotal)
+      ),
+      '',
+      'الإجمالي بالدولار: ' + money(inv.totalUsd),
+      'الإجمالي بالليرة التركية: ' + (Number(inv.totalTry) || 0).toLocaleString('ar') + ' ل.ت',
+      'الإجمالي بالليرة السورية الجديدة: ' + (Number(inv.totalSyp) || 0).toLocaleString('ar') + ' ل.س'
+    ].join('\\n');
+  }
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
     invoiceArchive.unshift(inv);
