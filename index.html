@@ -527,7 +527,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     <div id="archivedNoteBody" class="archived-note-body"></div>
     <div class="archived-note-actions">
       <button type="button" class="primary" onclick="shareArchivedInvoiceNote('image')">📷 مشاركة صورة</button>
-      <button type="button" onclick="shareArchivedInvoiceNote('pdf')">📄 إنشاء ومشاركة PDF</button>
+      <button type="button" onclick="shareArchivedInvoiceNote('pdf')">📄 معاينة PDF</button>
       <button type="button" onclick="shareArchivedInvoiceNote('text')">💬 مشاركة كنص</button>
       <button type="button" onclick="closeArchivedInvoiceNote()">إغلاق</button>
     </div>
@@ -2273,6 +2273,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       alert('تم تنزيل ملف PDF. يمكنك إرفاقه في واتساب كمستند.');
     }
   }
+  window.closeArchivedPdfPreview = closeArchivedPdfPreview;
+  window.sharePreviewedArchivedPdf = sharePreviewedArchivedPdf;
   async function previewInvoiceAsPdf(inv) {
     const modal = $('archivedPdfPreviewModal');
     const frame = $('archivedPdfFrame');
