@@ -568,31 +568,48 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   };
   const firebaseInitPromise = (async () => {
     const moduleSources = [
-      [
-        "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-        "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
-        "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
-      ],
-      [
-        "https://esm.sh/firebase@10.8.0/app",
-        "https://esm.sh/firebase@10.8.0/auth",
-        "https://esm.sh/firebase@10.8.0/firestore"
-      ],
-      [
-        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/app/+esm",
-        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/auth/+esm",
-        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/firestore/+esm"
-      ]
+      {
+        app: "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        auth: "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+        firestore: "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
+      },
+      {
+        app: "https://esm.sh/firebase@10.8.0/app",
+        auth: "https://esm.sh/firebase@10.8.0/auth",
+        firestore: "https://esm.sh/firebase@10.8.0/firestore"
+      },
+      {
+        app: "https://cdn.jsdelivr.net/npm/firebase@10.8.0/app/+esm",
+        auth: "https://cdn.jsdelivr.net/npm/firebase@10.8.0/auth/+esm",
+        firestore: "https://cdn.jsdelivr.net/npm/firebase@10.8.0/firestore/+esm"
+      }
     ];
-    let lastError = null;
-    for (const [appUrl, authUrl, firestoreUrl] of moduleSources) {
+    let app = null;
+    let lastAuthError = null;
+    let selectedFirestoreUrls = [];
+    // Authentication is critical to restoring the user's account. Do not let an optional
+    // Firestore compatibility import prevent Firebase Auth from starting.
+    for (const source of moduleSources) {
       try {
-        const [appModule, authModule, firestoreModule] = await Promise.all([
-          import(appUrl), import(authUrl), import(firestoreUrl)
-        ]);
-        const app = appModule.initializeApp(firebaseConfig);
+        const [appModule, authModule] = await Promise.all([import(source.app), import(source.auth)]);
+        app = appModule.initializeApp(firebaseConfig);
         auth = authModule.getAuth(app);
         firebaseAuthApi = authModule;
+        selectedFirestoreUrls = moduleSources.map(item => item.firestore);
+        break;
+      } catch (error) {
+        lastAuthError = error;
+        console.warn("Firebase Auth CDN failed; trying the next trusted source:", error);
+      }
+    }
+    if (!firebaseAuthApi || !auth) {
+      console.error("Firebase Auth could not be loaded; local app remains enabled:", lastAuthError);
+      return false;
+    }
+    // Firestore is read-only legacy recovery; its failure must not block account sign-in or RTDB.
+    for (const firestoreUrl of selectedFirestoreUrls) {
+      try {
+        const firestoreModule = await import(firestoreUrl);
         try {
           firestoreDb = firestoreModule.initializeFirestore(app, {
             experimentalAutoDetectLongPolling: true,
@@ -602,15 +619,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
           firestoreDb = firestoreModule.getFirestore(app);
         }
         firebaseFirestoreApi = firestoreModule;
-        console.info("Firebase authentication and legacy Firestore modules loaded successfully.");
-        return true;
+        console.info("Legacy Firestore recovery reader is ready.");
+        break;
       } catch (error) {
-        lastError = error;
-        console.warn("Firebase CDN failed; trying the next trusted module source:", error);
+        console.warn("Optional Firestore recovery CDN failed; trying another source:", error);
       }
     }
-    console.error("All Firebase module sources failed; local app remains enabled:", lastError);
-    return false;
+    console.info("Firebase Authentication modules loaded successfully.");
+    return true;
   })();
 
   // Firebase Authentication + Realtime Database مباشرة عبر HTTPS.
