@@ -716,7 +716,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <label for="uiColumns">عدد الأعمدة في شبكة المنتجات</label><select id="uiColumns" class="supplierSelect"><option value="1">عمود واحد</option><option value="2">عمودان</option><option value="3">ثلاثة أعمدة</option><option value="4">أربعة أعمدة</option></select><p class="muted">اختار عدد البطاقات بكل صف، وبيتطبق الاختيار مباشرة على الصفحة الرئيسية وبينحفظ لهالحساب على هالجهاز.</p>
 <label for="uiLayout">طريقة العرض</label><select id="uiLayout" class="supplierSelect"><option value="grid">شبكة بطاقات</option><option value="list">قائمة طولية</option></select>
 <label for="uiFont">نوع الخط</label><select id="uiFont" class="supplierSelect"><option value="Arial">Arial</option><option value="Tahoma">Tahoma</option><option value="system">خط الجهاز</option></select>
-<label for="uiFontSize">حجم الخط: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
+<label for="uiFontSize">حجم الخط العام: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
+<label for="uiProductNameSize">حجم أسماء المنتجات: <b id="uiProductNameSizeValue">85%</b></label><input id="uiProductNameSize" type="range" min="60" max="120" step="5" value="85"><p class="muted">حرّك المؤشر لتصغير أو تكبير اسم المنتج، وسيظهر الاسم كاملاً داخل البطاقة دون قص.</p>
 <label for="uiPageColor">لون خلفية الصفحة</label><input id="uiPageColor" type="color" value="#f4f7f5">
 <label for="uiCardColor">لون بطاقات المنتجات</label><input id="uiCardColor" type="color" value="#ffffff">
 <label for="uiAccentColor">اللون الأساسي</label><input id="uiAccentColor" type="color" value="#174c3c">
@@ -1954,13 +1955,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
     const s=uiSettings;
     document.documentElement.style.setProperty('--user-columns',String([1,2,3,4].includes(+s.columns)?+s.columns:2));
     document.documentElement.style.setProperty('--user-font-scale',String(Math.min(1.3,Math.max(.85,(+s.fontSize||100)/100))));
+    document.documentElement.style.setProperty('--product-name-scale',String(Math.min(1.2,Math.max(.6,(Number(s.productNameSize)||85)/100))));
     document.documentElement.style.setProperty('--user-page-bg',/^#[0-9a-f]{6}$/i.test(s.pageColor)?s.pageColor:'#f4f7f5');
     document.documentElement.style.setProperty('--user-card-bg',/^#[0-9a-f]{6}$/i.test(s.cardColor)?s.cardColor:'#fff');
     document.documentElement.style.setProperty('--user-accent',/^#[0-9a-f]{6}$/i.test(s.accentColor)?s.accentColor:'#174c3c');
@@ -1970,19 +1972,21 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const home=$('productsPage');if(home){for(const [selector,key] of [['.home-add-product','showAddProduct'],['.home-invoice-button','showInvoiceShortcut'],['#supplierQuickSwitch','showSupplierSwitch'],'.product-search-wrap' ? ['.product-search-wrap','showSearch'] : [],['#bulkSelectionIntro','showBulkTools'],['#toggleBulkSelection','showBulkTools']]){if(!selector)continue;const node=home.querySelector(selector);if(node)node.classList.toggle('ui-hidden-control',s[key]===false);}}
   }
   function fillUiSettings(){
-    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
+    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiProductNameSize:'productNameSize',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
     for(const [id,key] of Object.entries(map)){const el=$(id);if(el){if(el.type==='checkbox')el.checked=uiSettings[key]!==false;else el.value=uiSettings[key];}}
     if($('uiFontSizeValue'))$('uiFontSizeValue').textContent=(+uiSettings.fontSize||100)+'%';
+    if($('uiProductNameSizeValue'))$('uiProductNameSizeValue').textContent=(+uiSettings.productNameSize||85)+'%';
   }
   function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}fillUiSettings();applyUiSettings();}
   function saveUiSettings(){
-    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
+    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
     try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(e){$('uiSettingsStatus').textContent='تعذر حفظ الإعدادات: '+(e.message||e);return;}
     applyUiSettings();renderProducts();if($('uiSettingsStatus'))$('uiSettingsStatus').textContent='تم حفظ الإعدادات وتطبيقها على الصفحة الرئيسية.';
   }
   $('saveUiSettings').addEventListener('click',saveUiSettings);
-  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize'])$(id).addEventListener('change',saveUiSettings);
+  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize'])$(id).addEventListener('change',saveUiSettings);
   $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
+  $('uiProductNameSize').addEventListener('input',()=>{const value=Number($('uiProductNameSize').value);$('uiProductNameSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-name-scale',String(value/100));});
   $('resetUiSettings').addEventListener('click',()=>{uiSettings={...defaultUiSettings};localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));fillUiSettings();applyUiSettings();renderProducts();$('uiSettingsStatus').textContent='تمت استعادة الإعدادات الافتراضية.';});
   function renderProductSearchSuggestions() {
     const input = $('productSearchInput');
@@ -3911,6 +3915,29 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 }
 #products.layout-list{display:flex!important;flex-direction:column!important;gap:9px!important}
 #products.layout-list>.prod{display:grid!important}
+</style>
+
+<style id="nadwa-product-name-size-control">
+/* مستقل عن حجم بقية الخطوط، ويُظهر الاسم كاملاً دون قص */
+#products.grid>.prod>.name{
+  font-size:calc(clamp(13px,4.2vw,18px) * var(--product-name-scale,.85))!important;
+  min-height:0!important;
+  max-height:none!important;
+  height:auto!important;
+  overflow:visible!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+  line-height:1.3!important;
+}
+#products.layout-list>.prod .name{
+  font-size:calc(14px * var(--product-name-scale,.85))!important;
+  min-height:0!important;
+  max-height:none!important;
+  height:auto!important;
+  overflow:visible!important;
+  overflow-wrap:anywhere!important;
+}
 </style>
 </body>
 </html>
