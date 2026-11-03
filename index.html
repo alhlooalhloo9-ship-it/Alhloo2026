@@ -3439,9 +3439,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     for (const [id, quantity] of Object.entries(savedItems)) {
       if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = +quantity;
     }
-    for (const [id, quantity] of Object.entries(cart || {})) {
-      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
-    }
+    // الفاتورة السحابية هي النسخة المعتمدة بعد رفع التعديلات؛ لا ندمج عناصر محلية قديمة
+    // لأن دمج الكميات كان يعيد المنتجات التي حذفها المستخدم من الفاتورة.
     cart = restored;
     saveLocalOnly();
     renderProducts();
@@ -3501,16 +3500,17 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       .filter(item => !deletedSupplierSet.has(String(item.id)));
     const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
     const mergedCarts = {};
-    const storeIds = new Set([
-      ...Object.keys(remote.supplierCarts || {}),
-      ...Object.keys(supplierCarts || {})
-    ]);
-    for (const storeId of storeIds) {
-      const remoteCart = remote.supplierCarts?.[storeId] || {};
-      const localCart = supplierCarts?.[storeId] || {};
-      mergedCarts[storeId] = { ...remoteCart, ...localCart };
+    const validSupplierIdForCart = (id, rows) => rows.some(x => String(x.id) === canonicalSupplierId(id));
+    // سلال المخازن المحلية تمثل الحالة الحالية الكاملة، وليست تحديثات جزئية.
+    // لذلك لا ندمج مفاتيح قديمة من السحابة؛ المفتاح المحذوف محلياً يجب أن يبقى محذوفاً.
+    for (const storeId of Object.keys(supplierCarts || {})) {
+      if (deletedSupplierSet.has(canonicalSupplierId(storeId))) continue;
+      if (!validSupplierIdForCart(storeId, mergedSuppliers)) continue;
+      const localCart = supplierCarts[storeId];
+      mergedCarts[storeId] = localCart && typeof localCart === 'object' && !Array.isArray(localCart)
+        ? { ...localCart } : {};
     }
-    if (!mergedCarts.main) mergedCarts.main = {};
+    if (!deletedSupplierSet.has('main') && !mergedCarts.main) mergedCarts.main = {};
     const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
     let nextActive = validSupplierIds.has(String(activeSupplierId))
       ? String(activeSupplierId)
@@ -3543,6 +3543,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       showCloudMessage('جارٍ الاتصال بالخدمات السحابية...');
       await syncProductsToCloud();
       await syncWorkspaceToCloud();
+      // ارفع الحالة الحالية للفاتورة أولاً، ثم اقرأ النسخة المحفوظة كما هي.
+      // هذا يمنع endpoint الفاتورة القديم من إعادة أي عنصر تمت إزالته.
+      await syncCartToCloud();
       await loadCartFromCloud();
       await syncSettings();
       showCloudMessage('اكتملت المزامنة بنجاح مع Firebase (المنتجات والصور والفواتير والإعدادات).');
