@@ -334,6 +334,8 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
   main{padding:12px 12px 28px}
   .prod img,.prod .productPhoto{height:92px}
 }
+
+.archived-pdf-preview-card{width:min(960px,96vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden}.archived-pdf-preview-hint{padding:9px 12px;margin:8px 0;background:#edf5ef;border-radius:10px;font-size:13px}.archived-pdf-preview-frame{display:block;width:100%;height:min(66vh,760px);min-height:320px;border:1px solid #d8e2dc;border-radius:8px;background:#fff}.archived-pdf-preview .archived-note-actions{flex-shrink:0;padding-top:10px}
 </style>
 <style>
 .home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
@@ -519,6 +521,17 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       <button type="button" onclick="shareArchivedInvoiceNote('pdf')">📄 إنشاء ومشاركة PDF</button>
       <button type="button" onclick="shareArchivedInvoiceNote('text')">💬 مشاركة كنص</button>
       <button type="button" onclick="closeArchivedInvoiceNote()">إغلاق</button>
+    </div>
+  </div>
+</div>
+<div id="archivedPdfPreviewModal" class="detailsPanel archived-pdf-preview hidden" role="dialog" aria-modal="true" aria-labelledby="archivedPdfPreviewTitle">
+  <div class="detailsCard archived-pdf-preview-card">
+    <div class="archived-note-heading"><div><h3 id="archivedPdfPreviewTitle">معاينة الفاتورة</h3><small id="archivedPdfPreviewMeta" class="muted"></small></div><span class="archived-note-lock">🔒 للقراءة فقط</span></div>
+    <div class="archived-pdf-preview-hint">راجع تفاصيل الفاتورة أدناه، وبعدها اضغط «مشاركة ملف PDF» لإرسالها كمستند.</div>
+    <iframe id="archivedPdfPreviewFrame" title="معاينة محتوى الفاتورة قبل مشاركتها PDF" class="archived-pdf-preview-frame"></iframe>
+    <div class="archived-note-actions">
+      <button type="button" class="primary" onclick="sharePreviewedArchivedPdf()">📤 مشاركة ملف PDF</button>
+      <button type="button" onclick="closeArchivedPdfPreview()">إغلاق المعاينة</button>
     </div>
   </div>
 </div>
@@ -2104,7 +2117,32 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   };
   window.shareArchivedInvoiceNote=function(format){
     const id=$('archivedNoteModal').dataset.invoiceId;
-    if(id) exportArchivedInvoice(id,format);
+    if(!id)return;
+    if(format==='pdf') return previewArchivedInvoicePdf(id);
+    exportArchivedInvoice(id,format);
+  };
+  window.closeArchivedPdfPreview=function(){
+    const modal=$('archivedPdfPreviewModal');
+    if(!modal)return;
+    const frame=$('archivedPdfPreviewFrame');
+    if(frame)frame.srcdoc='';
+    modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+  };
+  window.sharePreviewedArchivedPdf=function(){
+    const id=$('archivedPdfPreviewModal')?.dataset.invoiceId;
+    if(id)exportArchivedInvoice(id,'pdf');
+  };
+  window.previewArchivedInvoicePdf=function(id){
+    const inv=invoiceArchive.find(x=>String(x.id)===String(id));if(!inv)return;
+    const modal=$('archivedPdfPreviewModal');
+    $('archivedPdfPreviewTitle').textContent='معاينة فاتورة '+(inv.buyerName||'بدون اسم مشتري');
+    $('archivedPdfPreviewMeta').textContent=(inv.supplierName||'')+' · '+new Date(inv.issuedAt).toLocaleString('ar');
+    const frame=$('archivedPdfPreviewFrame');
+    frame.srcdoc=invoiceHtml(inv);
+    modal.dataset.invoiceId=String(inv.id);
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
   };
   function invoiceTableText(inv) {
     const lines = [
