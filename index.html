@@ -638,6 +638,77 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 }
 </style>
 
+
+<style id="product-details-compact-fit">
+/* نافذة تفاصيل المنتج: مساحة ثابتة تقارب 75% من الشاشة دون تمرير */
+#detailsModal{padding:0!important;overflow:hidden!important}
+#detailsModal>.detailsCard{
+  box-sizing:border-box!important;
+  width:min(92vw,460px)!important;
+  height:75vh!important;
+  height:75dvh!important;
+  max-height:75vh!important;
+  max-height:75dvh!important;
+  padding:12px!important;
+  margin:0 auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  overflow:hidden!important;
+  line-height:1.25!important;
+}
+#detailsModal #modalTitle{
+  flex:0 0 auto!important;
+  margin:0!important;
+  padding:0 0 6px!important;
+  font-size:clamp(14px,3.8vw,17px)!important;
+  line-height:1.25!important;
+  text-align:center!important;
+}
+#detailsModal #modalContent{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  font-size:clamp(11px,2.9vw,13px)!important;
+  line-height:1.28!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:space-evenly!important;
+  gap:2px!important;
+}
+#detailsModal #modalContent>img{
+  flex:0 1 21dvh!important;
+  width:auto!important;
+  max-width:100%!important;
+  max-height:21dvh!important;
+  min-height:0!important;
+  object-fit:contain!important;
+  margin:0 auto 4px!important;
+}
+#detailsModal #modalContent>div{margin:0!important;padding:1px 2px!important}
+#detailsModal #modalContent hr{margin:3px 0!important;border:0;border-top:1px solid #dfe8e2!important}
+#detailsModal #modalContent b{font-size:1em!important}
+#detailsModal .detailsModalActions{
+  flex:0 0 auto!important;
+  gap:6px!important;
+  margin:5px 0 0!important;
+  padding-top:6px!important;
+  border-top:1px solid #edf0ed!important;
+}
+#detailsModal .detailsModalActions button{
+  min-width:0!important;
+  min-height:38px!important;
+  padding:7px 4px!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+}
+@media(max-height:650px){
+  #detailsModal #modalContent>img{max-height:15dvh!important;flex-basis:15dvh!important}
+  #detailsModal #modalContent{font-size:11px!important;line-height:1.18!important}
+  #detailsModal>.detailsCard{padding:9px!important}
+}
+</style>
+
 </head>
 <body>
 <header class="app-hero">
