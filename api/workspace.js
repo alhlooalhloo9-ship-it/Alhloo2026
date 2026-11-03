@@ -27,9 +27,13 @@ module.exports = async function workspaceHandler(req, res) {
       const supplierCarts = body.supplierCarts && typeof body.supplierCarts === "object" && !Array.isArray(body.supplierCarts)
         ? body.supplierCarts : {};
       const activeSupplierId = String(body.activeSupplierId || "general");
+      // Keep permanent deletion markers so older workspace snapshots cannot resurrect deleted stores.
+      const deletedSupplierIds = Array.isArray(body.deletedSupplierIds)
+        ? Array.from(new Set(body.deletedSupplierIds.filter(id => id != null).map(id => String(id))))
+        : [];
 
       if (suppliers.length > 2000 || invoiceArchive.length > 5000 ||
-          Object.keys(supplierCarts).length > 2000) {
+          Object.keys(supplierCarts).length > 2000 || deletedSupplierIds.length > 5000) {
         return res.status(413).json({ ok: false, error: "Workspace exceeds allowed record limits" });
       }
       if (suppliers.some(x => !x || typeof x !== "object" || x.id == null) ||
@@ -37,7 +41,7 @@ module.exports = async function workspaceHandler(req, res) {
         return res.status(400).json({ ok: false, error: "Invalid workspace records" });
       }
 
-      const workspace = { suppliers, supplierCarts, invoiceArchive, activeSupplierId };
+      const workspace = { suppliers, supplierCarts, invoiceArchive, activeSupplierId, deletedSupplierIds };
       const bytes = Buffer.byteLength(JSON.stringify(workspace), "utf8");
       if (bytes > MAX_DOCUMENT_BYTES) {
         return res.status(413).json({ ok: false, error: "Workspace data is too large; export a backup before reducing archived records" });
