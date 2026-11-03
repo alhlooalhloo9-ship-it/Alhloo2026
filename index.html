@@ -2211,24 +2211,31 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     ];
     return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n');
   }
-  async function loadHtml2Pdf() {
-    if (window.html2pdf) return window.html2pdf;
-    if (window.__nadwaPdfLoader) return window.__nadwaPdfLoader;
-    window.__nadwaPdfLoader = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      script.onload = () => window.html2pdf ? resolve(window.html2pdf) : reject(new Error('تعذر تهيئة أداة إنشاء PDF.'));
-      script.onerror = () => reject(new Error('تعذر تحميل أداة إنشاء PDF. تحقق من اتصال الإنترنت ثم أعد المحاولة.'));
-      document.head.appendChild(script);
-    });
-    try { return await window.__nadwaPdfLoader; }
-    catch (error) { window.__nadwaPdfLoader = null; throw error; }
+  async function loadPdfLibraries() {
+    if (window.html2canvas && (window.jspdf?.jsPDF || window.jsPDF)) return;
+    if (window.__nadwaPdfLibrariesLoader) return window.__nadwaPdfLibrariesLoader;
+    window.__nadwaPdfLibrariesLoader = (async () => {
+      const loadScript = src => new Promise((resolve, reject) => {
+        const existing = Array.from(document.scripts).find(s => s.src === src);
+        if (existing && (src.includes('html2canvas') ? window.html2canvas : (window.jspdf?.jsPDF || window.jsPDF))) return resolve();
+        const script = existing || document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('تعذر تحميل مكتبة إنشاء PDF. تحقق من اتصال الإنترنت ثم أعد المحاولة.'));
+        if (!existing) document.head.appendChild(script);
+      });
+      if (!window.html2canvas) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      if (!(window.jspdf?.jsPDF || window.jsPDF)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      if (!window.html2canvas || !(window.jspdf?.jsPDF || window.jsPDF)) throw new Error('لم تكتمل تهيئة مكتبات إنشاء PDF.');
+    })();
+    try { await window.__nadwaPdfLibrariesLoader; }
+    catch (error) { window.__nadwaPdfLibrariesLoader = null; throw error; }
   }
   let archivedPdfBlob = null;
   let archivedPdfUrl = null;
   let archivedPdfFile = null;
   async function buildInvoicePdfBlob(inv) {
-    const html2pdf = await loadHtml2Pdf();
+    await loadPdfLibraries();
     const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
     const page = document.createElement('div');
     page.dir = 'rtl';
@@ -2261,37 +2268,23 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
           if (!response.ok) throw new Error('تعذر تحميل صورة أحد المنتجات (HTTP ' + response.status + ').');
           img.src = await toDataUrl(await response.blob());
         }
-        if (typeof img.decode === 'function') {
-          await img.decode();
-        } else if (!img.complete) {
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = () => reject(new Error('تعذر تحميل صورة أحد المنتجات.'));
-          });
-        }
+        if (typeof img.decode === 'function') await img.decode();
+        else if (!img.complete) await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('تعذر تحميل صورة أحد المنتجات.'));
+        });
         if (!img.complete || !img.naturalWidth || !img.naturalHeight) {
           throw new Error('إحدى صور المنتجات غير متاحة، لذلك لم يتم إنشاء PDF ناقص الصور.');
         }
       };
       await Promise.all(images.map(waitForImage));
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const options = {
-        margin: [8, 8, 10, 8],
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0, windowWidth: 900 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
-      };
-      const worker = html2pdf().set(options).from(page).toCanvas();
-      // Read the canvas from the Worker's own property after toCanvas has completed.
-      // Use a native Promise so html2pdf's Promise-subclass chaining cannot replace the canvas result.
-      const canvas = await new Promise((resolve, reject) => {
-        worker.thenCore(function() {
-          resolve(this.prop && this.prop.canvas);
-        }, reject);
+      const canvas = await window.html2canvas(page, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+        scrollX: 0, scrollY: 0, windowWidth: 900
       });
       if (!canvas || typeof canvas.getContext !== 'function' || canvas.width < 10 || canvas.height < 10) {
-        throw new Error('تعذر تصوير محتوى الفاتورة قبل إنشاء PDF. أداة التصوير لم تُرجع لوحة صالحة.');
+        throw new Error('تعذر تصوير محتوى الفاتورة. لم تُرجع مكتبة التصوير صورة صالحة.');
       }
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const sample = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -2301,8 +2294,31 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         if (sample[i + 3] > 0 && (sample[i] < 245 || sample[i + 1] < 245 || sample[i + 2] < 245)) visiblePixels++;
       }
       if (visiblePixels < 8) throw new Error('تم إيقاف التصدير لأن صورة الفاتورة الناتجة فارغة. لم يتم إرسال PDF أبيض.');
-      await worker.toPdf();
-      const blob = await worker.outputPdf('blob');
+      const JsPDF = window.jspdf?.jsPDF || window.jsPDF;
+      const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+      const marginLeft = 8, marginTop = 8, marginRight = 8, marginBottom = 10;
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - marginLeft - marginRight;
+      const usableHeight = pageHeight - marginTop - marginBottom;
+      const sliceHeight = Math.max(1, Math.floor(canvas.width * usableHeight / usableWidth));
+      let y = 0, pageIndex = 0;
+      while (y < canvas.height) {
+        const currentHeight = Math.min(sliceHeight, canvas.height - y);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = currentHeight;
+        const sliceCtx = slice.getContext('2d');
+        sliceCtx.fillStyle = '#ffffff';
+        sliceCtx.fillRect(0, 0, slice.width, slice.height);
+        sliceCtx.drawImage(canvas, 0, y, canvas.width, currentHeight, 0, 0, canvas.width, currentHeight);
+        if (pageIndex > 0) pdf.addPage();
+        const renderedHeight = currentHeight * usableWidth / canvas.width;
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.96), 'JPEG', marginLeft, marginTop, usableWidth, renderedHeight, undefined, 'FAST');
+        y += currentHeight;
+        pageIndex++;
+      }
+      const blob = pdf.output('blob');
       if (!blob || blob.size < 1000) throw new Error('ملف PDF الناتج فارغ أو غير مكتمل.');
       return blob;
     } finally {
