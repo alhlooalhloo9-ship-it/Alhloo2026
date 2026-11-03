@@ -2197,7 +2197,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (navigator.share && navigator.canShare?.({ files: [csv] })) {
       await navigator.share({
         title: 'جدول فاتورة ' + inv.supplierName,
-        text: 'جدول الفاتورة بصيغة CSV لفتحه كجدول مرتب في Excel أو تطبيق الجداول.',
+        text,
         files: [csv]
       });
     } else if (navigator.share) {
