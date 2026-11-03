@@ -2387,7 +2387,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       const target = basePath + "/products";
       const query = new URLSearchParams(String(path).split("?")[1] || "");
       if (method === "GET") {
-        const raw = await requestRtdb(target, "GET");
+        let raw = null;
+        try { raw = await requestRtdb(target, "GET"); }
+        catch (rtdbError) { console.warn("Realtime Database read unavailable; checking legacy Firestore:", rtdbError); }
         const rows = Array.isArray(raw) ? raw.filter(Boolean) :
           (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
         // استعادة آمنة للمنتجات القديمة التي بقيت في Firestore قبل نقل المزامنة إلى Realtime Database.
@@ -2420,7 +2422,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (resource === "cart") {
       const target = basePath + "/cart";
       if (method === "GET") {
-        const current = await requestRtdb(target, "GET");
+        let current = null;
+        try { current = await requestRtdb(target, "GET"); }
+        catch (rtdbError) { console.warn("Realtime Database cart read unavailable; checking Firestore:", rtdbError); }
         if (current && current.items && Object.keys(current.items).length) return { ok: true, ...current };
         if (firebaseFirestoreApi && firestoreDb) {
           try {
@@ -2443,7 +2447,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (resource === "settings") {
       const target = basePath + "/settings";
       if (method === "GET") {
-        const current = await requestRtdb(target, "GET");
+        let current = null;
+        try { current = await requestRtdb(target, "GET"); }
+        catch (rtdbError) { console.warn("Realtime Database settings read unavailable; checking Firestore:", rtdbError); }
         if (current && Object.keys(current).length) return { ok: true, settings: current };
         if (firebaseFirestoreApi && firestoreDb) {
           try {
@@ -2582,6 +2588,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         addUnique(next, true);
       }
       products = Array.from(uniqueByName.values()).map(({ __localPriority, ...item }) => item);
+      // احفظ واعرض أي بيانات مسترجعة قبل محاولة الكتابة السحابية؛ فشل الرفع لا يجوز أن يخفيها مجدداً.
+      saveLocalOnly();
+      renderProducts();
+      renderInvoice();
       let saved = 0;
       const batchSize = Math.max(1, products.length);
       for (let offset = 0; offset < products.length; offset += batchSize) {
