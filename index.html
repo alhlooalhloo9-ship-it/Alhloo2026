@@ -2058,7 +2058,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       'الإجمالي بالدولار: ' + money(inv.totalUsd),
       'الإجمالي بالليرة التركية: ' + (Number(inv.totalTry) || 0).toLocaleString('ar') + ' ل.ت',
       'الإجمالي بالليرة السورية الجديدة: ' + (Number(inv.totalSyp) || 0).toLocaleString('ar') + ' ل.س'
-    ].join('\\n');
+    ].join('\n');
   }
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
