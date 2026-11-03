@@ -1,5 +1,10 @@
 name: Update Liratna exchange rates
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/update-rates.js'
+      - '.github/workflows/update-rates.yml'
   schedule:
     - cron: '0 */5 * * *'
   workflow_dispatch:
