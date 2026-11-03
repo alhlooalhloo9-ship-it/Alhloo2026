@@ -2283,9 +2283,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
       };
       const worker = html2pdf().set(options).from(page).toCanvas();
-      const canvas = await worker.get('canvas');
-      if (!canvas || canvas.width < 10 || canvas.height < 10) {
-        throw new Error('تعذر تصوير محتوى الفاتورة قبل إنشاء PDF.');
+      // html2pdf Worker is a Promise subclass whose .then() rebinds its result.
+      // Use get's callback to read the actual canvas value without losing the Worker chain.
+      let canvas = null;
+      await worker.get('canvas', value => { canvas = value; });
+      if (!canvas || typeof canvas.getContext !== 'function' || canvas.width < 10 || canvas.height < 10) {
+        throw new Error('تعذر تصوير محتوى الفاتورة قبل إنشاء PDF. أداة التصوير لم تُرجع لوحة صالحة.');
       }
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const sample = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
