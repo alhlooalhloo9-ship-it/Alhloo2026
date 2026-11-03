@@ -265,6 +265,22 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 
 #products .prod .name{font-size:calc(14px * var(--user-font-scale))}#products .prod .price{font-size:calc(16px * var(--user-font-scale))}#products .prod .muted,#products .prod .badge,#products .prod button,#products .prod summary{font-size:calc(13px * var(--user-font-scale))}
 </style>
+<style>
+.home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
+.home-invoice-button.has-items{background:#e7f4eb;border-color:#8db99a;color:#12472f}
+.home-invoice-button .badge{font-size:13px;min-width:26px;text-align:center}
+.invoice-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0;padding:13px;background:#f6faf7;border:1px solid #e2ece5;border-radius:14px}
+.invoice-meta-grid label{font-size:13px;font-weight:700;color:#40584a;min-width:0}
+.invoice-meta-grid input{display:block;margin:6px 0 0;width:100%;min-width:0;background:#fff}
+.invoice-line{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #e8eee9}
+.invoice-line-photo{width:70px;height:70px;object-fit:contain;border-radius:10px;background:#f5f8f6;border:1px solid #edf1ee}
+.invoice-line-no-photo{width:70px;height:70px;display:grid;place-items:center;border-radius:10px;background:#f5f8f6;font-size:27px}
+.invoice-line-info{min-width:0}.invoice-line-info b{display:block;overflow-wrap:anywhere;color:#203c30}.invoice-line-info small{display:block;line-height:1.6;color:#718078;margin-top:3px}
+.invoice-line-controls{display:flex;align-items:center;gap:5px;direction:ltr}.invoice-line-controls button{min-width:34px;padding:7px 9px}.invoice-line-controls input{width:54px;text-align:center;padding:7px 3px;margin:0;font-weight:800}
+.invoice-archive-card{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px;margin:9px 0;border:1px solid #e3ebe5;border-radius:13px;background:#fbfdfb}
+.invoice-archive-card .actions{margin:0;flex-wrap:wrap}.invoice-archive-card .actions button{font-size:12px;padding:8px 10px}
+@media(max-width:520px){.invoice-meta-grid{grid-template-columns:1fr}.invoice-line{grid-template-columns:58px minmax(0,1fr);gap:8px}.invoice-line-photo,.invoice-line-no-photo{width:56px;height:56px}.invoice-line-controls{grid-column:2;justify-content:flex-start}.home-actions>button{flex:1 1 46%}}
+</style>
 <script
   src="https://js-de.sentry-cdn.com/6b360d8f124aaa77eef803eb43f37a3c.min.js"
   crossorigin="anonymous"
@@ -295,6 +311,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
     <button type="button" onclick="page('suppliers');closeDrawer()">🏬 المخازن وأصحابها</button>
     <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
+    <button type="button" onclick="page('invoice');closeDrawer();setTimeout(()=>document.getElementById('invoiceArchiveList')?.scrollIntoView({behavior:'smooth'}),300)">📚 الفواتير المحفوظة</button>
     <button type="button" onclick="page('settings');closeDrawer()">🎨 إعدادات الصفحة الرئيسية</button>
     <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
   </nav>
@@ -369,7 +386,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
 <div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
 <section id="productsPage">
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
+<div class="home-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" class="home-invoice-button" id="homeInvoiceButton" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="homeInvoiceCount">0</span></button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
 <div class="box"><h3>المنتجات</h3>
 <div class="product-search-wrap" style="position:relative;margin:10px 0 14px">
@@ -408,10 +425,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm();page('products')">إلغاء</button>
 </form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
 <section id="invoicePage" class="hidden">
-<div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div id="items"></div><div id="totals"></div>
+<div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div class="invoice-meta-grid"><label>اسم المشتري<input id="invoiceBuyerName" type="text" maxlength="100" placeholder="اكتب اسم المشتري"></label><label>اسم المخزن / المورد<input id="invoiceSupplierName" type="text" maxlength="100" placeholder="اسم المخزن أو المورد"></label></div><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-<button class="primary" id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
-</div><hr><h3>📚 سجل الفواتير الصادرة</h3><div id="invoiceArchiveList" class="muted"></div></div>
+<button class="primary" id="invoiceSaveBtn">💾 حفظ الفاتورة</button><button id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
+</div><hr><h3>📚 الفواتير المحفوظة</h3><p class="muted">الفواتير المحفوظة سجل ثابت غير قابل للتعديل. يمكنك تصديرها أو مشاركتها أو طباعتها.</p><div id="invoiceArchiveList" class="muted"></div></div>
 </section>
 <div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>
 <div id="moveProductModal" class="detailsPanel hidden" role="dialog" aria-modal="true" aria-labelledby="moveProductTitle">
@@ -603,7 +620,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
     currentAppPage = p;
-    if (p === 'invoice') { renderSupplierSelectors(); renderInvoice(); }
+    if (p === 'invoice') { renderSupplierSelectors(); if($('invoiceSupplierName')&&!$('invoiceSupplierName').value)$('invoiceSupplierName').value=supplierName(activeSupplierId); renderInvoice(); }
     if (p === 'products') { renderSupplierSelectors(); renderProducts(); }
     if (p === 'suppliers') { renderSupplierSelectors(); renderSupplierList(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1730,6 +1747,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     supplierCarts[activeSupplierId] = cart;
     activeSupplierId = id;
     cart = supplierCarts[id] || (supplierCarts[id] = {});
+    if($('invoiceSupplierName'))$('invoiceSupplierName').value=supplierName(activeSupplierId);
     save();
     if ($('invoiceSupplier')) $('invoiceSupplier').value = id;
     renderInvoice();
@@ -1754,22 +1772,25 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
       const line = (+p.price || 0) * +n; sum += line;
       return {productId:p.id,name:p.name,quantity:+n,pieces:Math.max(1,+p.pieces||1),unitPrice:+p.price||0,lineTotal:line,image:p.image||''};
     });
-    if (!lines.length) throw new Error('فاتورة هذا المخزن فارغة.');
-    return {id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),supplierId:activeSupplierId,supplierName:supplierName(activeSupplierId),issuedAt:issueNow?new Date().toISOString():null,lines,totalUsd:sum,totalTry:sum*tryRate,totalSyp:sum*sypRate,rates:{tryRate,sypRate}};
+    if (!lines.length) throw new Error('الفاتورة فارغة. أضف منتجاً واحداً على الأقل قبل المتابعة.');
+    const buyerName = String($('invoiceBuyerName')?.value || '').trim();
+    const customSupplierName = String($('invoiceSupplierName')?.value || '').trim();
+    return {id:'inv-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),buyerName,supplierId:activeSupplierId,supplierName:customSupplierName || supplierName(activeSupplierId),issuedAt:issueNow?new Date().toISOString():null,lines,totalUsd:sum,totalTry:sum*tryRate,totalSyp:sum*sypRate,rates:{tryRate,sypRate}};
   }
   function invoiceText(inv) {
-    const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير صادر بعد';
-    return ['فاتورة بضاعة الندوة','المخزن: '+inv.supplierName,'تاريخ ووقت الإصدار: '+date,'--------------------------------',...inv.lines.map((x,i)=>(i+1)+'. '+x.name+' × '+x.quantity+' عبوة | '+x.pieces+' قطعة/عبوة | $'+x.unitPrice.toFixed(2)+' | الإجمالي $'+x.lineTotal.toFixed(2)),'--------------------------------','المجموع بالدولار: $'+inv.totalUsd.toFixed(2),'بالليرة التركية: '+fmt(inv.totalTry)+' ل.ت','بالليرة السورية الجديدة: '+fmt(inv.totalSyp)+' ل.س'].join('\n');
+    const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير محفوظة بعد';
+    return ['فاتورة بضاعة الندوة',inv.buyerName?'اسم المشتري: '+inv.buyerName:'', 'المخزن / المورد: '+inv.supplierName,'تاريخ الحفظ: '+date,'--------------------------------',...inv.lines.map((x,i)=>(i+1)+'. '+x.name+' × '+x.quantity+' عبوة | '+x.pieces+' قطعة/عبوة | $'+x.unitPrice.toFixed(2)+' | الإجمالي $'+x.lineTotal.toFixed(2)),'--------------------------------','المجموع بالدولار: $'+inv.totalUsd.toFixed(2),'بالليرة التركية: '+fmt(inv.totalTry)+' ل.ت','بالليرة السورية الجديدة: '+fmt(inv.totalSyp)+' ل.س'].filter(Boolean).join('\n');
   }
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
     invoiceArchive.unshift(inv);
     if (invoiceArchive.length > 300) invoiceArchive = invoiceArchive.slice(0,300);
     save();
+    renderInvoiceArchive();
     return inv;
   }
   function invoiceHtml(inv) {
-    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right}.sum{margin-top:20px;line-height:2}.muted{color:#555}</style><h1>فاتورة بضاعة الندوة</h1><h3>المخزن: '+esc(inv.supplierName)+'</h3><p>تاريخ ووقت الإصدار: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>#</th><th>المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
+    return '<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>فاتورة '+esc(inv.supplierName)+'</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#172b24}h1{text-align:center;color:#174c3c}table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #bbb;padding:9px;text-align:right;vertical-align:middle}th{background:#edf5ef}.product-img{width:64px;height:64px;object-fit:contain}.sum{margin-top:20px;line-height:2}.muted{color:#555}</style><h1>فاتورة بضاعة الندوة</h1><h3>المشتري: '+esc(inv.buyerName||'—')+'</h3><h3>المخزن / المورد: '+esc(inv.supplierName)+'</h3><p>تاريخ الحفظ: '+esc(new Date(inv.issuedAt).toLocaleString('ar'))+'</p><table><thead><tr><th>الصورة</th><th>#</th><th>اسم المنتج</th><th>الكمية</th><th>سعر العبوة</th><th>الإجمالي</th></tr></thead><tbody>'+inv.lines.map((x,i)=>'<tr><td>'+(x.image?'<img class="product-img" src="'+esc(x.image)+'">':'—')+'</td><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>$'+x.unitPrice.toFixed(2)+'</td><td>$'+x.lineTotal.toFixed(2)+'</td></tr>').join('')+'</tbody></table><div class="sum"><b>الإجمالي: $'+inv.totalUsd.toFixed(2)+'</b><br>بالتركي: '+fmt(inv.totalTry)+' ل.ت<br>بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س</div></html>';
   }
   function downloadTextFile(text, filename, mime='text/plain;charset=utf-8') {
     const blob = new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
@@ -1780,30 +1801,51 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   window.renderInvoice = function() {
     const root=$('items'); let sum=0,profitTry=0; root.innerHTML='';
     const entries=Object.entries(cart).filter(([id,n])=>+n>0&&products.some(p=>String(p.id)===String(id)&&(p.supplierId||'general')===activeSupplierId));
-    $('invoiceSupplierInfo').textContent='فاتورة مستقلة للمخزن: '+supplierName(activeSupplierId)+' — لم يُسجّل تاريخ إصدار حتى يتم التصدير أو المشاركة.';
-    if(!entries.length){root.innerHTML='<p>فاتورة هذا المخزن فارغة. أضف منتجاته من صفحة المنتجات.</p>';$('totals').innerHTML='';$('count').textContent='0';}
+    const itemCount=entries.reduce((total,[,quantity])=>total+(+quantity||0),0);
+    $('invoiceSupplierInfo').textContent='فاتورة المخزن الحالي: '+supplierName(activeSupplierId)+' — عدّل الكميات قبل الحفظ، وبعد الحفظ تصبح الفاتورة سجلاً ثابتاً.';
+    $('count').textContent=String(itemCount);
+    const homeCount=$('homeInvoiceCount'); if(homeCount)homeCount.textContent=String(itemCount);
+    const homeButton=$('homeInvoiceButton'); if(homeButton)homeButton.classList.toggle('has-items',itemCount>0);
+    if(!entries.length){root.innerHTML='<p class="muted">ما اخترت أي منتج لسه. ارجع للمنتجات واضغط «إضافة» على المنتجات المطلوبة.</p>';$('totals').innerHTML='';}
     else {
-      entries.forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));const line=(+p.price||0)*n;const pieces=Math.max(1,+p.pieces||1);sum+=line;profitTry+=((+p.sellTry||0)*pieces-(+p.price||0)*tryRate)*n;
-        const el=document.createElement('div');el.className='row';el.innerHTML='<div class="info"><b>'+esc(p.name)+'</b><small>المخزن: '+esc(supplierName(p.supplierId||'general'))+' | عدد القطع بالعبوة: '+pieces+' | الكمية: '+n+' عبوة</small><small>سعر العبوة: $'+(+p.price).toFixed(2)+' | إجمالي السطر: $'+line.toFixed(2)+'</small></div><div class="qty"><button class="minus">−</button><b>'+n+'</b><button class="plus">+</button></div>';el.querySelector('.minus').onclick=()=>qty(+id,-1);el.querySelector('.plus').onclick=()=>qty(+id,1);root.appendChild(el);
+      entries.forEach(([id,n])=>{
+        const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
+        const line=(+p.price||0)*n;const pieces=Math.max(1,+p.pieces||1);sum+=line;profitTry+=((+p.sellTry||0)*pieces-(+p.price||0)*tryRate)*n;
+        const el=document.createElement('div');el.className='invoice-line';
+        el.innerHTML=(p.image?'<img class="invoice-line-photo" src="'+esc(p.image)+'" alt="'+esc(p.name)+'">':'<div class="invoice-line-no-photo" aria-label="لا توجد صورة">📦</div>')+
+          '<div class="invoice-line-info"><b>'+esc(p.name)+'</b><small>سعر العبوة: $'+(+p.price||0).toFixed(2)+' · '+pieces+' قطعة بالعبوة</small><small>إجمالي السطر: <strong>$'+line.toFixed(2)+'</strong></small></div>'+
+          '<div class="invoice-line-controls"><button type="button" class="minus" aria-label="إنقاص الكمية">−</button><input type="number" min="0" step="1" inputmode="numeric" value="'+n+'" aria-label="كمية '+esc(p.name)+'"><button type="button" class="plus" aria-label="زيادة الكمية">+</button></div>';
+        el.querySelector('.minus').onclick=()=>qty(p.id,-1);
+        el.querySelector('.plus').onclick=()=>qty(p.id,1);
+        el.querySelector('input').addEventListener('change',e=>setInvoiceQty(id,e.target.value));
+        root.appendChild(el);
       });
       const profitUsd=profitTry/tryRate;
-      $('totals').innerHTML='<div class="total"><div class="totalTitle">💳 إجمالي فاتورة '+esc(supplierName(activeSupplierId))+'</div><div class="totalRow"><span>المجموع بالدولار</span><b>$'+sum.toFixed(2)+'</b></div><div class="totalRow"><span>المجموع بالليرة التركية</span><b>'+fmt(sum*tryRate)+' ل.ت</b></div><div class="totalRow"><span>المجموع بالسوري الجديد</span><b>'+fmt(sum*sypRate)+' ل.س</b></div><div class="profitBox"><div class="totalTitle">📈 الربح المتوقع</div><div class="profitRow"><span>بالتركي</span><b>'+fmt(profitTry)+' ل.ت</b></div><div class="profitRow"><span>بالدولار</span><b>$'+profitUsd.toFixed(2)+'</b></div><div class="profitRow"><span>بالسوري الجديد</span><b>'+fmt(profitUsd*sypRate)+' ل.س</b></div></div></div>';
-      $('count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);
+      $('totals').innerHTML='<div class="total"><div class="totalTitle">💳 إجمالي الفاتورة</div><div class="totalRow"><span>المجموع بالدولار</span><b>$'+sum.toFixed(2)+'</b></div><div class="totalRow"><span>المجموع بالليرة التركية</span><b>'+fmt(sum*tryRate)+' ل.ت</b></div><div class="totalRow"><span>المجموع بالسوري الجديد</span><b>'+fmt(sum*sypRate)+' ل.س</b></div><div class="profitBox"><div class="totalTitle">📈 الربح المتوقع (للمراجعة فقط)</div><div class="profitRow"><span>بالتركي</span><b>'+fmt(profitTry)+' ل.ت</b></div><div class="profitRow"><span>بالدولار</span><b>$'+profitUsd.toFixed(2)+'</b></div><div class="profitRow"><span>بالسوري الجديد</span><b>'+fmt(profitUsd*sypRate)+' ل.س</b></div></div></div>';
     }
     renderInvoiceArchive();
+  };
+  window.setInvoiceQty = function(id,value) {
+    const quantity=Math.floor(Number(value));
+    if(!Number.isFinite(quantity)||quantity<0){alert('أدخل كمية صحيحة أو صفراً للحذف.');renderInvoice();return;}
+    const product=products.find(p=>String(p.id)===String(id));if(!product)return;
+    const oldQuantity=Number(cart[id]||0);
+    if(quantity===0)delete cart[id];else cart[id]=quantity;
+    product.pickCount=Math.max(0,(Number(product.pickCount)||0)+(quantity-oldQuantity));
+    save();renderProducts();renderInvoice();
   };
   function renderInvoiceArchive() {
     const root=$('invoiceArchiveList'); if(!root)return;
     const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
     root.innerHTML='';
-    if(!list.length){root.textContent='لا توجد فواتير صادرة لهذا المخزن بعد.';return;}
+    if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
     list.forEach(inv=>{
-      const row=document.createElement('div');row.className='row';
+      const card=document.createElement('div');card.className='invoice-archive-card';
       const info=document.createElement('div');info.className='info';
-      info.innerHTML='<b>'+esc(inv.supplierName)+'</b><small>'+new Date(inv.issuedAt).toLocaleString('ar')+' | '+inv.lines.length+' منتج | $'+(+inv.totalUsd).toFixed(2)+'</small>';
+      info.innerHTML='<b>🧾 '+esc(inv.buyerName||'فاتورة بدون اسم مشتري')+'</b><small>'+esc(inv.supplierName)+' · '+new Date(inv.issuedAt).toLocaleString('ar')+' · '+inv.lines.length+' منتج · $'+(+inv.totalUsd).toFixed(2)+'</small><small class="muted">🔒 محفوظة — للعرض والتصدير فقط</small>';
       const actions=document.createElement('div');actions.className='actions';
-      [['نص','text'],['صورة','image'],['PDF','pdf']].forEach(([label,format])=>{const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.addEventListener('click',()=>exportArchivedInvoice(inv.id,format));actions.appendChild(btn);});
-      row.append(info,actions);root.appendChild(row);
+      [['صورة','image'],['PDF / طباعة','pdf'],['نص','text']].forEach(([label,format])=>{const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.addEventListener('click',()=>exportArchivedInvoice(inv.id,format));actions.appendChild(btn);});
+      card.append(info,actions);root.appendChild(card);
     });
   }
   window.exportArchivedInvoice = async function(id,format) {
@@ -1817,25 +1859,56 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     } catch(e) { alert(e.message||e); }
   };
   async function shareInvoiceAsImage(inv) {
-    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const width=1000,rowH=64,top=300;
-    canvas.width=width;canvas.height=top+inv.lines.length*rowH+280;
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#174c3c';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,65);
-    ctx.fillStyle='#222';ctx.font='26px Arial';ctx.textAlign='right';ctx.fillText('المخزن: '+inv.supplierName,930,125);ctx.fillText('تاريخ الإصدار: '+new Date(inv.issuedAt).toLocaleString('ar'),930,175);
-    ctx.font='bold 24px Arial';ctx.fillText('المنتج',930,245);ctx.fillText('الكمية',500,245);ctx.fillText('الإجمالي',170,245);
-    inv.lines.forEach((x,i)=>{const y=top+i*rowH;ctx.font='23px Arial';ctx.fillText(x.name,930,y);ctx.fillText(String(x.quantity),500,y);ctx.fillText('$'+x.lineTotal.toFixed(2),170,y);ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(50,y+18);ctx.lineTo(950,y+18);ctx.stroke();});
-    const y=top+inv.lines.length*rowH+60;ctx.font='bold 28px Arial';ctx.fillText('الإجمالي: $'+inv.totalUsd.toFixed(2),930,y);ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',930,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',930,y+100);
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    const width=1200,rowH=132,top=350;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+250;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#174c3c';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,62);
+    ctx.fillStyle='#222';ctx.font='25px Arial';ctx.textAlign='right';
+    ctx.fillText('المشتري: '+(inv.buyerName||'—'),1130,125);
+    ctx.fillText('المخزن / المورد: '+inv.supplierName,1130,175);
+    ctx.fillText('تاريخ الحفظ: '+new Date(inv.issuedAt).toLocaleString('ar'),1130,225);
+    ctx.font='bold 23px Arial';ctx.fillText('الصورة',1120,310);ctx.fillText('اسم المنتج',970,310);ctx.fillText('الكمية',650,310);ctx.fillText('سعر العبوة',390,310);ctx.fillText('الإجمالي',150,310);
+    for(let i=0;i<inv.lines.length;i++){
+      const x=inv.lines[i],y=top+i*rowH;
+      ctx.fillStyle='#f7faf8';ctx.fillRect(45,y-55,1110,112);
+      ctx.fillStyle='#222';ctx.font='22px Arial';ctx.textAlign='right';
+      ctx.fillText(String(x.name||''),970,y-5,250);
+      ctx.fillText(String(x.quantity),650,y-5);
+      ctx.fillText('$'+(+x.unitPrice).toFixed(2),390,y-5);
+      ctx.fillText('$'+(+x.lineTotal).toFixed(2),150,y-5);
+      if(x.image){
+        try{
+          const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=x.image;});
+          const scale=Math.min(88/im.width,88/im.height);const iw=im.width*scale,ih=im.height*scale;
+          ctx.drawImage(im,1100-iw,y-45+(88-ih)/2,iw,ih);
+        }catch(_){ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('الصورة غير متاحة',1110,y-5);}
+      }else{ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('—',1110,y-5);}
+    }
+    const y=top+inv.lines.length*rowH+55;
+    ctx.fillStyle='#174c3c';ctx.font='bold 29px Arial';ctx.textAlign='right';
+    ctx.fillText('الإجمالي: $'+(+inv.totalUsd).toFixed(2),1130,y);
+    ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',1130,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',1130,y+100);
     const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
     const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
     if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
     else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
   }
-  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
-  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
-  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice();await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
-  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
-  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
-  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
-  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة مع تاريخ الإصدار.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  $('invoiceSaveBtn').addEventListener('click',()=>{
+    try{
+      if(!String($('invoiceBuyerName').value||'').trim() && !confirm('لم تكتب اسم المشتري. هل تريد حفظ الفاتورة بدون اسم؟')) return;
+      issueCurrentInvoice();
+      alert('تم حفظ الفاتورة بنجاح. أصبحت ضمن الفواتير المحفوظة وغير قابلة للتعديل.');
+      renderInvoiceArchive();
+    }catch(e){alert(e.message||e);}
+  });
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true);await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة الحالية.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
   window.saveRates = function() {
     let t = +$('tryRate').value;
     let s = +$('sypRate').value;
