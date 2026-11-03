@@ -3534,14 +3534,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const remote = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
 
     if (preferCloud && remote) {
-      const remoteTry = Number(remote.tryRate);
-      const remoteSyp = Number(remote.sypRate);
-      if (Number.isFinite(remoteTry) && remoteTry > 0) tryRate = remoteTry;
-      if (Number.isFinite(remoteSyp) && remoteSyp > 0) sypRate = remoteSyp;
-      localStorage.setItem('nadwa_try', String(tryRate));
-      localStorage.setItem('nadwa_syp', String(sypRate));
+      // أسعار الصرف أصبحت تلقائية من ليرتنا؛ لا تسمح لقيم قديمة محفوظة في إعدادات السحابة باستبدالها.
+      await refreshExchangeRates(true);
       if ($('tryRate')) $('tryRate').value = String(tryRate);
       if ($('sypRate')) $('sypRate').value = String(sypRate);
+      updateProductCostEstimate();
       renderInvoice();
       return;
     }
