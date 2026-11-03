@@ -96,7 +96,7 @@ async function main() {
     trySellSyp,
     tryBuySyp,
     sypRate: Number(usdSellSyp.toFixed(6)),
-    tryRate: Number(tryRate.toFixed(6)),
+    tryRate: Math.floor(tryRate * 100) / 100,
     sourceUrls: [SOURCES.usd, SOURCES.try]
   };
   await fs.writeFile("rates.json", JSON.stringify(output, null, 2) + "\n", "utf8");
