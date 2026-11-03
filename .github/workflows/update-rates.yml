@@ -1,0 +1,28 @@
+name: Update Liratna exchange rates
+on:
+  schedule:
+    - cron: '0 */5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: liratna-rates
+  cancel-in-progress: true
+jobs:
+  update-rates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Fetch and validate rates
+        run: node scripts/update-rates.js
+      - name: Commit updated rates
+        run: |
+          if git diff --quiet -- rates.json; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add rates.json
+          git commit -m 'chore: update Liratna exchange rates'
+          git push
