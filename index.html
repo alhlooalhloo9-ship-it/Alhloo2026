@@ -845,7 +845,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <section id="productFormPage" class="hidden"><div class="box"><h3 id="formTitle">➕ إضافة منتج</h3><form id="form">
 <div class="box" style="background:#f7faf8"><h3>🤖 إضافة منتج بالذكاء الاصطناعي</h3><p class="muted">اختار طريقة الإدخال: تصوير مباشر بالكاميرا، صورة من المعرض، أو كتابة/لصق النص. Gemini سيقرأ المعلومات وينظّمها ويصحّح تنسيقها، ثم يعبّئ الحقول لتراجعها قبل الحفظ.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button type="button" class="primary" id="smartCameraBtn">📷 تصوير بالكاميرا والتحليل</button><button type="button" id="smartImageBtn">🖼️ رفع صورة من المعرض وتحليلها</button></div><input id="smartCameraFile" type="file" accept="image/*" capture="environment" hidden><input id="smartImageFile" type="file" accept="image/*" hidden><label for="smartProductText">النص أو بيانات المنتج</label><textarea id="smartProductText" rows="5" style="width:100%;padding:11px;border:1px solid #ccd5d9;border-radius:8px;font:inherit" placeholder="اكتب أو الصق اسم المنتج والأسعار والوزن وعدد القطع والمخزون، حتى لو كانت المعلومات غير مرتبة..."></textarea><button type="button" class="primary" id="parseSmartTextBtn" style="margin-top:8px">🤖 تحليل النص وتصحيح وترتيب المعلومات</button><p class="muted">الذكاء الاصطناعي يوحّد الأرقام والوحدات ويصحّح التنسيق والأخطاء الواضحة. لن يخترع سعراً أو كمية غير مذكورة، وأي معلومة غير مؤكدة سيتركها فارغة أو يضعها كملاحظة.</p><div id="smartProductStatus" class="muted" role="status" aria-live="polite"></div></div>
 <label>اسم المادة</label><input id="name" required placeholder="اسم المنتج">
-<label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50">
+<label>سعر شراء العبوة بالدولار</label><input id="price" required type="number" min="0" step="0.01" placeholder="مثلاً 1.50"><p id="productCostEstimate" class="muted" aria-live="polite">ستظهر تكلفة العبوة والقطعة بالتركي والسوري الجديد حسب سعر الصرف المحدّث.</p>
 <label>عدد القطع داخل العبوة</label><input id="pieces" required type="number" min="1" step="1" value="24">
 <label>سعر بيع القطعة بالليرة التركية</label><input id="sellTry" required type="number" min="0" step="0.1" value="5">
 <label>كمية المخزون (عدد العبوات)</label><input id="stock" required type="number" min="0" step="1" value="0">
@@ -905,12 +905,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><div class="detailsModalActions" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button type="button" class="primary" id="detailsEditBtn" style="flex:1;min-width:90px;min-height:46px">✏️ تعديل</button><button type="button" class="danger" id="detailsDeleteBtn" style="flex:1;min-width:90px;min-height:46px;background:#fee2e2;color:#9f2222">🗑️ حذف</button><button type="button" id="detailsCloseBtn" style="flex:1;min-width:90px;min-height:46px" onclick="closeDetails()">إغلاق</button></div></div>
 </div>
 <div class="box">
-<h3>💱 أسعار الصرف</h3>
-<label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.01" value="49.7">
-<label>الدولار مقابل الليرة السورية الجديدة</label><input id="sypRate" type="number" min="0.01" step="0.01" value="140">
-<p class="muted">الليرة السورية الجديدة: كل 1000 ليرة قديمة = 10 ليرات جديدة.</p>
-<button class="primary" onclick="saveRates()">حفظ أسعار الصرف</button>
-<p class="muted">أسعار الصرف يدوية وقابلة للتعديل، وليست جلباً تلقائياً من الإنترنت.</p>
+<h3>💱 أسعار الصرف التلقائية</h3>
+<label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.001" readonly value="49.7">
+<label>الدولار مقابل الليرة السورية الجديدة</label><input id="sypRate" type="number" min="0.01" step="0.01" readonly value="140">
+<p class="muted">المصدر: موقع ليرتنا — أسعار إدلب. يعتمد الحساب على سعر مبيع الدولار وسعر شراء الليرة التركية لحماية تكلفة إعادة شراء البضاعة.</p>
+<p class="muted">الليرة السورية الجديدة: كل 100 ليرة قديمة = ليرة سورية جديدة واحدة.</p>
+<p id="exchangeRateStatus" class="muted" role="status" aria-live="polite">جارٍ تحميل آخر أسعار الصرف…</p>
+<button type="button" class="primary" onclick="refreshExchangeRates(true)">🔄 تحديث الأسعار الآن</button>
+<p class="muted">يتم تحديث الأسعار تلقائياً كل 5 ساعات. عند تعذّر الاتصال يبقى آخر سعر ناجح محفوظاً دون استبداله بقيمة خاطئة.</p>
 </div>
 </main>
 <nav class="bottom-nav" id="bottomNav" aria-label="التنقل السريع">
@@ -1165,6 +1167,81 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   }
   let tryRate = +(localStorage.getItem('nadwa_try') || 49.7);
   let sypRate = +(localStorage.getItem('nadwa_syp') || 140);
+
+  function updateProductCostEstimate() {
+    const target = $('productCostEstimate');
+    if (!target) return;
+    const price = Number($('price')?.value);
+    const pieces = Math.max(1, Number($('pieces')?.value) || 1);
+    if (!Number.isFinite(price) || price < 0 || !$('price')?.value) {
+      target.textContent = 'أدخل سعر شراء العبوة بالدولار لعرض تكلفتها بالعملتين حسب سعر الصرف المحدّث.';
+      return;
+    }
+    const money = value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 3 });
+    target.textContent = 'تكلفة العبوة: ' + money(price * tryRate) + ' ل.ت · ' +
+      money(price * sypRate) + ' ل.س جديدة. تكلفة القطعة: ' +
+      money(price * tryRate / pieces) + ' ل.ت · ' +
+      money(price * sypRate / pieces) + ' ل.س جديدة.';
+  }
+
+  async function refreshExchangeRates(force = false) {
+    const status = $('exchangeRateStatus');
+    const lastCheck = Number(localStorage.getItem('nadwa_rates_last_fetch') || 0);
+    const lastSuccess = localStorage.getItem('nadwa_rates_updated_at') || '';
+    const showSavedStatus = () => {
+      if (!status) return;
+      status.textContent = lastSuccess
+        ? 'آخر تحديث ناجح من ليرتنا: ' + new Date(lastSuccess).toLocaleString('ar') + ' — نستخدم آخر سعر محفوظ.'
+        : 'لم ينجح جلب سعر جديد بعد؛ نحتفظ بالقيم المحفوظة على الجهاز إلى حين توفر الاتصال.';
+    };
+    if (!force && lastCheck && Date.now() - lastCheck < 5 * 60 * 60 * 1000) {
+      showSavedStatus();
+      return false;
+    }
+    try {
+      const response = await fetch('./rates.json?refresh=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('ملف أسعار الصرف غير متاح حالياً (' + response.status + ').');
+      const data = await response.json();
+      const nextTry = Number(data.tryRate);
+      const nextSyp = Number(data.sypRate);
+      const updatedAt = Date.parse(data.updatedAt || '');
+      if (data.sourceKey !== 'lirtna' || data.city !== 'Idlib' ||
+          !Number.isFinite(nextTry) || nextTry <= 0 ||
+          !Number.isFinite(nextSyp) || nextSyp <= 0 ||
+          !Number.isFinite(updatedAt) || Date.now() - updatedAt > 36 * 60 * 60 * 1000 ||
+          updatedAt > Date.now() + 60 * 60 * 1000) {
+        throw new Error('بيانات أسعار الصرف غير مكتملة أو قديمة؛ لم يتم اعتمادها.');
+      }
+      const changed = Math.abs(tryRate - nextTry) > 0.000001 || Math.abs(sypRate - nextSyp) > 0.000001;
+      tryRate = nextTry;
+      sypRate = nextSyp;
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      localStorage.setItem('nadwa_rates_updated_at', data.updatedAt);
+      localStorage.setItem('nadwa_rates_last_fetch', String(Date.now()));
+      if ($('tryRate')) $('tryRate').value = String(tryRate);
+      if ($('sypRate')) $('sypRate').value = String(sypRate);
+      if (status) status.textContent = 'آخر تحديث من ليرتنا — إدلب: ' +
+        new Date(data.updatedAt).toLocaleString('ar') +
+        ' · سعر مبيع الدولار: ' + Number(data.sypRate).toLocaleString('en-US') +
+        ' ل.س جديدة · سعر الدولار المحسوب: ' + Number(data.tryRate).toFixed(3) + ' ل.ت.';
+      if (changed) {
+        if (typeof window.renderProducts === 'function') window.renderProducts();
+        if (typeof window.renderInvoice === 'function') window.renderInvoice();
+      }
+      updateProductCostEstimate();
+      return true;
+    } catch (error) {
+      console.warn('تعذر تحديث أسعار الصرف من ليرتنا:', error);
+      showSavedStatus();
+      if (status && !lastSuccess) status.textContent += ' السبب: ' + (error.message || error);
+      return false;
+    }
+  }
+  window.refreshExchangeRates = refreshExchangeRates;
+  $('price').addEventListener('input', updateProductCostEstimate);
+  $('pieces').addEventListener('input', updateProductCostEstimate);
+
   let editId = null, newImage = null, removeImg = false, cropSource = null, cropZoom = 1, cropX = 0, cropY = 0, cropDragging = false, cropLastX = 0, cropLastY = 0;
   const SORT_INTERVAL_MS = 24 * 60 * 60 * 1000;
   let lastAutoSort = +(localStorage.getItem('nadwa_last_auto_sort') || 0);
@@ -1317,6 +1394,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     $('smartProductText').value = '';
     $('smartProductStatus').textContent = '';
     renderSupplierSelectors();
+    updateProductCostEstimate();
   };
 
   function handleSelectedImage(f) {
@@ -3663,6 +3741,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   renderSupplierList();
   renderProducts();
   renderInvoice();
+  refreshExchangeRates(true);
+  window.setInterval(() => refreshExchangeRates(true), 5 * 60 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const checkedAt = Number(localStorage.getItem('nadwa_rates_last_fetch') || 0);
+      if (!checkedAt || Date.now() - checkedAt >= 5 * 60 * 60 * 1000) refreshExchangeRates(true);
+    }
+  });
 
   firebaseInitPromise.then(ready => {
     if (!ready) {
@@ -3692,7 +3778,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       renderInvoice();
       if (cloudUser) {
         showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
-        window.setTimeout(() => syncCloudSafely(), 500);
+        window.setTimeout(async () => {
+          try { await syncCloudSafely(); }
+          finally { await refreshExchangeRates(true); }
+        }, 500);
       }
     });
   });
