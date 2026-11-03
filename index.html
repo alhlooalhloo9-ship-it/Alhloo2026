@@ -563,18 +563,38 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     appId: "1:852295923543:web:0e911814369fbff47d7012",
     measurementId: "G-360V9996CH"
   };
-  const firebaseInitPromise = Promise.all([
-    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"),
-    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js")
-  ]).then(([appModule, authModule]) => {
-    const app = appModule.initializeApp(firebaseConfig);
-    auth = authModule.getAuth(app);
-    firebaseAuthApi = authModule;
-    return true;
-  }).catch(error => {
-    console.error("Firebase modules unavailable; local app remains enabled:", error);
+  const firebaseInitPromise = (async () => {
+    const moduleSources = [
+      [
+        "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"
+      ],
+      [
+        "https://esm.sh/firebase@10.8.0/app",
+        "https://esm.sh/firebase@10.8.0/auth"
+      ],
+      [
+        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/app/+esm",
+        "https://cdn.jsdelivr.net/npm/firebase@10.8.0/auth/+esm"
+      ]
+    ];
+    let lastError = null;
+    for (const [appUrl, authUrl] of moduleSources) {
+      try {
+        const [appModule, authModule] = await Promise.all([import(appUrl), import(authUrl)]);
+        const app = appModule.initializeApp(firebaseConfig);
+        auth = authModule.getAuth(app);
+        firebaseAuthApi = authModule;
+        console.info("Firebase authentication modules loaded successfully.");
+        return true;
+      } catch (error) {
+        lastError = error;
+        console.warn("Firebase CDN failed; trying the next trusted module source:", error);
+      }
+    }
+    console.error("All Firebase module sources failed; local app remains enabled:", lastError);
     return false;
-  });
+  })();
 
   // Firebase Authentication + Realtime Database مباشرة عبر HTTPS.
   const RTDB_BASE = "https://alhlooapp-default-rtdb.europe-west1.firebasedatabase.app";
