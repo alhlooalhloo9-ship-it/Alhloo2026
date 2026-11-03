@@ -10,7 +10,6 @@
     "standalone",
     "minimal-ui"
   ],
-  "orientation": "portrait-primary",
   "background_color": "#f3f5f7",
   "theme_color": "#174c3c",
   "description": "إدارة المنتجات والفواتير ومزامنة المنتجات بين الأجهزة والعمل دون إنترنت",
