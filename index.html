@@ -336,6 +336,15 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
 }
 
 .archived-pdf-preview-card{width:min(960px,96vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden}.archived-pdf-preview-hint{padding:9px 12px;margin:8px 0;background:#edf5ef;border-radius:10px;font-size:13px}.archived-pdf-preview-frame{display:block;width:100%;height:min(66vh,760px);min-height:320px;border:1px solid #d8e2dc;border-radius:8px;background:#fff}.archived-pdf-preview .archived-note-actions{flex-shrink:0;padding-top:10px}
+.archived-pdf-preview{z-index:70;padding:8px}
+.archived-pdf-preview-card{width:min(100%,900px);height:min(94dvh,900px);max-height:94dvh;display:flex;flex-direction:column;gap:8px;padding:10px;line-height:1.4}
+.archived-pdf-preview-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.archived-pdf-preview-heading h3{margin:0;font-size:16px}
+.archived-pdf-preview-heading small{display:block;font-size:11px}
+.archived-pdf-frame{display:block;width:100%;flex:1;min-height:240px;border:1px solid #dce6df;border-radius:8px;background:#eef1ef}
+.archived-pdf-preview-actions{display:flex;gap:8px;flex-wrap:wrap}
+.archived-pdf-preview-actions button{flex:1;min-width:130px;min-height:44px}
+@media(max-width:480px){.archived-pdf-preview-card{padding:8px}.archived-pdf-frame{min-height:55dvh}}
 </style>
 <style>
 .home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
@@ -532,6 +541,19 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     <div class="archived-note-actions">
       <button type="button" class="primary" onclick="sharePreviewedArchivedPdf()">📤 مشاركة ملف PDF</button>
       <button type="button" onclick="closeArchivedPdfPreview()">إغلاق المعاينة</button>
+    </div>
+  </div>
+</div>
+<div id="archivedPdfPreviewModal" class="detailsPanel archived-pdf-preview hidden" role="dialog" aria-modal="true" aria-labelledby="archivedPdfPreviewTitle">
+  <div class="detailsCard archived-pdf-preview-card">
+    <div class="archived-pdf-preview-heading">
+      <div><h3 id="archivedPdfPreviewTitle">📄 معاينة الفاتورة PDF</h3><small id="archivedPdfStatus" class="muted">جارٍ تجهيز الفاتورة للمعاينة…</small></div>
+      <button type="button" onclick="closeArchivedPdfPreview()">إغلاق</button>
+    </div>
+    <iframe id="archivedPdfFrame" title="معاينة ملف الفاتورة PDF" class="archived-pdf-frame"></iframe>
+    <div class="archived-pdf-preview-actions">
+      <button type="button" id="archivedPdfShareButton" class="primary" disabled onclick="sharePreviewedArchivedPdf()">📤 مشاركة ملف PDF</button>
+      <button type="button" onclick="closeArchivedPdfPreview()">رجوع للفاتورة</button>
     </div>
   </div>
 </div>
@@ -2191,7 +2213,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     try { return await window.__nadwaPdfLoader; }
     catch (error) { window.__nadwaPdfLoader = null; throw error; }
   }
-  async function shareInvoiceAsPdf(inv) {
+  let archivedPdfBlob = null;
+  let archivedPdfUrl = null;
+  let archivedPdfFile = null;
+  async function buildInvoicePdfBlob(inv) {
     const html2pdf = await loadHtml2Pdf();
     const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
     const page = document.createElement('div');
@@ -2214,19 +2239,61 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
       }).from(page).outputPdf('blob');
       if (!blob || !blob.size) throw new Error('لم يتم إنشاء ملف PDF صالح.');
-      const file = new File([blob], safeInvoiceName(inv, 'pdf'), { type: 'application/pdf' });
-      const shareData = { title: 'فاتورة ' + inv.supplierName, text: 'فاتورة محفوظة بصيغة PDF عالية الوضوح.', files: [file] };
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share(shareData);
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-        alert('تم إنشاء ملف PDF وتنزيله بجودة عالية. افتحه من التنزيلات ثم شاركه عبر واتساب.');
-      }
+      return blob;
     } finally {
       page.remove();
+    }
+  }
+  function closeArchivedPdfPreview() {
+    const modal = $('archivedPdfPreviewModal');
+    if (modal) modal.classList.add('hidden');
+    if (archivedPdfUrl) URL.revokeObjectURL(archivedPdfUrl);
+    archivedPdfBlob = null;
+    archivedPdfUrl = null;
+    archivedPdfFile = null;
+    const frame = $('archivedPdfFrame');
+    if (frame) frame.removeAttribute('src');
+    document.body.classList.remove('modal-open');
+  }
+  async function sharePreviewedArchivedPdf() {
+    if (!archivedPdfBlob || !archivedPdfFile) return;
+    const shareData = {
+      title: archivedPdfFile.name,
+      text: 'فاتورة بضاعة الندوة بصيغة PDF.',
+      files: [archivedPdfFile]
+    };
+    if (navigator.share && navigator.canShare?.({ files: [archivedPdfFile] })) {
+      await navigator.share(shareData);
+    } else {
+      const url = URL.createObjectURL(archivedPdfBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = archivedPdfFile.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      alert('تم تنزيل ملف PDF. يمكنك إرفاقه في واتساب كمستند.');
+    }
+  }
+  async function previewInvoiceAsPdf(inv) {
+    const modal = $('archivedPdfPreviewModal');
+    const frame = $('archivedPdfFrame');
+    const status = $('archivedPdfStatus');
+    const shareButton = $('archivedPdfShareButton');
+    if (!modal || !frame || !status || !shareButton) throw new Error('نافذة معاينة PDF غير موجودة.');
+    closeArchivedPdfPreview();
+    status.textContent = 'جارٍ تجهيز الفاتورة للمعاينة…';
+    shareButton.disabled = true;
+    modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    try {
+      archivedPdfBlob = await buildInvoicePdfBlob(inv);
+      archivedPdfFile = new File([archivedPdfBlob], safeInvoiceName(inv, 'pdf'), { type: 'application/pdf' });
+      archivedPdfUrl = URL.createObjectURL(archivedPdfBlob);
+      frame.src = archivedPdfUrl;
+      status.textContent = 'معاينة الفاتورة — راجع الصفحات ثم اضغط مشاركة PDF.';
+      shareButton.disabled = false;
+    } catch (error) {
+      status.textContent = error.message || 'تعذر إنشاء معاينة PDF.';
+      throw error;
     }
   }
   async function shareArchivedInvoiceTable(inv) {
@@ -2249,7 +2316,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const inv=invoiceArchive.find(x=>String(x.id)===String(id));if(!inv)return;
     try {
       if(format==='image') return await shareInvoiceAsImage(inv);
-      if(format==='pdf') return await shareInvoiceAsPdf(inv);
+      if(format==='pdf') return await previewInvoiceAsPdf(inv);
       if(format==='text') return await shareArchivedInvoiceTable(inv);
     } catch(e) {
       if (e && e.name === 'AbortError') return;
