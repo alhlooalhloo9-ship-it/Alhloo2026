@@ -1853,6 +1853,2693 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     product.pickCount=Math.max(0,(Number(product.pickCount)||0)+(quantity-oldQuantity));
     save();renderProducts();renderInvoice();
   };
+  window.openArchivedInvoiceNote = function(id) {
+    const inv = invoiceArchive.find(x => String(x.id) === String(id));
+    if (!inv) return;
+    let modal = document.getElementById('archivedInvoiceNoteModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'archivedInvoiceNoteModal';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(10,25,18,.68);display:flex;align-items:center;justify-content:center;padding:14px;';
+      document.body.appendChild(modal);
+    }
+    const lines = Array.isArray(inv.lines) ? inv.lines : [];
+    const rows = lines.map((line,index) => {
+      const image = line.image
+        ? '<img src="' + esc(line.image) + '" alt="" style="width:54px;height:54px;object-fit:contain;border-radius:9px;background:#f3f7f4;">'
+        : '<span style="width:54px;height:54px;display:grid;place-items:center;background:#f3f7f4;border-radius:9px;">📦</span>';
+      return '<tr><td style="padding:9px 5px;border-bottom:1px solid #e7eee9;text-align:center;">' + (index+1) + '</td>' +
+        '<td style="padding:9px 5px;border-bottom:1px solid #e7eee9;">' + image + '</td>' +
+        '<td style="padding:9px 5px;border-bottom:1px solid #e7eee9;font-weight:700;">' + esc(line.name || 'منتج') + '</td>' +
+        '<td style="padding:9px 5px;border-bottom:1px solid #e7eee9;text-align:center;">' + Number(line.quantity || 0) + '</td>' +
+        '<td style="padding:9px 5px;border-bottom:1px solid #e7eee9;text-align:left;white-space:nowrap;">
+    const root=$('invoiceArchiveList'); if(!root)return;
+    const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
+    root.innerHTML='';
+    if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
+    list.forEach(inv=>{
+      const card=document.createElement('div');card.className='invoice-archive-card';
+      const info=document.createElement('div');info.className='info';
+      info.innerHTML='<b>🧾 '+esc(inv.buyerName||'فاتورة بدون اسم مشتري')+'</b><small>'+esc(inv.supplierName)+' · '+new Date(inv.issuedAt).toLocaleString('ar')+' · '+inv.lines.length+' منتج · $'+(+inv.totalUsd).toFixed(2)+'</small><small class="muted">🔒 محفوظة — للعرض والتصدير فقط</small>';
+      card.style.cssText='background:#fffdf5;border:1px solid #eadfbd;border-right:5px solid #c6a75a;border-radius:13px;padding:13px;margin:10px 0;box-shadow:0 3px 10px rgba(80,65,25,.05);';
+      const actions=document.createElement('div');actions.className='actions';
+      const openBtn=document.createElement('button');openBtn.type='button';openBtn.className='primary';openBtn.textContent='📝 فتح الملاحظة';openBtn.addEventListener('click',()=>openArchivedInvoiceNote(inv.id));actions.appendChild(openBtn);
+      [['صورة','image'],['PDF / طباعة','pdf'],['نص','text']].forEach(([label,format])=>{const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.addEventListener('click',()=>exportArchivedInvoice(inv.id,format));actions.appendChild(btn);});
+      card.append(info,actions);root.appendChild(card);
+    });
+  }
+  window.exportArchivedInvoice = async function(id,format) {
+    const inv=invoiceArchive.find(x=>x.id===id);if(!inv)return;
+    try {
+      if(format==='image') return await shareInvoiceAsImage(inv);
+      if(format==='pdf') { const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);return; }
+      const txt=invoiceText(inv);
+      if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});
+      else prompt('انسخ نص الفاتورة',txt);
+    } catch(e) { alert(e.message||e); }
+  };
+  async function shareInvoiceAsImage(inv) {
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    const width=1200,rowH=132,top=350;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+250;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#174c3c';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,62);
+    ctx.fillStyle='#222';ctx.font='25px Arial';ctx.textAlign='right';
+    ctx.fillText('المشتري: '+(inv.buyerName||'—'),1130,125);
+    ctx.fillText('المخزن / المورد: '+inv.supplierName,1130,175);
+    ctx.fillText('تاريخ الحفظ: '+new Date(inv.issuedAt).toLocaleString('ar'),1130,225);
+    ctx.font='bold 23px Arial';ctx.fillText('الصورة',1120,310);ctx.fillText('اسم المنتج',970,310);ctx.fillText('الكمية',650,310);ctx.fillText('سعر العبوة',390,310);ctx.fillText('الإجمالي',150,310);
+    for(let i=0;i<inv.lines.length;i++){
+      const x=inv.lines[i],y=top+i*rowH;
+      ctx.fillStyle='#f7faf8';ctx.fillRect(45,y-55,1110,112);
+      ctx.fillStyle='#222';ctx.font='22px Arial';ctx.textAlign='right';
+      ctx.fillText(String(x.name||''),970,y-5,250);
+      ctx.fillText(String(x.quantity),650,y-5);
+      ctx.fillText('$'+(+x.unitPrice).toFixed(2),390,y-5);
+      ctx.fillText('$'+(+x.lineTotal).toFixed(2),150,y-5);
+      if(x.image){
+        try{
+          const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=x.image;});
+          const scale=Math.min(88/im.width,88/im.height);const iw=im.width*scale,ih=im.height*scale;
+          ctx.drawImage(im,1100-iw,y-45+(88-ih)/2,iw,ih);
+        }catch(_){ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('الصورة غير متاحة',1110,y-5);}
+      }else{ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('—',1110,y-5);}
+    }
+    const y=top+inv.lines.length*rowH+55;
+    ctx.fillStyle='#174c3c';ctx.font='bold 29px Arial';ctx.textAlign='right';
+    ctx.fillText('الإجمالي: $'+(+inv.totalUsd).toFixed(2),1130,y);
+    ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',1130,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',1130,y+100);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
+    const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
+    if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
+    else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
+  }
+  $('invoiceSaveBtn').addEventListener('click',()=>{
+    try{
+      if(!String($('invoiceBuyerName').value||'').trim() && !confirm('لم تكتب اسم المشتري. هل تريد حفظ الفاتورة بدون اسم؟')) return;
+      issueCurrentInvoice();
+      alert('تم حفظ الفاتورة بنجاح. أصبحت ضمن الفواتير المحفوظة وغير قابلة للتعديل.');
+      renderInvoiceArchive();
+    }catch(e){alert(e.message||e);}
+  });
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true);await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة الحالية.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  window.saveRates = function() {
+    let t = +$('tryRate').value;
+    let s = +$('sypRate').value;
+    if (t <= 0 || s <= 0) { alert('أدخل أسعار صرف صحيحة'); return; }
+    tryRate = t; sypRate = s;
+    localStorage.setItem('nadwa_try', t); localStorage.setItem('nadwa_syp', s);
+    renderInvoice(); alert('تم حفظ أسعار الصرف');
+  };
+  window.clearCart = function() {
+    if (confirm('تفريغ فاتورة هذا المخزن؟')) {
+      Object.entries(cart).forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});
+      cart={};supplierCarts[activeSupplierId]=cart;save();renderProducts();renderInvoice();
+    }
+  };
+  window.share = function(){ $('invoiceShareBtn').click(); };
+  window.saveRates = function() {
+    const t = Number($('tryRate').value);
+    const s = Number($('sypRate').value);
+    if (!Number.isFinite(t) || !Number.isFinite(s) || t <= 0 || s <= 0) {
+      alert('أدخل أسعار صرف صحيحة');
+      return;
+    }
+    tryRate = t;
+    sypRate = s;
+    localStorage.setItem('nadwa_try', String(t));
+    localStorage.setItem('nadwa_syp', String(s));
+    renderInvoice();
+    if (cloudUser) {
+      syncSettings({ preferCloud: false })
+        .then(() => showCloudMessage('تم حفظ أسعار الصرف محلياً وسحابياً.'))
+        .catch(error => showCloudMessage('حُفظت الأسعار على هذا الجهاز، لكن تعذّر حفظها سحابياً: ' + (error.message || error)));
+    }
+    alert('تم حفظ أسعار الصرف على هذا الجهاز' + (cloudUser ? ' وبدأ حفظها سحابياً.' : '. سجّل الدخول لمزامنتها بين الأجهزة.'));
+  };
+
+  window.clearCart = function() {
+    if (confirm('تفريغ الفاتورة؟')) {
+      Object.entries(cart).forEach(([id, n]) => {
+        let p = products.find(x => x.id === +id);
+        if (p) p.pickCount = Math.max(0, (+(p.pickCount || 0)) - n);
+      });
+      cart = {};
+      save();
+      renderProducts();
+      renderInvoice();
+    }
+  };
+
+  window.share = function() {
+    let a = ['فاتورة بضاعة الندوة'];
+    let sum = 0;
+    Object.entries(cart).forEach(([id, n]) => {
+      let p = products.find(x => x.id === +id);
+      if (!p) return;
+      sum += p.price * n;
+      a.push(p.name + ' × ' + n + ' — $' + (p.price * n).toFixed(2) + ' | ' + fmt(p.price * n * tryRate) + ' ل.ت' + ' | ' + fmt(p.price * n * sypRate) + ' ل.س جديدة');
+    });
+    a.push('المجموع: $' + sum.toFixed(2), 'بالتركي: ' + fmt(sum * tryRate) + ' ل.ت', 'بالسوري: ' + fmt(sum * sypRate) + ' ل.س جديدة');
+    let t = a.join('\n');
+    if (navigator.share) {
+      navigator.share({ title: 'فاتورة بضاعة الندوة', text: t }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(t).then(() => alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(() => prompt('انسخ الفاتورة', t));
+    } else {
+      prompt('انسخ الفاتورة', t);
+    }
+  };
+
+  function showCloudMessage(s) { $('syncMessage').textContent = s; }
+
+  function updateAuthUI() {
+    const on = !!cloudUser;
+    $('authForm').classList.toggle('hidden', on);
+    $('authActions').classList.toggle('hidden', !on);
+    const label = cloudUser?.email || 'زائر هذا الجهاز';
+    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. المنتجات قابلة للمزامنة مع أجهزتك الأخرى.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز فقط.';
+    $('drawerAccountName').textContent = label;
+    $('drawerSignOut').classList.toggle('hidden', !on);
+  }
+
+  function usernameToAuthEmail(raw) {
+    const username = String(raw || '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً، ويحتوي على أحرف إنجليزية أو أرقام أو نقطة أو شرطة فقط.');
+    return { username, email: username + '@accounts.alhloo-login.com' };
+  }
+
+  function showAuthError(action, error) {
+    const code = String(error?.code || error?.name || 'unknown');
+    const message = String(error?.message || 'لا توجد تفاصيل إضافية');
+    const known = {
+      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في خدمة الحسابات.',
+      'auth/invalid-credential': 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود.',
+      'auth/user-not-found': 'لا يوجد حساب بهذا الاسم.',
+      'auth/wrong-password': 'كلمة المرور غير صحيحة.',
+      'auth/email-already-in-use': 'اسم المستخدم مستخدم مسبقاً.',
+      'auth/weak-password': 'كلمة المرور ضعيفة؛ استخدم 6 أحرف على الأقل.',
+      'auth/invalid-email': 'صيغة بيانات الحساب التي أُرسلت إلى Firebase غير مقبولة.',
+      'auth/network-request-failed': 'تعذّر الاتصال بخدمة تسجيل الدخول. تحقق من اتصال الإنترنت.',
+      'auth/too-many-requests': 'تمت محاولات كثيرة؛ انتظر قليلاً ثم أعد المحاولة.',
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'إعداد مفتاح خدمة تسجيل الدخول غير صالح أو مقيّد.'
+    };
+    const explanation = known[code] || (message.includes('Failed to fetch')
+      ? 'المتصفح لم يتمكن من الوصول إلى خدمة Firebase أو تحميلها. هذا غالباً اتصال أو حجب للشبكة، وليس خطأ كلمة المرور.'
+      : message);
+    showCloudMessage('تعذّر ' + action + ': ' + explanation + ' [رمز الخطأ: ' + code + ']');
+    console.error('Firebase Authentication error:', { code, message, error });
+  }
+
+  async function doSignUp() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (password.length < 6) {
+      showCloudMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ إنشاء الحساب...');
+    try {
+      await createUserWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم إنشاء الحساب بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('إنشاء الحساب', error);
+    }
+  }
+
+  async function doSignIn() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (!password) {
+      showCloudMessage('أدخل اسم المستخدم وكلمة المرور.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ تسجيل الدخول...');
+    try {
+      await signInWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم تسجيل الدخول بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('تسجيل الدخول', error);
+    }
+  }
+
+  async function doSignOut() {
+    // احفظ بيانات الحساب في مساحته الخاصة قبل إنهاء الجلسة.
+    saveWorkspaceLocal();
+    if (cloudTimer) clearTimeout(cloudTimer);
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    await signOut(auth);
+    // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
+    showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
+  }
+
+  async function apiRequest(path, options = {}) {
+    if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
+    const token = await cloudUser.getIdToken();
+    const uid = encodeURIComponent(cloudUser.uid);
+    const method = String(options.method || "GET").toUpperCase();
+    const cleanPath = String(path || "").split("?")[0].replace(/^\/+|\/+$/g, "");
+    const parts = cleanPath.split("/");
+    const resource = parts[0];
+    const basePath = RTDB_BASE + "/users/" + uid;
+    async function requestRtdb(target, httpMethod, body) {
+      const url = target + ".json?auth=" + encodeURIComponent(token);
+      const response = await fetch(url, {
+        method: httpMethod,
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store"
+      });
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok) {
+        const detail = data && data.error ? data.error : ("HTTP " + response.status);
+        throw new Error("Firebase Realtime Database: " + detail);
+      }
+      return data;
+    }
+
+    if (resource === "products") {
+      const target = basePath + "/products";
+      const query = new URLSearchParams(String(path).split("?")[1] || "");
+      if (method === "GET") {
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) :
+          (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        const skip = Math.max(0, Number(query.get("skip")) || 0);
+        const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
+        return { ok: true, products: rows.slice(skip, skip + limit) };
+      }
+      if (method === "POST") {
+        const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
+        if (incoming.length > 5000) throw new Error("عدد المنتجات المرسلة أكبر من الحد المسموح.");
+        // Realtime Database يخزّن بيانات المنتج والصورة المضغوطة ضمن سجل الحساب نفسه.
+        await requestRtdb(target, "PUT", incoming);
+        return { ok: true, saved: incoming.length };
+      }
+    }
+
+    if (resource === "cart") {
+      const target = basePath + "/cart";
+      if (method === "GET") return { ok: true, ...(await requestRtdb(target, "GET") || { items: {} }) };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || { items: {} });
+        return { ok: true };
+      }
+    }
+
+    if (resource === "settings") {
+      const target = basePath + "/settings";
+      if (method === "GET") return { ok: true, settings: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body && options.body.settings ? options.body.settings : {});
+        return { ok: true };
+      }
+    }
+
+    if (resource === "workspace") {
+      const target = basePath + "/workspace";
+      if (method === "GET") return { ok: true, workspace: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || {});
+        return { ok: true };
+      }
+    }
+    throw new Error("طلب مزامنة غير مدعوم: " + cleanPath);
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+    if (!match) throw new Error('صيغة صورة المنتج غير صالحة.');
+    const mime = match[1] || 'image/jpeg';
+    const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function prepareImageForCloud(sourceBlob) {
+    const maxBytes = 300 * 1024;
+    if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp)$/i.test(sourceBlob.type)) return sourceBlob;
+    if (!('createImageBitmap' in window)) {
+      if (sourceBlob.size <= maxBytes) return sourceBlob;
+      throw new Error('تعذر ضغط الصورة على هذا المتصفح. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    }
+    const bitmap = await createImageBitmap(sourceBlob);
+    try {
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d', { alpha: false });
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+        const compressed = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (compressed && compressed.size <= maxBytes) return compressed;
+      }
+      throw new Error('حجم الصورة أكبر من الحد الآمن للمزامنة. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    } finally { bitmap.close?.(); }
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('تعذرت قراءة الصورة بعد ضغطها.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function ensureProductImageInStorage(product) {
+    if (!product || !product.image || !/^data:image\//i.test(String(product.image))) return product;
+    const original = String(product.image);
+    const blob = await prepareImageForCloud(dataUrlToBlob(original));
+    if (blob.size < dataUrlToBlob(original).size) {
+      if (!product.imageLocal) product.imageLocal = original;
+      product.image = await blobToDataUrl(blob);
+    }
+    return product;
+  }
+
+  async function syncProductsToCloud() {
+    if (!cloudUser || syncingCloud) return;
+    syncingCloud = true;
+    try {
+      showCloudMessage('جارٍ جلب المنتجات من Firebase Realtime Database...');
+      const remote = [];
+      const pageSize = 500;
+      for (let skip = 0; ; skip += pageSize) {
+        const page = await apiRequest('/products?skip=' + skip + '&limit=' + pageSize);
+        const rows = Array.isArray(page.products) ? page.products : [];
+        remote.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      const remoteById = new Map(remote.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      // إزالة التكرار بالاسم بعد توحيد المسافات والحروف؛ المحلي له الأولوية لأنه يمثل آخر تعديل على هذا الجهاز.
+      const uniqueByName = new Map();
+      const addUnique = (item, isLocal) => {
+        if (!item || typeof item !== 'object' || !String(item.name || '').trim()) return;
+        const key = normalizedProductName(item.name);
+        const previous = uniqueByName.get(key);
+        if (!previous) {
+          uniqueByName.set(key, { ...item, __localPriority: !!isLocal });
+          return;
+        }
+        const previousTime = Number(previous.updatedAt) || 0;
+        const itemTime = Number(item.updatedAt) || 0;
+        const itemIsNewer = itemTime > previousTime || (itemTime === previousTime && isLocal && !previous.__localPriority);
+        const keep = itemIsNewer
+          ? { ...previous, ...item, __localPriority: !!isLocal }
+          : { ...item, ...previous, __localPriority: !!previous.__localPriority };
+        // لا نفقد صورة موجودة في أي نسخة من المنتج.
+        if ((!keep.image || /^data:image\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
+        if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
+        uniqueByName.set(key, keep);
+      };
+      for (const item of remote) addUnique(item, false);
+      for (const item of products) {
+        const previous = remoteById.get(String(item.id)) || {};
+        const localTime = Number(item.updatedAt) || 0;
+        const remoteTime = Number(previous.updatedAt) || 0;
+        const localIsNewer = localTime >= remoteTime;
+        const next = localIsNewer
+          ? { ...previous, ...item, id: item.id }
+          : { ...item, ...previous, id: item.id };
+        if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
+          next.image = item.image && item.image === previous.image ? item.image : previous.image;
+          if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
+        }
+        addUnique(next, true);
+      }
+      products = Array.from(uniqueByName.values()).map(({ __localPriority, ...item }) => item);
+      let saved = 0;
+      const batchSize = Math.max(1, products.length);
+      for (let offset = 0; offset < products.length; offset += batchSize) {
+        const batch = products.slice(offset, offset + batchSize);
+        for (let i = 0; i < batch.length; i++) {
+          const product = batch[i];
+          if (product.image && /^data:image\//i.test(String(product.image)) || product.imagePath) {
+            showCloudMessage('جارٍ ضغط صور المنتجات وتجهيزها للمزامنة: ' + (offset + i + 1) + ' من ' + products.length);
+            await ensureProductImageInStorage(product);
+          }
+        }
+        const payload = batch.map(p => {
+          const { imageLocal, ...cloudProduct } = p;
+          return { ...cloudProduct, id: String(p.id) };
+        });
+        const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
+        saved += Number(result.saved || payload.length);
+        showCloudMessage('جارٍ مزامنة المنتجات والصور: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+      }
+      saveLocalOnly();
+      renderProducts();
+      renderInvoice();
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً وصورة عبر Firebase Realtime Database.');
+    } finally { syncingCloud = false; }
+  }
+
+  function saveLocalOnly() { saveWorkspaceLocal(); }
+
+  async function syncCartToCloud() {
+    if (!cloudUser) return;
+    const items = {};
+    for (const [id, quantity] of Object.entries(cart)) {
+      const product = products.find(p => String(p.id) === String(id));
+      if (product && +quantity > 0) items[String(product.id)] = +quantity;
+    }
+    await apiRequest('/cart', { method: 'PUT', body: { items } });
+    showCloudMessage('تمت مزامنة الفاتورة مع قاعدة البيانات الجديدة.');
+  }
+
+  async function loadCartFromCloud() {
+    if (!cloudUser) return;
+    const data = await apiRequest('/cart');
+    const savedItems = data.items || {};
+    const restored = {};
+    for (const [id, quantity] of Object.entries(savedItems)) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = +quantity;
+    }
+    for (const [id, quantity] of Object.entries(cart || {})) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
+    }
+    cart = restored;
+    saveLocalOnly();
+    renderProducts();
+    renderInvoice();
+    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من Firebase.');
+    else if (Object.keys(cart).length) await syncCartToCloud();
+  }
+
+  async function syncSettings(options = {}) {
+    if (!cloudUser) return;
+    const preferCloud = options.preferCloud !== false;
+    const data = await apiRequest('/settings');
+    const remote = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
+
+    if (preferCloud && remote) {
+      const remoteTry = Number(remote.tryRate);
+      const remoteSyp = Number(remote.sypRate);
+      if (Number.isFinite(remoteTry) && remoteTry > 0) tryRate = remoteTry;
+      if (Number.isFinite(remoteSyp) && remoteSyp > 0) sypRate = remoteSyp;
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      if ($('tryRate')) $('tryRate').value = String(tryRate);
+      if ($('sypRate')) $('sypRate').value = String(sypRate);
+      renderInvoice();
+      return;
+    }
+
+    await apiRequest('/settings', {
+      method: 'PUT',
+      body: { settings: { tryRate, sypRate } }
+    });
+  }
+
+  function mergeRecordsById(remoteRows, localRows) {
+    const merged = new Map();
+    for (const row of Array.isArray(remoteRows) ? remoteRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    for (const row of Array.isArray(localRows) ? localRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    return Array.from(merged.values());
+  }
+
+  async function syncWorkspaceToCloud() {
+    if (!cloudUser) return;
+    const remoteResult = await apiRequest('/workspace');
+    const remote = remoteResult.workspace && typeof remoteResult.workspace === 'object' ? remoteResult.workspace : {};
+    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers);
+    const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
+    const mergedCarts = {};
+    const storeIds = new Set([
+      ...Object.keys(remote.supplierCarts || {}),
+      ...Object.keys(supplierCarts || {})
+    ]);
+    for (const storeId of storeIds) {
+      const remoteCart = remote.supplierCarts?.[storeId] || {};
+      const localCart = supplierCarts?.[storeId] || {};
+      mergedCarts[storeId] = { ...remoteCart, ...localCart };
+    }
+    if (!mergedCarts.general) mergedCarts.general = {};
+    const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
+    let nextActive = validSupplierIds.has(String(activeSupplierId))
+      ? String(activeSupplierId)
+      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'general');
+    suppliers = mergedSuppliers;
+    supplierCarts = mergedCarts;
+    invoiceArchive = mergedInvoices;
+    activeSupplierId = nextActive;
+    ensureSupplierData();
+    await apiRequest('/workspace', {
+      method: 'PUT',
+      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId }
+    });
+    saveLocalOnly();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+  }
+
+  async function syncCloudSafely() {
+    if (!cloudUser || fullSyncRunning) return;
+    if (navigator.onLine === false) {
+      showCloudMessage('الجهاز غير متصل بالإنترنت. بياناتك محفوظة محلياً وستتم إعادة المحاولة عند عودة الاتصال.');
+      return;
+    }
+    fullSyncRunning = true;
+    try {
+      showCloudMessage('جارٍ الاتصال بالخدمات السحابية...');
+      await syncProductsToCloud();
+      await syncWorkspaceToCloud();
+      await loadCartFromCloud();
+      await syncSettings();
+      showCloudMessage('اكتملت المزامنة بنجاح مع Firebase (المنتجات والصور والفواتير والإعدادات).');
+    } catch (e) {
+      const message = String(e?.message || 'خطأ غير معروف');
+      showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
+      console.error('Firebase synchronization failed:', e);
+    } finally { fullSyncRunning = false; }
+  }
+
+  // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
+  function mergeGuestProductsIntoAccount(uid) {
+    if (!uid) return 0;
+    // لا نحذف مساحة الزائر: ننسخ منتجاتها إلى الحساب مع الاحتفاظ بالصور والحقول الأصلية.
+    let guestProducts = [];
+    let guestCart = {};
+    try { guestProducts = JSON.parse(localStorage.getItem('nadwa_products_guest') || '[]'); } catch (_) {}
+    try { guestCart = JSON.parse(localStorage.getItem('nadwa_cart_guest') || '{}'); } catch (_) {}
+    if (!Array.isArray(guestProducts) || !guestProducts.length) return 0;
+    const knownIds = new Set(products.map(p => String(p.id)));
+    const idMap = new Map();
+    let merged = 0;
+    for (const item of guestProducts) {
+      if (!item || typeof item !== 'object') continue;
+      let copy = { ...item };
+      let nextId = String(copy.id);
+      if (knownIds.has(nextId)) {
+        // عند تعارض معرّف بين مساحة الزائر والحساب، نولّد معرّفاً جديداً دون إسقاط المنتج.
+        let candidate = Date.now() + merged;
+        while (knownIds.has(String(candidate))) candidate++;
+        idMap.set(nextId, String(candidate));
+        copy.id = candidate;
+        nextId = String(candidate);
+      }
+      knownIds.add(nextId);
+      products.push(copy);
+      merged++;
+    }
+    for (const [oldId, quantity] of Object.entries(guestCart || {})) {
+      const mappedId = idMap.get(String(oldId)) || String(oldId);
+      if (products.some(p => String(p.id) === mappedId) && +quantity > 0) {
+        cart[mappedId] = Math.max(+cart[mappedId] || 0, +quantity || 0);
+      }
+    }
+    if (merged) saveWorkspaceLocal();
+    return merged;
+  }
+
+  async function runCloudSyncFromButton() {
+    const button = $('syncCloudBtn');
+    if (!cloudUser) {
+      showCloudMessage('سجّل الدخول أولاً بنفس الحساب المستخدم على الجهاز الآخر.');
+      return;
+    }
+    if (fullSyncRunning) return;
+    button.disabled = true;
+    const previousLabel = button.textContent;
+    button.textContent = '⏳ جارٍ المزامنة...';
+    try {
+      await syncCloudSafely();
+    } finally {
+      button.disabled = false;
+      button.textContent = previousLabel;
+    }
+  }
+
+  onAuthStateChanged(auth, user => {
+    cloudUser = user || null;
+    loadWorkspace(cloudUser?.uid || null);
+    if (cloudUser) {
+      const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
+      if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+    }
+    loadUiSettings();
+    refreshGeminiKeyUI();
+    updateAuthUI();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+    if (cloudUser) {
+      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
+      window.setTimeout(() => syncCloudSafely(), 500);
+    }
+  });
+  $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
+  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
+  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
+  $('drawerSignOut').addEventListener('click', () => {
+    if (cloudUser && confirm('تسجيل الخروج؟ ستبقى بيانات الحساب محفوظة على هذا الجهاز.')) doSignOut().then(closeDrawer).catch(e => showCloudMessage(e.message));
+  });
+
+  function openDrawer() {
+    $('sideDrawer').classList.add('open');
+    $('drawerBackdrop').classList.add('open');
+    document.body.classList.add('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','false');
+    $('menuToggle').setAttribute('aria-expanded','true');
+  }
+  window.closeDrawer = function() {
+    $('sideDrawer').classList.remove('open');
+    $('drawerBackdrop').classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','true');
+    $('menuToggle').setAttribute('aria-expanded','false');
+  };
+  $('menuToggle').addEventListener('click', openDrawer);
+  $('drawerClose').addEventListener('click', closeDrawer);
+  $('drawerBackdrop').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
+  function normalizedProductName(value) {
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\s\u0640]+/g, ' ');
+  }
+  function downloadJsonFile(data, filename) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function safeBackupFilename(value) {
+    let name = String(value || '').trim();
+    name = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
+    name = name.replace(/\.json$/i, '').trim();
+    if (!name) throw new Error('اكتب اسماً للملف قبل التصدير.');
+    return name.slice(0, 80) + '.json';
+  }
+  $('exportBackupBtn').addEventListener('click', () => {
+    try {
+      const filename = safeBackupFilename($('backupFileName').value);
+      const backup = {
+        format: 'alhloo-nadwa-portable-backup',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        products: products,
+        cart: cart,
+        suppliers: suppliers,
+        supplierCarts: supplierCarts,
+        invoiceArchive: invoiceArchive,
+        activeSupplierId: activeSupplierId,
+        rates: { tryRate, sypRate }
+      };
+      const exportedImages = products.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+      downloadJsonFile(backup, filename);
+      $('backupMessage').textContent = 'تم تصدير ' + products.length + ' منتجاً، منها ' + exportedImages +
+        ' منتجاً يحتوي صورة محفوظة، باسم: ' + filename + ' — ستجده في مجلد التنزيلات.';
+      if (exportedImages < products.length) {
+        $('backupMessage').textContent += ' تنبيه: ' + (products.length - exportedImages) +
+          ' منتجاً لا توجد له صورة محفوظة في بيانات هذا الحساب، لذلك لن تظهر له صورة بعد النقل.';
+      }
+    } catch (error) {
+      $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
+    }
+  });
+  $('importBackupFile').addEventListener('change', async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const uid = cloudUser?.uid || 'guest';
+    const storageKeys = [
+      'nadwa_products_' + uid, 'nadwa_cart_' + uid,
+      'nadwa_suppliers_' + uid, 'nadwa_supplier_carts_' + uid,
+      'nadwa_invoice_archive_' + uid, 'nadwa_active_supplier_' + uid,
+      'nadwa_try','nadwa_syp'
+    ];
+    const storageSnapshot = new Map(storageKeys.map(key => [key, localStorage.getItem(key)]));
+    const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
+    try {
+      if (file.size > 100 * 1024 * 1024) throw new Error('حجم الملف أكبر من 100 ميغابايت.');
+      const backup = JSON.parse(await file.text());
+
+      // استيراد قائمة منتجات فقط: يحافظ على بقية المخازن والفواتير والإعدادات.
+      if (backup.format === 'alhloo-nadwa-product-import' && backup.version === 1) {
+        if (!Array.isArray(backup.products) || !backup.products.length ||
+            backup.products.some(p => !p || typeof p !== 'object' || !String(p.name || '').trim() ||
+              !Number.isFinite(Number(p.price)) || Number(p.price) < 0 ||
+              !Number.isFinite(Number(p.sellTry)) || Number(p.sellTry) < 0 ||
+              !Number.isFinite(Number(p.sellSyp)) || Number(p.sellSyp) < 0)) {
+          throw new Error('ملف المنتجات غير صالح أو يحتوي اسماً أو سعراً ناقصاً.');
+        }
+        const targetName = String(backup.supplierName || '').trim();
+        if (!targetName) throw new Error('اسم المخزن غير موجود في الملف.');
+        let target = suppliers.find(x => String(x.name || '').trim().toLocaleLowerCase('ar') === targetName.toLocaleLowerCase('ar'));
+        if (!target) {
+          target = { id: 'sup-' + Date.now(), name: targetName.slice(0,80) };
+          suppliers.push(target);
+        }
+        if (!supplierCarts[target.id]) supplierCarts[target.id] = {};
+        const existingIds = new Set(products.map(p => String(p.id)));
+        const imported = backup.products.map((p, index) => {
+          let id = 'import-' + Date.now() + '-' + index;
+          while (existingIds.has(String(id))) id += '-x';
+          existingIds.add(String(id));
+          return {
+            id, name: String(p.name).trim(), price: Number(p.price),
+            pieces: Math.max(1, Math.floor(Number(p.pieces) || 1)),
+            sellTry: Number(p.sellTry), sellSyp: Number(p.sellSyp),
+            unitPriceUsd: Number(p.price), unitPriceTry: Number(p.sellTry),
+            unitPriceSyp: Number(p.sellSyp),
+            stock: Math.max(0, Math.floor(Number(p.stock) || 0)), image: p.image || '',
+            supplierId: target.id
+          };
+        });
+        products.push(...imported);
+        activeSupplierId = target.id;
+        cart = supplierCarts[target.id] || (supplierCarts[target.id] = {});
+        saveWorkspaceLocal();
+        renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+        $('backupMessage').textContent = 'تمت إضافة ' + imported.length + ' منتجاً إلى مخزن «' + target.name +
+          '». لم يتم حذف أو استبدال المنتجات الأخرى أو المخازن أو الفواتير.';
+        return;
+      }
+
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 ||
+          !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object' || Array.isArray(backup.cart)) {
+        throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
+      }
+      if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
+        throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
+      }
+      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'general',name:'مخزن عام'}];
+      if (sourceSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
+        throw new Error('قائمة المخازن داخل الملف غير صالحة.');
+      }
+      if (!sourceSuppliers.some(x => String(x.id) === 'general')) sourceSuppliers.unshift({id:'general',name:'مخزن عام'});
+      const supplierIds = new Set(sourceSuppliers.map(x => String(x.id)));
+      const sourceIdMap = new Map();
+      const usedProductIds = new Set();
+      backup.products.forEach((p, index) => {
+        const originalId = String(p.id);
+        let targetId = p.id;
+        if (usedProductIds.has(originalId)) targetId = 'restored-' + Date.now() + '-' + index;
+        usedProductIds.add(String(targetId));
+        sourceIdMap.set(originalId, targetId);
+      });
+      const restoredProducts = backup.products.map((p, index) => ({
+        ...p,
+        id: sourceIdMap.get(String(p.id)),
+        supplierId: supplierIds.has(String(p.supplierId || 'general')) ? (p.supplierId || 'general') : 'general'
+      }));
+
+      const remapCart = sourceCart => {
+        const result = {};
+        if (!sourceCart || typeof sourceCart !== 'object' || Array.isArray(sourceCart)) return result;
+        for (const [oldId, quantity] of Object.entries(sourceCart)) {
+          const mappedId = sourceIdMap.get(String(oldId));
+          const qty = Number(quantity);
+          if (mappedId !== undefined && Number.isSafeInteger(qty) && qty > 0) result[String(mappedId)] = qty;
+        }
+        return result;
+      };
+      const restoredSupplierCarts = {};
+      if (backup.supplierCarts && typeof backup.supplierCarts === 'object' && !Array.isArray(backup.supplierCarts)) {
+        for (const [storeId, sourceCart] of Object.entries(backup.supplierCarts)) {
+          restoredSupplierCarts[String(storeId)] = remapCart(sourceCart);
+        }
+      }
+      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'general'))
+        ? String(backup.activeSupplierId || 'general') : 'general';
+      if (!Object.prototype.hasOwnProperty.call(restoredSupplierCarts, restoredActiveSupplierId)) {
+        restoredSupplierCarts[restoredActiveSupplierId] = remapCart(backup.cart);
+      }
+      const restoredCart = restoredSupplierCarts[restoredActiveSupplierId] || remapCart(backup.cart);
+      const nextTry = Number(backup.rates?.tryRate);
+      const nextSyp = Number(backup.rates?.sypRate);
+      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+
+      const hasExistingData = (Array.isArray(products) && products.length > 0) ||
+        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
+        (Array.isArray(invoiceArchive) && invoiceArchive.length > 0);
+      const warning = 'سيتم نقل نسخة الحساب المصدر كما هي إلى هذا الحساب. ' +
+        (hasExistingData ? 'سيتم استبدال المنتجات والمخازن والفواتير الموجودة حالياً في الحساب المستهدف.' : 'سيتم تحميل المنتجات والمخازن والفواتير من الملف.') +
+        '\\n\\nعدد المنتجات: ' + restoredProducts.length +
+        '\\nعدد المنتجات التي تحتوي صوراً داخل الملف: ' + imageCount +
+        '\\n\\nهل تريد المتابعة؟';
+      if (!window.confirm(warning)) return;
+
+      // استعادة كاملة مطابقة للملف: لا دمج حسب الاسم حتى لا تختفي المنتجات المتكررة بالاسم.
+      products = restoredProducts;
+      suppliers = sourceSuppliers;
+      supplierCarts = restoredSupplierCarts;
+      invoiceArchive = Array.isArray(backup.invoiceArchive) ? backup.invoiceArchive.map(x => ({...x})) : [];
+      activeSupplierId = restoredActiveSupplierId;
+      ensureSupplierData();
+      cart = supplierCarts[activeSupplierId] || restoredCart;
+      if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
+      if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
+
+      saveWorkspaceLocal();
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      $('tryRate').value = tryRate;
+      $('sypRate').value = sypRate;
+      renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+      $('backupMessage').textContent = 'اكتمل نقل نسخة الحساب: تم استيراد ' + products.length +
+        ' منتجاً كما هي، بما فيها المنتجات المتكررة بالاسم، و' + imageCount +
+        ' صورة مضمّنة، مع الأسعار والمخازن والفواتير وأسعار الصرف.';
+      if (imageCount < products.length) {
+        $('backupMessage').textContent += ' تنبيه: بعض المنتجات لا تحتوي صورة داخل ملف المصدر، لذلك لا يمكن استعادتها من هذا الملف.';
+      }
+    } catch (error) {
+      products=previous.products; cart=previous.cart; tryRate=previous.tryRate; sypRate=previous.sypRate;
+      suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
+      for (const [key,value] of storageSnapshot) {
+        try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } catch (_) {}
+      }
+      $('backupMessage').textContent = 'فشل الاستيراد ولم نعتمد البيانات: ' + (error.message || error);
+    } finally {
+      event.target.value = '';
+    }
+  });
+
+  if ("serviceWorker" in navigator && location.protocol === 'https:') {
+    window.addEventListener("load", () => navigator.serviceWorker.register(new URL("./sw.js", document.baseURI).toString()).catch(err => console.warn("Offline cache registration failed", err)));
+  }
+</script>
+</body>
+</html>
+ + Number(line.unitPrice || 0).toFixed(2) + '</td>' +
+        '<td style="padding:9px 5px;border-bottom:1px solid #e7eee9;text-align:left;white-space:nowrap;font-weight:700;">
+    const root=$('invoiceArchiveList'); if(!root)return;
+    const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
+    root.innerHTML='';
+    if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
+    list.forEach(inv=>{
+      const card=document.createElement('div');card.className='invoice-archive-card';
+      const info=document.createElement('div');info.className='info';
+      info.innerHTML='<b>🧾 '+esc(inv.buyerName||'فاتورة بدون اسم مشتري')+'</b><small>'+esc(inv.supplierName)+' · '+new Date(inv.issuedAt).toLocaleString('ar')+' · '+inv.lines.length+' منتج · $'+(+inv.totalUsd).toFixed(2)+'</small><small class="muted">🔒 محفوظة — للعرض والتصدير فقط</small>';
+      const actions=document.createElement('div');actions.className='actions';
+      [['صورة','image'],['PDF / طباعة','pdf'],['نص','text']].forEach(([label,format])=>{const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.addEventListener('click',()=>exportArchivedInvoice(inv.id,format));actions.appendChild(btn);});
+      card.append(info,actions);root.appendChild(card);
+    });
+  }
+  window.exportArchivedInvoice = async function(id,format) {
+    const inv=invoiceArchive.find(x=>x.id===id);if(!inv)return;
+    try {
+      if(format==='image') return await shareInvoiceAsImage(inv);
+      if(format==='pdf') { const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);return; }
+      const txt=invoiceText(inv);
+      if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});
+      else prompt('انسخ نص الفاتورة',txt);
+    } catch(e) { alert(e.message||e); }
+  };
+  async function shareInvoiceAsImage(inv) {
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    const width=1200,rowH=132,top=350;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+250;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#174c3c';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,62);
+    ctx.fillStyle='#222';ctx.font='25px Arial';ctx.textAlign='right';
+    ctx.fillText('المشتري: '+(inv.buyerName||'—'),1130,125);
+    ctx.fillText('المخزن / المورد: '+inv.supplierName,1130,175);
+    ctx.fillText('تاريخ الحفظ: '+new Date(inv.issuedAt).toLocaleString('ar'),1130,225);
+    ctx.font='bold 23px Arial';ctx.fillText('الصورة',1120,310);ctx.fillText('اسم المنتج',970,310);ctx.fillText('الكمية',650,310);ctx.fillText('سعر العبوة',390,310);ctx.fillText('الإجمالي',150,310);
+    for(let i=0;i<inv.lines.length;i++){
+      const x=inv.lines[i],y=top+i*rowH;
+      ctx.fillStyle='#f7faf8';ctx.fillRect(45,y-55,1110,112);
+      ctx.fillStyle='#222';ctx.font='22px Arial';ctx.textAlign='right';
+      ctx.fillText(String(x.name||''),970,y-5,250);
+      ctx.fillText(String(x.quantity),650,y-5);
+      ctx.fillText('$'+(+x.unitPrice).toFixed(2),390,y-5);
+      ctx.fillText('$'+(+x.lineTotal).toFixed(2),150,y-5);
+      if(x.image){
+        try{
+          const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=x.image;});
+          const scale=Math.min(88/im.width,88/im.height);const iw=im.width*scale,ih=im.height*scale;
+          ctx.drawImage(im,1100-iw,y-45+(88-ih)/2,iw,ih);
+        }catch(_){ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('الصورة غير متاحة',1110,y-5);}
+      }else{ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('—',1110,y-5);}
+    }
+    const y=top+inv.lines.length*rowH+55;
+    ctx.fillStyle='#174c3c';ctx.font='bold 29px Arial';ctx.textAlign='right';
+    ctx.fillText('الإجمالي: $'+(+inv.totalUsd).toFixed(2),1130,y);
+    ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',1130,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',1130,y+100);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
+    const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
+    if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
+    else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
+  }
+  $('invoiceSaveBtn').addEventListener('click',()=>{
+    try{
+      if(!String($('invoiceBuyerName').value||'').trim() && !confirm('لم تكتب اسم المشتري. هل تريد حفظ الفاتورة بدون اسم؟')) return;
+      issueCurrentInvoice();
+      alert('تم حفظ الفاتورة بنجاح. أصبحت ضمن الفواتير المحفوظة وغير قابلة للتعديل.');
+      renderInvoiceArchive();
+    }catch(e){alert(e.message||e);}
+  });
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true);await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة الحالية.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  window.saveRates = function() {
+    let t = +$('tryRate').value;
+    let s = +$('sypRate').value;
+    if (t <= 0 || s <= 0) { alert('أدخل أسعار صرف صحيحة'); return; }
+    tryRate = t; sypRate = s;
+    localStorage.setItem('nadwa_try', t); localStorage.setItem('nadwa_syp', s);
+    renderInvoice(); alert('تم حفظ أسعار الصرف');
+  };
+  window.clearCart = function() {
+    if (confirm('تفريغ فاتورة هذا المخزن؟')) {
+      Object.entries(cart).forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});
+      cart={};supplierCarts[activeSupplierId]=cart;save();renderProducts();renderInvoice();
+    }
+  };
+  window.share = function(){ $('invoiceShareBtn').click(); };
+  window.saveRates = function() {
+    const t = Number($('tryRate').value);
+    const s = Number($('sypRate').value);
+    if (!Number.isFinite(t) || !Number.isFinite(s) || t <= 0 || s <= 0) {
+      alert('أدخل أسعار صرف صحيحة');
+      return;
+    }
+    tryRate = t;
+    sypRate = s;
+    localStorage.setItem('nadwa_try', String(t));
+    localStorage.setItem('nadwa_syp', String(s));
+    renderInvoice();
+    if (cloudUser) {
+      syncSettings({ preferCloud: false })
+        .then(() => showCloudMessage('تم حفظ أسعار الصرف محلياً وسحابياً.'))
+        .catch(error => showCloudMessage('حُفظت الأسعار على هذا الجهاز، لكن تعذّر حفظها سحابياً: ' + (error.message || error)));
+    }
+    alert('تم حفظ أسعار الصرف على هذا الجهاز' + (cloudUser ? ' وبدأ حفظها سحابياً.' : '. سجّل الدخول لمزامنتها بين الأجهزة.'));
+  };
+
+  window.clearCart = function() {
+    if (confirm('تفريغ الفاتورة؟')) {
+      Object.entries(cart).forEach(([id, n]) => {
+        let p = products.find(x => x.id === +id);
+        if (p) p.pickCount = Math.max(0, (+(p.pickCount || 0)) - n);
+      });
+      cart = {};
+      save();
+      renderProducts();
+      renderInvoice();
+    }
+  };
+
+  window.share = function() {
+    let a = ['فاتورة بضاعة الندوة'];
+    let sum = 0;
+    Object.entries(cart).forEach(([id, n]) => {
+      let p = products.find(x => x.id === +id);
+      if (!p) return;
+      sum += p.price * n;
+      a.push(p.name + ' × ' + n + ' — $' + (p.price * n).toFixed(2) + ' | ' + fmt(p.price * n * tryRate) + ' ل.ت' + ' | ' + fmt(p.price * n * sypRate) + ' ل.س جديدة');
+    });
+    a.push('المجموع: $' + sum.toFixed(2), 'بالتركي: ' + fmt(sum * tryRate) + ' ل.ت', 'بالسوري: ' + fmt(sum * sypRate) + ' ل.س جديدة');
+    let t = a.join('\n');
+    if (navigator.share) {
+      navigator.share({ title: 'فاتورة بضاعة الندوة', text: t }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(t).then(() => alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(() => prompt('انسخ الفاتورة', t));
+    } else {
+      prompt('انسخ الفاتورة', t);
+    }
+  };
+
+  function showCloudMessage(s) { $('syncMessage').textContent = s; }
+
+  function updateAuthUI() {
+    const on = !!cloudUser;
+    $('authForm').classList.toggle('hidden', on);
+    $('authActions').classList.toggle('hidden', !on);
+    const label = cloudUser?.email || 'زائر هذا الجهاز';
+    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. المنتجات قابلة للمزامنة مع أجهزتك الأخرى.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز فقط.';
+    $('drawerAccountName').textContent = label;
+    $('drawerSignOut').classList.toggle('hidden', !on);
+  }
+
+  function usernameToAuthEmail(raw) {
+    const username = String(raw || '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً، ويحتوي على أحرف إنجليزية أو أرقام أو نقطة أو شرطة فقط.');
+    return { username, email: username + '@accounts.alhloo-login.com' };
+  }
+
+  function showAuthError(action, error) {
+    const code = String(error?.code || error?.name || 'unknown');
+    const message = String(error?.message || 'لا توجد تفاصيل إضافية');
+    const known = {
+      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في خدمة الحسابات.',
+      'auth/invalid-credential': 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود.',
+      'auth/user-not-found': 'لا يوجد حساب بهذا الاسم.',
+      'auth/wrong-password': 'كلمة المرور غير صحيحة.',
+      'auth/email-already-in-use': 'اسم المستخدم مستخدم مسبقاً.',
+      'auth/weak-password': 'كلمة المرور ضعيفة؛ استخدم 6 أحرف على الأقل.',
+      'auth/invalid-email': 'صيغة بيانات الحساب التي أُرسلت إلى Firebase غير مقبولة.',
+      'auth/network-request-failed': 'تعذّر الاتصال بخدمة تسجيل الدخول. تحقق من اتصال الإنترنت.',
+      'auth/too-many-requests': 'تمت محاولات كثيرة؛ انتظر قليلاً ثم أعد المحاولة.',
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'إعداد مفتاح خدمة تسجيل الدخول غير صالح أو مقيّد.'
+    };
+    const explanation = known[code] || (message.includes('Failed to fetch')
+      ? 'المتصفح لم يتمكن من الوصول إلى خدمة Firebase أو تحميلها. هذا غالباً اتصال أو حجب للشبكة، وليس خطأ كلمة المرور.'
+      : message);
+    showCloudMessage('تعذّر ' + action + ': ' + explanation + ' [رمز الخطأ: ' + code + ']');
+    console.error('Firebase Authentication error:', { code, message, error });
+  }
+
+  async function doSignUp() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (password.length < 6) {
+      showCloudMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ إنشاء الحساب...');
+    try {
+      await createUserWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم إنشاء الحساب بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('إنشاء الحساب', error);
+    }
+  }
+
+  async function doSignIn() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (!password) {
+      showCloudMessage('أدخل اسم المستخدم وكلمة المرور.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ تسجيل الدخول...');
+    try {
+      await signInWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم تسجيل الدخول بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('تسجيل الدخول', error);
+    }
+  }
+
+  async function doSignOut() {
+    // احفظ بيانات الحساب في مساحته الخاصة قبل إنهاء الجلسة.
+    saveWorkspaceLocal();
+    if (cloudTimer) clearTimeout(cloudTimer);
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    await signOut(auth);
+    // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
+    showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
+  }
+
+  async function apiRequest(path, options = {}) {
+    if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
+    const token = await cloudUser.getIdToken();
+    const uid = encodeURIComponent(cloudUser.uid);
+    const method = String(options.method || "GET").toUpperCase();
+    const cleanPath = String(path || "").split("?")[0].replace(/^\/+|\/+$/g, "");
+    const parts = cleanPath.split("/");
+    const resource = parts[0];
+    const basePath = RTDB_BASE + "/users/" + uid;
+    async function requestRtdb(target, httpMethod, body) {
+      const url = target + ".json?auth=" + encodeURIComponent(token);
+      const response = await fetch(url, {
+        method: httpMethod,
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store"
+      });
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok) {
+        const detail = data && data.error ? data.error : ("HTTP " + response.status);
+        throw new Error("Firebase Realtime Database: " + detail);
+      }
+      return data;
+    }
+
+    if (resource === "products") {
+      const target = basePath + "/products";
+      const query = new URLSearchParams(String(path).split("?")[1] || "");
+      if (method === "GET") {
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) :
+          (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        const skip = Math.max(0, Number(query.get("skip")) || 0);
+        const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
+        return { ok: true, products: rows.slice(skip, skip + limit) };
+      }
+      if (method === "POST") {
+        const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
+        if (incoming.length > 5000) throw new Error("عدد المنتجات المرسلة أكبر من الحد المسموح.");
+        // Realtime Database يخزّن بيانات المنتج والصورة المضغوطة ضمن سجل الحساب نفسه.
+        await requestRtdb(target, "PUT", incoming);
+        return { ok: true, saved: incoming.length };
+      }
+    }
+
+    if (resource === "cart") {
+      const target = basePath + "/cart";
+      if (method === "GET") return { ok: true, ...(await requestRtdb(target, "GET") || { items: {} }) };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || { items: {} });
+        return { ok: true };
+      }
+    }
+
+    if (resource === "settings") {
+      const target = basePath + "/settings";
+      if (method === "GET") return { ok: true, settings: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body && options.body.settings ? options.body.settings : {});
+        return { ok: true };
+      }
+    }
+
+    if (resource === "workspace") {
+      const target = basePath + "/workspace";
+      if (method === "GET") return { ok: true, workspace: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || {});
+        return { ok: true };
+      }
+    }
+    throw new Error("طلب مزامنة غير مدعوم: " + cleanPath);
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+    if (!match) throw new Error('صيغة صورة المنتج غير صالحة.');
+    const mime = match[1] || 'image/jpeg';
+    const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function prepareImageForCloud(sourceBlob) {
+    const maxBytes = 300 * 1024;
+    if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp)$/i.test(sourceBlob.type)) return sourceBlob;
+    if (!('createImageBitmap' in window)) {
+      if (sourceBlob.size <= maxBytes) return sourceBlob;
+      throw new Error('تعذر ضغط الصورة على هذا المتصفح. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    }
+    const bitmap = await createImageBitmap(sourceBlob);
+    try {
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d', { alpha: false });
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+        const compressed = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (compressed && compressed.size <= maxBytes) return compressed;
+      }
+      throw new Error('حجم الصورة أكبر من الحد الآمن للمزامنة. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    } finally { bitmap.close?.(); }
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('تعذرت قراءة الصورة بعد ضغطها.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function ensureProductImageInStorage(product) {
+    if (!product || !product.image || !/^data:image\//i.test(String(product.image))) return product;
+    const original = String(product.image);
+    const blob = await prepareImageForCloud(dataUrlToBlob(original));
+    if (blob.size < dataUrlToBlob(original).size) {
+      if (!product.imageLocal) product.imageLocal = original;
+      product.image = await blobToDataUrl(blob);
+    }
+    return product;
+  }
+
+  async function syncProductsToCloud() {
+    if (!cloudUser || syncingCloud) return;
+    syncingCloud = true;
+    try {
+      showCloudMessage('جارٍ جلب المنتجات من Firebase Realtime Database...');
+      const remote = [];
+      const pageSize = 500;
+      for (let skip = 0; ; skip += pageSize) {
+        const page = await apiRequest('/products?skip=' + skip + '&limit=' + pageSize);
+        const rows = Array.isArray(page.products) ? page.products : [];
+        remote.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      const remoteById = new Map(remote.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      // إزالة التكرار بالاسم بعد توحيد المسافات والحروف؛ المحلي له الأولوية لأنه يمثل آخر تعديل على هذا الجهاز.
+      const uniqueByName = new Map();
+      const addUnique = (item, isLocal) => {
+        if (!item || typeof item !== 'object' || !String(item.name || '').trim()) return;
+        const key = normalizedProductName(item.name);
+        const previous = uniqueByName.get(key);
+        if (!previous) {
+          uniqueByName.set(key, { ...item, __localPriority: !!isLocal });
+          return;
+        }
+        const previousTime = Number(previous.updatedAt) || 0;
+        const itemTime = Number(item.updatedAt) || 0;
+        const itemIsNewer = itemTime > previousTime || (itemTime === previousTime && isLocal && !previous.__localPriority);
+        const keep = itemIsNewer
+          ? { ...previous, ...item, __localPriority: !!isLocal }
+          : { ...item, ...previous, __localPriority: !!previous.__localPriority };
+        // لا نفقد صورة موجودة في أي نسخة من المنتج.
+        if ((!keep.image || /^data:image\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
+        if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
+        uniqueByName.set(key, keep);
+      };
+      for (const item of remote) addUnique(item, false);
+      for (const item of products) {
+        const previous = remoteById.get(String(item.id)) || {};
+        const localTime = Number(item.updatedAt) || 0;
+        const remoteTime = Number(previous.updatedAt) || 0;
+        const localIsNewer = localTime >= remoteTime;
+        const next = localIsNewer
+          ? { ...previous, ...item, id: item.id }
+          : { ...item, ...previous, id: item.id };
+        if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
+          next.image = item.image && item.image === previous.image ? item.image : previous.image;
+          if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
+        }
+        addUnique(next, true);
+      }
+      products = Array.from(uniqueByName.values()).map(({ __localPriority, ...item }) => item);
+      let saved = 0;
+      const batchSize = Math.max(1, products.length);
+      for (let offset = 0; offset < products.length; offset += batchSize) {
+        const batch = products.slice(offset, offset + batchSize);
+        for (let i = 0; i < batch.length; i++) {
+          const product = batch[i];
+          if (product.image && /^data:image\//i.test(String(product.image)) || product.imagePath) {
+            showCloudMessage('جارٍ ضغط صور المنتجات وتجهيزها للمزامنة: ' + (offset + i + 1) + ' من ' + products.length);
+            await ensureProductImageInStorage(product);
+          }
+        }
+        const payload = batch.map(p => {
+          const { imageLocal, ...cloudProduct } = p;
+          return { ...cloudProduct, id: String(p.id) };
+        });
+        const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
+        saved += Number(result.saved || payload.length);
+        showCloudMessage('جارٍ مزامنة المنتجات والصور: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+      }
+      saveLocalOnly();
+      renderProducts();
+      renderInvoice();
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً وصورة عبر Firebase Realtime Database.');
+    } finally { syncingCloud = false; }
+  }
+
+  function saveLocalOnly() { saveWorkspaceLocal(); }
+
+  async function syncCartToCloud() {
+    if (!cloudUser) return;
+    const items = {};
+    for (const [id, quantity] of Object.entries(cart)) {
+      const product = products.find(p => String(p.id) === String(id));
+      if (product && +quantity > 0) items[String(product.id)] = +quantity;
+    }
+    await apiRequest('/cart', { method: 'PUT', body: { items } });
+    showCloudMessage('تمت مزامنة الفاتورة مع قاعدة البيانات الجديدة.');
+  }
+
+  async function loadCartFromCloud() {
+    if (!cloudUser) return;
+    const data = await apiRequest('/cart');
+    const savedItems = data.items || {};
+    const restored = {};
+    for (const [id, quantity] of Object.entries(savedItems)) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = +quantity;
+    }
+    for (const [id, quantity] of Object.entries(cart || {})) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
+    }
+    cart = restored;
+    saveLocalOnly();
+    renderProducts();
+    renderInvoice();
+    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من Firebase.');
+    else if (Object.keys(cart).length) await syncCartToCloud();
+  }
+
+  async function syncSettings(options = {}) {
+    if (!cloudUser) return;
+    const preferCloud = options.preferCloud !== false;
+    const data = await apiRequest('/settings');
+    const remote = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
+
+    if (preferCloud && remote) {
+      const remoteTry = Number(remote.tryRate);
+      const remoteSyp = Number(remote.sypRate);
+      if (Number.isFinite(remoteTry) && remoteTry > 0) tryRate = remoteTry;
+      if (Number.isFinite(remoteSyp) && remoteSyp > 0) sypRate = remoteSyp;
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      if ($('tryRate')) $('tryRate').value = String(tryRate);
+      if ($('sypRate')) $('sypRate').value = String(sypRate);
+      renderInvoice();
+      return;
+    }
+
+    await apiRequest('/settings', {
+      method: 'PUT',
+      body: { settings: { tryRate, sypRate } }
+    });
+  }
+
+  function mergeRecordsById(remoteRows, localRows) {
+    const merged = new Map();
+    for (const row of Array.isArray(remoteRows) ? remoteRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    for (const row of Array.isArray(localRows) ? localRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    return Array.from(merged.values());
+  }
+
+  async function syncWorkspaceToCloud() {
+    if (!cloudUser) return;
+    const remoteResult = await apiRequest('/workspace');
+    const remote = remoteResult.workspace && typeof remoteResult.workspace === 'object' ? remoteResult.workspace : {};
+    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers);
+    const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
+    const mergedCarts = {};
+    const storeIds = new Set([
+      ...Object.keys(remote.supplierCarts || {}),
+      ...Object.keys(supplierCarts || {})
+    ]);
+    for (const storeId of storeIds) {
+      const remoteCart = remote.supplierCarts?.[storeId] || {};
+      const localCart = supplierCarts?.[storeId] || {};
+      mergedCarts[storeId] = { ...remoteCart, ...localCart };
+    }
+    if (!mergedCarts.general) mergedCarts.general = {};
+    const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
+    let nextActive = validSupplierIds.has(String(activeSupplierId))
+      ? String(activeSupplierId)
+      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'general');
+    suppliers = mergedSuppliers;
+    supplierCarts = mergedCarts;
+    invoiceArchive = mergedInvoices;
+    activeSupplierId = nextActive;
+    ensureSupplierData();
+    await apiRequest('/workspace', {
+      method: 'PUT',
+      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId }
+    });
+    saveLocalOnly();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+  }
+
+  async function syncCloudSafely() {
+    if (!cloudUser || fullSyncRunning) return;
+    if (navigator.onLine === false) {
+      showCloudMessage('الجهاز غير متصل بالإنترنت. بياناتك محفوظة محلياً وستتم إعادة المحاولة عند عودة الاتصال.');
+      return;
+    }
+    fullSyncRunning = true;
+    try {
+      showCloudMessage('جارٍ الاتصال بالخدمات السحابية...');
+      await syncProductsToCloud();
+      await syncWorkspaceToCloud();
+      await loadCartFromCloud();
+      await syncSettings();
+      showCloudMessage('اكتملت المزامنة بنجاح مع Firebase (المنتجات والصور والفواتير والإعدادات).');
+    } catch (e) {
+      const message = String(e?.message || 'خطأ غير معروف');
+      showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
+      console.error('Firebase synchronization failed:', e);
+    } finally { fullSyncRunning = false; }
+  }
+
+  // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
+  function mergeGuestProductsIntoAccount(uid) {
+    if (!uid) return 0;
+    // لا نحذف مساحة الزائر: ننسخ منتجاتها إلى الحساب مع الاحتفاظ بالصور والحقول الأصلية.
+    let guestProducts = [];
+    let guestCart = {};
+    try { guestProducts = JSON.parse(localStorage.getItem('nadwa_products_guest') || '[]'); } catch (_) {}
+    try { guestCart = JSON.parse(localStorage.getItem('nadwa_cart_guest') || '{}'); } catch (_) {}
+    if (!Array.isArray(guestProducts) || !guestProducts.length) return 0;
+    const knownIds = new Set(products.map(p => String(p.id)));
+    const idMap = new Map();
+    let merged = 0;
+    for (const item of guestProducts) {
+      if (!item || typeof item !== 'object') continue;
+      let copy = { ...item };
+      let nextId = String(copy.id);
+      if (knownIds.has(nextId)) {
+        // عند تعارض معرّف بين مساحة الزائر والحساب، نولّد معرّفاً جديداً دون إسقاط المنتج.
+        let candidate = Date.now() + merged;
+        while (knownIds.has(String(candidate))) candidate++;
+        idMap.set(nextId, String(candidate));
+        copy.id = candidate;
+        nextId = String(candidate);
+      }
+      knownIds.add(nextId);
+      products.push(copy);
+      merged++;
+    }
+    for (const [oldId, quantity] of Object.entries(guestCart || {})) {
+      const mappedId = idMap.get(String(oldId)) || String(oldId);
+      if (products.some(p => String(p.id) === mappedId) && +quantity > 0) {
+        cart[mappedId] = Math.max(+cart[mappedId] || 0, +quantity || 0);
+      }
+    }
+    if (merged) saveWorkspaceLocal();
+    return merged;
+  }
+
+  async function runCloudSyncFromButton() {
+    const button = $('syncCloudBtn');
+    if (!cloudUser) {
+      showCloudMessage('سجّل الدخول أولاً بنفس الحساب المستخدم على الجهاز الآخر.');
+      return;
+    }
+    if (fullSyncRunning) return;
+    button.disabled = true;
+    const previousLabel = button.textContent;
+    button.textContent = '⏳ جارٍ المزامنة...';
+    try {
+      await syncCloudSafely();
+    } finally {
+      button.disabled = false;
+      button.textContent = previousLabel;
+    }
+  }
+
+  onAuthStateChanged(auth, user => {
+    cloudUser = user || null;
+    loadWorkspace(cloudUser?.uid || null);
+    if (cloudUser) {
+      const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
+      if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+    }
+    loadUiSettings();
+    refreshGeminiKeyUI();
+    updateAuthUI();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+    if (cloudUser) {
+      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
+      window.setTimeout(() => syncCloudSafely(), 500);
+    }
+  });
+  $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
+  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
+  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
+  $('drawerSignOut').addEventListener('click', () => {
+    if (cloudUser && confirm('تسجيل الخروج؟ ستبقى بيانات الحساب محفوظة على هذا الجهاز.')) doSignOut().then(closeDrawer).catch(e => showCloudMessage(e.message));
+  });
+
+  function openDrawer() {
+    $('sideDrawer').classList.add('open');
+    $('drawerBackdrop').classList.add('open');
+    document.body.classList.add('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','false');
+    $('menuToggle').setAttribute('aria-expanded','true');
+  }
+  window.closeDrawer = function() {
+    $('sideDrawer').classList.remove('open');
+    $('drawerBackdrop').classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','true');
+    $('menuToggle').setAttribute('aria-expanded','false');
+  };
+  $('menuToggle').addEventListener('click', openDrawer);
+  $('drawerClose').addEventListener('click', closeDrawer);
+  $('drawerBackdrop').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
+  function normalizedProductName(value) {
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\s\u0640]+/g, ' ');
+  }
+  function downloadJsonFile(data, filename) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function safeBackupFilename(value) {
+    let name = String(value || '').trim();
+    name = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
+    name = name.replace(/\.json$/i, '').trim();
+    if (!name) throw new Error('اكتب اسماً للملف قبل التصدير.');
+    return name.slice(0, 80) + '.json';
+  }
+  $('exportBackupBtn').addEventListener('click', () => {
+    try {
+      const filename = safeBackupFilename($('backupFileName').value);
+      const backup = {
+        format: 'alhloo-nadwa-portable-backup',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        products: products,
+        cart: cart,
+        suppliers: suppliers,
+        supplierCarts: supplierCarts,
+        invoiceArchive: invoiceArchive,
+        activeSupplierId: activeSupplierId,
+        rates: { tryRate, sypRate }
+      };
+      const exportedImages = products.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+      downloadJsonFile(backup, filename);
+      $('backupMessage').textContent = 'تم تصدير ' + products.length + ' منتجاً، منها ' + exportedImages +
+        ' منتجاً يحتوي صورة محفوظة، باسم: ' + filename + ' — ستجده في مجلد التنزيلات.';
+      if (exportedImages < products.length) {
+        $('backupMessage').textContent += ' تنبيه: ' + (products.length - exportedImages) +
+          ' منتجاً لا توجد له صورة محفوظة في بيانات هذا الحساب، لذلك لن تظهر له صورة بعد النقل.';
+      }
+    } catch (error) {
+      $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
+    }
+  });
+  $('importBackupFile').addEventListener('change', async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const uid = cloudUser?.uid || 'guest';
+    const storageKeys = [
+      'nadwa_products_' + uid, 'nadwa_cart_' + uid,
+      'nadwa_suppliers_' + uid, 'nadwa_supplier_carts_' + uid,
+      'nadwa_invoice_archive_' + uid, 'nadwa_active_supplier_' + uid,
+      'nadwa_try','nadwa_syp'
+    ];
+    const storageSnapshot = new Map(storageKeys.map(key => [key, localStorage.getItem(key)]));
+    const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
+    try {
+      if (file.size > 100 * 1024 * 1024) throw new Error('حجم الملف أكبر من 100 ميغابايت.');
+      const backup = JSON.parse(await file.text());
+
+      // استيراد قائمة منتجات فقط: يحافظ على بقية المخازن والفواتير والإعدادات.
+      if (backup.format === 'alhloo-nadwa-product-import' && backup.version === 1) {
+        if (!Array.isArray(backup.products) || !backup.products.length ||
+            backup.products.some(p => !p || typeof p !== 'object' || !String(p.name || '').trim() ||
+              !Number.isFinite(Number(p.price)) || Number(p.price) < 0 ||
+              !Number.isFinite(Number(p.sellTry)) || Number(p.sellTry) < 0 ||
+              !Number.isFinite(Number(p.sellSyp)) || Number(p.sellSyp) < 0)) {
+          throw new Error('ملف المنتجات غير صالح أو يحتوي اسماً أو سعراً ناقصاً.');
+        }
+        const targetName = String(backup.supplierName || '').trim();
+        if (!targetName) throw new Error('اسم المخزن غير موجود في الملف.');
+        let target = suppliers.find(x => String(x.name || '').trim().toLocaleLowerCase('ar') === targetName.toLocaleLowerCase('ar'));
+        if (!target) {
+          target = { id: 'sup-' + Date.now(), name: targetName.slice(0,80) };
+          suppliers.push(target);
+        }
+        if (!supplierCarts[target.id]) supplierCarts[target.id] = {};
+        const existingIds = new Set(products.map(p => String(p.id)));
+        const imported = backup.products.map((p, index) => {
+          let id = 'import-' + Date.now() + '-' + index;
+          while (existingIds.has(String(id))) id += '-x';
+          existingIds.add(String(id));
+          return {
+            id, name: String(p.name).trim(), price: Number(p.price),
+            pieces: Math.max(1, Math.floor(Number(p.pieces) || 1)),
+            sellTry: Number(p.sellTry), sellSyp: Number(p.sellSyp),
+            unitPriceUsd: Number(p.price), unitPriceTry: Number(p.sellTry),
+            unitPriceSyp: Number(p.sellSyp),
+            stock: Math.max(0, Math.floor(Number(p.stock) || 0)), image: p.image || '',
+            supplierId: target.id
+          };
+        });
+        products.push(...imported);
+        activeSupplierId = target.id;
+        cart = supplierCarts[target.id] || (supplierCarts[target.id] = {});
+        saveWorkspaceLocal();
+        renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+        $('backupMessage').textContent = 'تمت إضافة ' + imported.length + ' منتجاً إلى مخزن «' + target.name +
+          '». لم يتم حذف أو استبدال المنتجات الأخرى أو المخازن أو الفواتير.';
+        return;
+      }
+
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 ||
+          !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object' || Array.isArray(backup.cart)) {
+        throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
+      }
+      if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
+        throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
+      }
+      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'general',name:'مخزن عام'}];
+      if (sourceSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
+        throw new Error('قائمة المخازن داخل الملف غير صالحة.');
+      }
+      if (!sourceSuppliers.some(x => String(x.id) === 'general')) sourceSuppliers.unshift({id:'general',name:'مخزن عام'});
+      const supplierIds = new Set(sourceSuppliers.map(x => String(x.id)));
+      const sourceIdMap = new Map();
+      const usedProductIds = new Set();
+      backup.products.forEach((p, index) => {
+        const originalId = String(p.id);
+        let targetId = p.id;
+        if (usedProductIds.has(originalId)) targetId = 'restored-' + Date.now() + '-' + index;
+        usedProductIds.add(String(targetId));
+        sourceIdMap.set(originalId, targetId);
+      });
+      const restoredProducts = backup.products.map((p, index) => ({
+        ...p,
+        id: sourceIdMap.get(String(p.id)),
+        supplierId: supplierIds.has(String(p.supplierId || 'general')) ? (p.supplierId || 'general') : 'general'
+      }));
+
+      const remapCart = sourceCart => {
+        const result = {};
+        if (!sourceCart || typeof sourceCart !== 'object' || Array.isArray(sourceCart)) return result;
+        for (const [oldId, quantity] of Object.entries(sourceCart)) {
+          const mappedId = sourceIdMap.get(String(oldId));
+          const qty = Number(quantity);
+          if (mappedId !== undefined && Number.isSafeInteger(qty) && qty > 0) result[String(mappedId)] = qty;
+        }
+        return result;
+      };
+      const restoredSupplierCarts = {};
+      if (backup.supplierCarts && typeof backup.supplierCarts === 'object' && !Array.isArray(backup.supplierCarts)) {
+        for (const [storeId, sourceCart] of Object.entries(backup.supplierCarts)) {
+          restoredSupplierCarts[String(storeId)] = remapCart(sourceCart);
+        }
+      }
+      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'general'))
+        ? String(backup.activeSupplierId || 'general') : 'general';
+      if (!Object.prototype.hasOwnProperty.call(restoredSupplierCarts, restoredActiveSupplierId)) {
+        restoredSupplierCarts[restoredActiveSupplierId] = remapCart(backup.cart);
+      }
+      const restoredCart = restoredSupplierCarts[restoredActiveSupplierId] || remapCart(backup.cart);
+      const nextTry = Number(backup.rates?.tryRate);
+      const nextSyp = Number(backup.rates?.sypRate);
+      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+
+      const hasExistingData = (Array.isArray(products) && products.length > 0) ||
+        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
+        (Array.isArray(invoiceArchive) && invoiceArchive.length > 0);
+      const warning = 'سيتم نقل نسخة الحساب المصدر كما هي إلى هذا الحساب. ' +
+        (hasExistingData ? 'سيتم استبدال المنتجات والمخازن والفواتير الموجودة حالياً في الحساب المستهدف.' : 'سيتم تحميل المنتجات والمخازن والفواتير من الملف.') +
+        '\\n\\nعدد المنتجات: ' + restoredProducts.length +
+        '\\nعدد المنتجات التي تحتوي صوراً داخل الملف: ' + imageCount +
+        '\\n\\nهل تريد المتابعة؟';
+      if (!window.confirm(warning)) return;
+
+      // استعادة كاملة مطابقة للملف: لا دمج حسب الاسم حتى لا تختفي المنتجات المتكررة بالاسم.
+      products = restoredProducts;
+      suppliers = sourceSuppliers;
+      supplierCarts = restoredSupplierCarts;
+      invoiceArchive = Array.isArray(backup.invoiceArchive) ? backup.invoiceArchive.map(x => ({...x})) : [];
+      activeSupplierId = restoredActiveSupplierId;
+      ensureSupplierData();
+      cart = supplierCarts[activeSupplierId] || restoredCart;
+      if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
+      if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
+
+      saveWorkspaceLocal();
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      $('tryRate').value = tryRate;
+      $('sypRate').value = sypRate;
+      renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+      $('backupMessage').textContent = 'اكتمل نقل نسخة الحساب: تم استيراد ' + products.length +
+        ' منتجاً كما هي، بما فيها المنتجات المتكررة بالاسم، و' + imageCount +
+        ' صورة مضمّنة، مع الأسعار والمخازن والفواتير وأسعار الصرف.';
+      if (imageCount < products.length) {
+        $('backupMessage').textContent += ' تنبيه: بعض المنتجات لا تحتوي صورة داخل ملف المصدر، لذلك لا يمكن استعادتها من هذا الملف.';
+      }
+    } catch (error) {
+      products=previous.products; cart=previous.cart; tryRate=previous.tryRate; sypRate=previous.sypRate;
+      suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
+      for (const [key,value] of storageSnapshot) {
+        try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } catch (_) {}
+      }
+      $('backupMessage').textContent = 'فشل الاستيراد ولم نعتمد البيانات: ' + (error.message || error);
+    } finally {
+      event.target.value = '';
+    }
+  });
+
+  if ("serviceWorker" in navigator && location.protocol === 'https:') {
+    window.addEventListener("load", () => navigator.serviceWorker.register(new URL("./sw.js", document.baseURI).toString()).catch(err => console.warn("Offline cache registration failed", err)));
+  }
+</script>
+</body>
+</html>
+ + Number(line.lineTotal || 0).toFixed(2) + '</td></tr>';
+    }).join('');
+    modal.innerHTML = '<div role="dialog" aria-modal="true" aria-label="ملاحظة الفاتورة المحفوظة" style="width:min(100%,760px);max-height:90dvh;overflow:auto;background:#fff;border-radius:18px;padding:16px;box-shadow:0 18px 60px #0005;color:#203c30;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #e5ece7;padding-bottom:12px;margin-bottom:12px;"><div><h2 style="margin:0;font-size:20px;">📝 ملاحظة فاتورة محفوظة</h2><small style="color:#718078;">سجل للعرض فقط — غير قابل للتعديل</small></div><button type="button" id="closeArchivedInvoiceNote" style="background:#edf3ef;">إغلاق ✕</button></div>' +
+      '<div style="background:#f6faf7;border:1px solid #e3ece5;border-radius:12px;padding:12px;line-height:1.9;margin-bottom:12px;">' +
+      '<div><b>المشتري:</b> ' + esc(inv.buyerName || 'بدون اسم') + '</div><div><b>المخزن / المورد:</b> ' + esc(inv.supplierName || '—') + '</div>' +
+      '<div><b>تاريخ الحفظ:</b> ' + esc(new Date(inv.issuedAt).toLocaleString('ar')) + '</div></div>' +
+      '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:530px;"><thead><tr style="background:#edf5ef;"><th style="padding:9px 4px;">#</th><th>الصورة</th><th style="text-align:right;">اسم المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div style="background:#edf6f0;border-radius:12px;padding:12px;margin-top:14px;line-height:2;font-weight:700;">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;"><span>الإجمالي بالدولار</span><span>
+    const root=$('invoiceArchiveList'); if(!root)return;
+    const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
+    root.innerHTML='';
+    if(!list.length){root.textContent='لا توجد فواتير محفوظة لهذا المخزن حتى الآن.';return;}
+    list.forEach(inv=>{
+      const card=document.createElement('div');card.className='invoice-archive-card';
+      const info=document.createElement('div');info.className='info';
+      info.innerHTML='<b>🧾 '+esc(inv.buyerName||'فاتورة بدون اسم مشتري')+'</b><small>'+esc(inv.supplierName)+' · '+new Date(inv.issuedAt).toLocaleString('ar')+' · '+inv.lines.length+' منتج · $'+(+inv.totalUsd).toFixed(2)+'</small><small class="muted">🔒 محفوظة — للعرض والتصدير فقط</small>';
+      const actions=document.createElement('div');actions.className='actions';
+      [['صورة','image'],['PDF / طباعة','pdf'],['نص','text']].forEach(([label,format])=>{const btn=document.createElement('button');btn.type='button';btn.textContent=label;btn.addEventListener('click',()=>exportArchivedInvoice(inv.id,format));actions.appendChild(btn);});
+      card.append(info,actions);root.appendChild(card);
+    });
+  }
+  window.exportArchivedInvoice = async function(id,format) {
+    const inv=invoiceArchive.find(x=>x.id===id);if(!inv)return;
+    try {
+      if(format==='image') return await shareInvoiceAsImage(inv);
+      if(format==='pdf') { const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);return; }
+      const txt=invoiceText(inv);
+      if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});
+      else prompt('انسخ نص الفاتورة',txt);
+    } catch(e) { alert(e.message||e); }
+  };
+  async function shareInvoiceAsImage(inv) {
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    const width=1200,rowH=132,top=350;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+250;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#174c3c';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,62);
+    ctx.fillStyle='#222';ctx.font='25px Arial';ctx.textAlign='right';
+    ctx.fillText('المشتري: '+(inv.buyerName||'—'),1130,125);
+    ctx.fillText('المخزن / المورد: '+inv.supplierName,1130,175);
+    ctx.fillText('تاريخ الحفظ: '+new Date(inv.issuedAt).toLocaleString('ar'),1130,225);
+    ctx.font='bold 23px Arial';ctx.fillText('الصورة',1120,310);ctx.fillText('اسم المنتج',970,310);ctx.fillText('الكمية',650,310);ctx.fillText('سعر العبوة',390,310);ctx.fillText('الإجمالي',150,310);
+    for(let i=0;i<inv.lines.length;i++){
+      const x=inv.lines[i],y=top+i*rowH;
+      ctx.fillStyle='#f7faf8';ctx.fillRect(45,y-55,1110,112);
+      ctx.fillStyle='#222';ctx.font='22px Arial';ctx.textAlign='right';
+      ctx.fillText(String(x.name||''),970,y-5,250);
+      ctx.fillText(String(x.quantity),650,y-5);
+      ctx.fillText('$'+(+x.unitPrice).toFixed(2),390,y-5);
+      ctx.fillText('$'+(+x.lineTotal).toFixed(2),150,y-5);
+      if(x.image){
+        try{
+          const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=x.image;});
+          const scale=Math.min(88/im.width,88/im.height);const iw=im.width*scale,ih=im.height*scale;
+          ctx.drawImage(im,1100-iw,y-45+(88-ih)/2,iw,ih);
+        }catch(_){ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('الصورة غير متاحة',1110,y-5);}
+      }else{ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('—',1110,y-5);}
+    }
+    const y=top+inv.lines.length*rowH+55;
+    ctx.fillStyle='#174c3c';ctx.font='bold 29px Arial';ctx.textAlign='right';
+    ctx.fillText('الإجمالي: $'+(+inv.totalUsd).toFixed(2),1130,y);
+    ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',1130,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',1130,y+100);
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
+    const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
+    if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
+    else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
+  }
+  $('invoiceSaveBtn').addEventListener('click',()=>{
+    try{
+      if(!String($('invoiceBuyerName').value||'').trim() && !confirm('لم تكتب اسم المشتري. هل تريد حفظ الفاتورة بدون اسم؟')) return;
+      issueCurrentInvoice();
+      alert('تم حفظ الفاتورة بنجاح. أصبحت ضمن الفواتير المحفوظة وغير قابلة للتعديل.');
+      renderInvoiceArchive();
+    }catch(e){alert(e.message||e);}
+  });
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true);await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة الحالية.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  window.saveRates = function() {
+    let t = +$('tryRate').value;
+    let s = +$('sypRate').value;
+    if (t <= 0 || s <= 0) { alert('أدخل أسعار صرف صحيحة'); return; }
+    tryRate = t; sypRate = s;
+    localStorage.setItem('nadwa_try', t); localStorage.setItem('nadwa_syp', s);
+    renderInvoice(); alert('تم حفظ أسعار الصرف');
+  };
+  window.clearCart = function() {
+    if (confirm('تفريغ فاتورة هذا المخزن؟')) {
+      Object.entries(cart).forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});
+      cart={};supplierCarts[activeSupplierId]=cart;save();renderProducts();renderInvoice();
+    }
+  };
+  window.share = function(){ $('invoiceShareBtn').click(); };
+  window.saveRates = function() {
+    const t = Number($('tryRate').value);
+    const s = Number($('sypRate').value);
+    if (!Number.isFinite(t) || !Number.isFinite(s) || t <= 0 || s <= 0) {
+      alert('أدخل أسعار صرف صحيحة');
+      return;
+    }
+    tryRate = t;
+    sypRate = s;
+    localStorage.setItem('nadwa_try', String(t));
+    localStorage.setItem('nadwa_syp', String(s));
+    renderInvoice();
+    if (cloudUser) {
+      syncSettings({ preferCloud: false })
+        .then(() => showCloudMessage('تم حفظ أسعار الصرف محلياً وسحابياً.'))
+        .catch(error => showCloudMessage('حُفظت الأسعار على هذا الجهاز، لكن تعذّر حفظها سحابياً: ' + (error.message || error)));
+    }
+    alert('تم حفظ أسعار الصرف على هذا الجهاز' + (cloudUser ? ' وبدأ حفظها سحابياً.' : '. سجّل الدخول لمزامنتها بين الأجهزة.'));
+  };
+
+  window.clearCart = function() {
+    if (confirm('تفريغ الفاتورة؟')) {
+      Object.entries(cart).forEach(([id, n]) => {
+        let p = products.find(x => x.id === +id);
+        if (p) p.pickCount = Math.max(0, (+(p.pickCount || 0)) - n);
+      });
+      cart = {};
+      save();
+      renderProducts();
+      renderInvoice();
+    }
+  };
+
+  window.share = function() {
+    let a = ['فاتورة بضاعة الندوة'];
+    let sum = 0;
+    Object.entries(cart).forEach(([id, n]) => {
+      let p = products.find(x => x.id === +id);
+      if (!p) return;
+      sum += p.price * n;
+      a.push(p.name + ' × ' + n + ' — $' + (p.price * n).toFixed(2) + ' | ' + fmt(p.price * n * tryRate) + ' ل.ت' + ' | ' + fmt(p.price * n * sypRate) + ' ل.س جديدة');
+    });
+    a.push('المجموع: $' + sum.toFixed(2), 'بالتركي: ' + fmt(sum * tryRate) + ' ل.ت', 'بالسوري: ' + fmt(sum * sypRate) + ' ل.س جديدة');
+    let t = a.join('\n');
+    if (navigator.share) {
+      navigator.share({ title: 'فاتورة بضاعة الندوة', text: t }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(t).then(() => alert('تم نسخ الفاتورة، الصقها بواتساب')).catch(() => prompt('انسخ الفاتورة', t));
+    } else {
+      prompt('انسخ الفاتورة', t);
+    }
+  };
+
+  function showCloudMessage(s) { $('syncMessage').textContent = s; }
+
+  function updateAuthUI() {
+    const on = !!cloudUser;
+    $('authForm').classList.toggle('hidden', on);
+    $('authActions').classList.toggle('hidden', !on);
+    const label = cloudUser?.email || 'زائر هذا الجهاز';
+    $('authStatus').textContent = on ? 'الحساب المسجّل حالياً: ' + label + '. المنتجات قابلة للمزامنة مع أجهزتك الأخرى.' : 'لا يوجد حساب مسجّل. تعمل الآن كزائر، والبيانات محفوظة على هذا الجهاز فقط.';
+    $('drawerAccountName').textContent = label;
+    $('drawerSignOut').classList.toggle('hidden', !on);
+  }
+
+  function usernameToAuthEmail(raw) {
+    const username = String(raw || '').trim().toLowerCase();
+    if (!/^[a-z0-9._-]{3,24}$/.test(username)) throw new Error('اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً، ويحتوي على أحرف إنجليزية أو أرقام أو نقطة أو شرطة فقط.');
+    return { username, email: username + '@accounts.alhloo-login.com' };
+  }
+
+  function showAuthError(action, error) {
+    const code = String(error?.code || error?.name || 'unknown');
+    const message = String(error?.message || 'لا توجد تفاصيل إضافية');
+    const known = {
+      'auth/operation-not-allowed': 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في خدمة الحسابات.',
+      'auth/invalid-credential': 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير موجود.',
+      'auth/user-not-found': 'لا يوجد حساب بهذا الاسم.',
+      'auth/wrong-password': 'كلمة المرور غير صحيحة.',
+      'auth/email-already-in-use': 'اسم المستخدم مستخدم مسبقاً.',
+      'auth/weak-password': 'كلمة المرور ضعيفة؛ استخدم 6 أحرف على الأقل.',
+      'auth/invalid-email': 'صيغة بيانات الحساب التي أُرسلت إلى Firebase غير مقبولة.',
+      'auth/network-request-failed': 'تعذّر الاتصال بخدمة تسجيل الدخول. تحقق من اتصال الإنترنت.',
+      'auth/too-many-requests': 'تمت محاولات كثيرة؛ انتظر قليلاً ثم أعد المحاولة.',
+      'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'إعداد مفتاح خدمة تسجيل الدخول غير صالح أو مقيّد.'
+    };
+    const explanation = known[code] || (message.includes('Failed to fetch')
+      ? 'المتصفح لم يتمكن من الوصول إلى خدمة Firebase أو تحميلها. هذا غالباً اتصال أو حجب للشبكة، وليس خطأ كلمة المرور.'
+      : message);
+    showCloudMessage('تعذّر ' + action + ': ' + explanation + ' [رمز الخطأ: ' + code + ']');
+    console.error('Firebase Authentication error:', { code, message, error });
+  }
+
+  async function doSignUp() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (password.length < 6) {
+      showCloudMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ إنشاء الحساب...');
+    try {
+      await createUserWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم إنشاء الحساب بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('إنشاء الحساب', error);
+    }
+  }
+
+  async function doSignIn() {
+    const raw = $('authEmail').value, password = $('authPassword').value;
+    if (!password) {
+      showCloudMessage('أدخل اسم المستخدم وكلمة المرور.');
+      return;
+    }
+    let account;
+    try {
+      account = usernameToAuthEmail(raw);
+    } catch (e) {
+      showCloudMessage(e.message);
+      return;
+    }
+    showCloudMessage('جارٍ تسجيل الدخول...');
+    try {
+      await signInWithEmailAndPassword(auth, account.email, password);
+      showCloudMessage('تم تسجيل الدخول بنجاح. جارٍ تفعيل المزامنة...');
+      // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
+    } catch (error) {
+      showAuthError('تسجيل الدخول', error);
+    }
+  }
+
+  async function doSignOut() {
+    // احفظ بيانات الحساب في مساحته الخاصة قبل إنهاء الجلسة.
+    saveWorkspaceLocal();
+    if (cloudTimer) clearTimeout(cloudTimer);
+    if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+    await signOut(auth);
+    // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
+    showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
+  }
+
+  async function apiRequest(path, options = {}) {
+    if (!cloudUser) throw new Error("سجّل الدخول أولاً.");
+    const token = await cloudUser.getIdToken();
+    const uid = encodeURIComponent(cloudUser.uid);
+    const method = String(options.method || "GET").toUpperCase();
+    const cleanPath = String(path || "").split("?")[0].replace(/^\/+|\/+$/g, "");
+    const parts = cleanPath.split("/");
+    const resource = parts[0];
+    const basePath = RTDB_BASE + "/users/" + uid;
+    async function requestRtdb(target, httpMethod, body) {
+      const url = target + ".json?auth=" + encodeURIComponent(token);
+      const response = await fetch(url, {
+        method: httpMethod,
+        headers: { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store"
+      });
+      let data = null;
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok) {
+        const detail = data && data.error ? data.error : ("HTTP " + response.status);
+        throw new Error("Firebase Realtime Database: " + detail);
+      }
+      return data;
+    }
+
+    if (resource === "products") {
+      const target = basePath + "/products";
+      const query = new URLSearchParams(String(path).split("?")[1] || "");
+      if (method === "GET") {
+        const raw = await requestRtdb(target, "GET");
+        const rows = Array.isArray(raw) ? raw.filter(Boolean) :
+          (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
+        const skip = Math.max(0, Number(query.get("skip")) || 0);
+        const limit = Math.min(500, Math.max(1, Number(query.get("limit")) || 500));
+        return { ok: true, products: rows.slice(skip, skip + limit) };
+      }
+      if (method === "POST") {
+        const incoming = options.body && Array.isArray(options.body.products) ? options.body.products : [];
+        if (incoming.length > 5000) throw new Error("عدد المنتجات المرسلة أكبر من الحد المسموح.");
+        // Realtime Database يخزّن بيانات المنتج والصورة المضغوطة ضمن سجل الحساب نفسه.
+        await requestRtdb(target, "PUT", incoming);
+        return { ok: true, saved: incoming.length };
+      }
+    }
+
+    if (resource === "cart") {
+      const target = basePath + "/cart";
+      if (method === "GET") return { ok: true, ...(await requestRtdb(target, "GET") || { items: {} }) };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || { items: {} });
+        return { ok: true };
+      }
+    }
+
+    if (resource === "settings") {
+      const target = basePath + "/settings";
+      if (method === "GET") return { ok: true, settings: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body && options.body.settings ? options.body.settings : {});
+        return { ok: true };
+      }
+    }
+
+    if (resource === "workspace") {
+      const target = basePath + "/workspace";
+      if (method === "GET") return { ok: true, workspace: await requestRtdb(target, "GET") };
+      if (method === "PUT") {
+        await requestRtdb(target, "PUT", options.body || {});
+        return { ok: true };
+      }
+    }
+    throw new Error("طلب مزامنة غير مدعوم: " + cleanPath);
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
+    if (!match) throw new Error('صيغة صورة المنتج غير صالحة.');
+    const mime = match[1] || 'image/jpeg';
+    const binary = match[2] ? atob(match[3]) : decodeURIComponent(match[3]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function prepareImageForCloud(sourceBlob) {
+    const maxBytes = 300 * 1024;
+    if (sourceBlob.size <= maxBytes && /^image\/(jpeg|png|webp)$/i.test(sourceBlob.type)) return sourceBlob;
+    if (!('createImageBitmap' in window)) {
+      if (sourceBlob.size <= maxBytes) return sourceBlob;
+      throw new Error('تعذر ضغط الصورة على هذا المتصفح. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    }
+    const bitmap = await createImageBitmap(sourceBlob);
+    try {
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d', { alpha: false });
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+        const compressed = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (compressed && compressed.size <= maxBytes) return compressed;
+      }
+      throw new Error('حجم الصورة أكبر من الحد الآمن للمزامنة. بقيت النسخة الأصلية محفوظة على الجهاز.');
+    } finally { bitmap.close?.(); }
+  }
+
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('تعذرت قراءة الصورة بعد ضغطها.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function ensureProductImageInStorage(product) {
+    if (!product || !product.image || !/^data:image\//i.test(String(product.image))) return product;
+    const original = String(product.image);
+    const blob = await prepareImageForCloud(dataUrlToBlob(original));
+    if (blob.size < dataUrlToBlob(original).size) {
+      if (!product.imageLocal) product.imageLocal = original;
+      product.image = await blobToDataUrl(blob);
+    }
+    return product;
+  }
+
+  async function syncProductsToCloud() {
+    if (!cloudUser || syncingCloud) return;
+    syncingCloud = true;
+    try {
+      showCloudMessage('جارٍ جلب المنتجات من Firebase Realtime Database...');
+      const remote = [];
+      const pageSize = 500;
+      for (let skip = 0; ; skip += pageSize) {
+        const page = await apiRequest('/products?skip=' + skip + '&limit=' + pageSize);
+        const rows = Array.isArray(page.products) ? page.products : [];
+        remote.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      const remoteById = new Map(remote.filter(x => x && x.id != null).map(x => [String(x.id), x]));
+      // إزالة التكرار بالاسم بعد توحيد المسافات والحروف؛ المحلي له الأولوية لأنه يمثل آخر تعديل على هذا الجهاز.
+      const uniqueByName = new Map();
+      const addUnique = (item, isLocal) => {
+        if (!item || typeof item !== 'object' || !String(item.name || '').trim()) return;
+        const key = normalizedProductName(item.name);
+        const previous = uniqueByName.get(key);
+        if (!previous) {
+          uniqueByName.set(key, { ...item, __localPriority: !!isLocal });
+          return;
+        }
+        const previousTime = Number(previous.updatedAt) || 0;
+        const itemTime = Number(item.updatedAt) || 0;
+        const itemIsNewer = itemTime > previousTime || (itemTime === previousTime && isLocal && !previous.__localPriority);
+        const keep = itemIsNewer
+          ? { ...previous, ...item, __localPriority: !!isLocal }
+          : { ...item, ...previous, __localPriority: !!previous.__localPriority };
+        // لا نفقد صورة موجودة في أي نسخة من المنتج.
+        if ((!keep.image || /^data:image\//i.test(String(keep.image)) === false && !keep.imagePath) && previous.image) keep.image = previous.image;
+        if (!keep.imagePath && previous.imagePath) keep.imagePath = previous.imagePath;
+        uniqueByName.set(key, keep);
+      };
+      for (const item of remote) addUnique(item, false);
+      for (const item of products) {
+        const previous = remoteById.get(String(item.id)) || {};
+        const localTime = Number(item.updatedAt) || 0;
+        const remoteTime = Number(previous.updatedAt) || 0;
+        const localIsNewer = localTime >= remoteTime;
+        const next = localIsNewer
+          ? { ...previous, ...item, id: item.id }
+          : { ...item, ...previous, id: item.id };
+        if ((!item.image || !/^data:image\//i.test(String(item.image))) && previous.image) {
+          next.image = item.image && item.image === previous.image ? item.image : previous.image;
+          if (!item.imagePath && previous.imagePath) next.imagePath = previous.imagePath;
+        }
+        addUnique(next, true);
+      }
+      products = Array.from(uniqueByName.values()).map(({ __localPriority, ...item }) => item);
+      let saved = 0;
+      const batchSize = Math.max(1, products.length);
+      for (let offset = 0; offset < products.length; offset += batchSize) {
+        const batch = products.slice(offset, offset + batchSize);
+        for (let i = 0; i < batch.length; i++) {
+          const product = batch[i];
+          if (product.image && /^data:image\//i.test(String(product.image)) || product.imagePath) {
+            showCloudMessage('جارٍ ضغط صور المنتجات وتجهيزها للمزامنة: ' + (offset + i + 1) + ' من ' + products.length);
+            await ensureProductImageInStorage(product);
+          }
+        }
+        const payload = batch.map(p => {
+          const { imageLocal, ...cloudProduct } = p;
+          return { ...cloudProduct, id: String(p.id) };
+        });
+        const result = await apiRequest('/products', { method: 'POST', body: { products: payload } });
+        saved += Number(result.saved || payload.length);
+        showCloudMessage('جارٍ مزامنة المنتجات والصور: ' + Math.min(offset + batch.length, products.length) + ' من ' + products.length);
+      }
+      saveLocalOnly();
+      renderProducts();
+      renderInvoice();
+      showCloudMessage('اكتملت مزامنة ' + saved + ' منتجاً وصورة عبر Firebase Realtime Database.');
+    } finally { syncingCloud = false; }
+  }
+
+  function saveLocalOnly() { saveWorkspaceLocal(); }
+
+  async function syncCartToCloud() {
+    if (!cloudUser) return;
+    const items = {};
+    for (const [id, quantity] of Object.entries(cart)) {
+      const product = products.find(p => String(p.id) === String(id));
+      if (product && +quantity > 0) items[String(product.id)] = +quantity;
+    }
+    await apiRequest('/cart', { method: 'PUT', body: { items } });
+    showCloudMessage('تمت مزامنة الفاتورة مع قاعدة البيانات الجديدة.');
+  }
+
+  async function loadCartFromCloud() {
+    if (!cloudUser) return;
+    const data = await apiRequest('/cart');
+    const savedItems = data.items || {};
+    const restored = {};
+    for (const [id, quantity] of Object.entries(savedItems)) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = +quantity;
+    }
+    for (const [id, quantity] of Object.entries(cart || {})) {
+      if (products.some(p => String(p.id) === String(id)) && +quantity > 0) restored[id] = Math.max(+restored[id] || 0, +quantity || 0);
+    }
+    cart = restored;
+    saveLocalOnly();
+    renderProducts();
+    renderInvoice();
+    if (Object.keys(savedItems).length) showCloudMessage('تم استرجاع الفاتورة من Firebase.');
+    else if (Object.keys(cart).length) await syncCartToCloud();
+  }
+
+  async function syncSettings(options = {}) {
+    if (!cloudUser) return;
+    const preferCloud = options.preferCloud !== false;
+    const data = await apiRequest('/settings');
+    const remote = data && data.settings && typeof data.settings === 'object' ? data.settings : null;
+
+    if (preferCloud && remote) {
+      const remoteTry = Number(remote.tryRate);
+      const remoteSyp = Number(remote.sypRate);
+      if (Number.isFinite(remoteTry) && remoteTry > 0) tryRate = remoteTry;
+      if (Number.isFinite(remoteSyp) && remoteSyp > 0) sypRate = remoteSyp;
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      if ($('tryRate')) $('tryRate').value = String(tryRate);
+      if ($('sypRate')) $('sypRate').value = String(sypRate);
+      renderInvoice();
+      return;
+    }
+
+    await apiRequest('/settings', {
+      method: 'PUT',
+      body: { settings: { tryRate, sypRate } }
+    });
+  }
+
+  function mergeRecordsById(remoteRows, localRows) {
+    const merged = new Map();
+    for (const row of Array.isArray(remoteRows) ? remoteRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    for (const row of Array.isArray(localRows) ? localRows : []) {
+      if (row && row.id != null) merged.set(String(row.id), { ...row });
+    }
+    return Array.from(merged.values());
+  }
+
+  async function syncWorkspaceToCloud() {
+    if (!cloudUser) return;
+    const remoteResult = await apiRequest('/workspace');
+    const remote = remoteResult.workspace && typeof remoteResult.workspace === 'object' ? remoteResult.workspace : {};
+    const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers);
+    const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
+    const mergedCarts = {};
+    const storeIds = new Set([
+      ...Object.keys(remote.supplierCarts || {}),
+      ...Object.keys(supplierCarts || {})
+    ]);
+    for (const storeId of storeIds) {
+      const remoteCart = remote.supplierCarts?.[storeId] || {};
+      const localCart = supplierCarts?.[storeId] || {};
+      mergedCarts[storeId] = { ...remoteCart, ...localCart };
+    }
+    if (!mergedCarts.general) mergedCarts.general = {};
+    const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
+    let nextActive = validSupplierIds.has(String(activeSupplierId))
+      ? String(activeSupplierId)
+      : (validSupplierIds.has(String(remote.activeSupplierId)) ? String(remote.activeSupplierId) : 'general');
+    suppliers = mergedSuppliers;
+    supplierCarts = mergedCarts;
+    invoiceArchive = mergedInvoices;
+    activeSupplierId = nextActive;
+    ensureSupplierData();
+    await apiRequest('/workspace', {
+      method: 'PUT',
+      body: { suppliers, supplierCarts, invoiceArchive, activeSupplierId }
+    });
+    saveLocalOnly();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+  }
+
+  async function syncCloudSafely() {
+    if (!cloudUser || fullSyncRunning) return;
+    if (navigator.onLine === false) {
+      showCloudMessage('الجهاز غير متصل بالإنترنت. بياناتك محفوظة محلياً وستتم إعادة المحاولة عند عودة الاتصال.');
+      return;
+    }
+    fullSyncRunning = true;
+    try {
+      showCloudMessage('جارٍ الاتصال بالخدمات السحابية...');
+      await syncProductsToCloud();
+      await syncWorkspaceToCloud();
+      await loadCartFromCloud();
+      await syncSettings();
+      showCloudMessage('اكتملت المزامنة بنجاح مع Firebase (المنتجات والصور والفواتير والإعدادات).');
+    } catch (e) {
+      const message = String(e?.message || 'خطأ غير معروف');
+      showCloudMessage('تعذرت المزامنة مع قاعدة البيانات: ' + message + ' — بقيت بيانات الجهاز محفوظة محلياً.');
+      console.error('Firebase synchronization failed:', e);
+    } finally { fullSyncRunning = false; }
+  }
+
+  // استعادة مساحة التخزين المحلية المرتبطة بجلسة الجهاز فقط؛ لا يتم تشغيل أي مزامنة.
+  function mergeGuestProductsIntoAccount(uid) {
+    if (!uid) return 0;
+    // لا نحذف مساحة الزائر: ننسخ منتجاتها إلى الحساب مع الاحتفاظ بالصور والحقول الأصلية.
+    let guestProducts = [];
+    let guestCart = {};
+    try { guestProducts = JSON.parse(localStorage.getItem('nadwa_products_guest') || '[]'); } catch (_) {}
+    try { guestCart = JSON.parse(localStorage.getItem('nadwa_cart_guest') || '{}'); } catch (_) {}
+    if (!Array.isArray(guestProducts) || !guestProducts.length) return 0;
+    const knownIds = new Set(products.map(p => String(p.id)));
+    const idMap = new Map();
+    let merged = 0;
+    for (const item of guestProducts) {
+      if (!item || typeof item !== 'object') continue;
+      let copy = { ...item };
+      let nextId = String(copy.id);
+      if (knownIds.has(nextId)) {
+        // عند تعارض معرّف بين مساحة الزائر والحساب، نولّد معرّفاً جديداً دون إسقاط المنتج.
+        let candidate = Date.now() + merged;
+        while (knownIds.has(String(candidate))) candidate++;
+        idMap.set(nextId, String(candidate));
+        copy.id = candidate;
+        nextId = String(candidate);
+      }
+      knownIds.add(nextId);
+      products.push(copy);
+      merged++;
+    }
+    for (const [oldId, quantity] of Object.entries(guestCart || {})) {
+      const mappedId = idMap.get(String(oldId)) || String(oldId);
+      if (products.some(p => String(p.id) === mappedId) && +quantity > 0) {
+        cart[mappedId] = Math.max(+cart[mappedId] || 0, +quantity || 0);
+      }
+    }
+    if (merged) saveWorkspaceLocal();
+    return merged;
+  }
+
+  async function runCloudSyncFromButton() {
+    const button = $('syncCloudBtn');
+    if (!cloudUser) {
+      showCloudMessage('سجّل الدخول أولاً بنفس الحساب المستخدم على الجهاز الآخر.');
+      return;
+    }
+    if (fullSyncRunning) return;
+    button.disabled = true;
+    const previousLabel = button.textContent;
+    button.textContent = '⏳ جارٍ المزامنة...';
+    try {
+      await syncCloudSafely();
+    } finally {
+      button.disabled = false;
+      button.textContent = previousLabel;
+    }
+  }
+
+  onAuthStateChanged(auth, user => {
+    cloudUser = user || null;
+    loadWorkspace(cloudUser?.uid || null);
+    if (cloudUser) {
+      const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
+      if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+    }
+    loadUiSettings();
+    refreshGeminiKeyUI();
+    updateAuthUI();
+    renderSupplierSelectors();
+    renderSupplierList();
+    renderProducts();
+    renderInvoice();
+    if (cloudUser) {
+      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
+      window.setTimeout(() => syncCloudSafely(), 500);
+    }
+  });
+  $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
+  $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
+  $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
+  $('drawerSignOut').addEventListener('click', () => {
+    if (cloudUser && confirm('تسجيل الخروج؟ ستبقى بيانات الحساب محفوظة على هذا الجهاز.')) doSignOut().then(closeDrawer).catch(e => showCloudMessage(e.message));
+  });
+
+  function openDrawer() {
+    $('sideDrawer').classList.add('open');
+    $('drawerBackdrop').classList.add('open');
+    document.body.classList.add('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','false');
+    $('menuToggle').setAttribute('aria-expanded','true');
+  }
+  window.closeDrawer = function() {
+    $('sideDrawer').classList.remove('open');
+    $('drawerBackdrop').classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    $('sideDrawer').setAttribute('aria-hidden','true');
+    $('menuToggle').setAttribute('aria-expanded','false');
+  };
+  $('menuToggle').addEventListener('click', openDrawer);
+  $('drawerClose').addEventListener('click', closeDrawer);
+  $('drawerBackdrop').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  // ملف JSON واحد يتضمن الصور المضمّنة بصيغة Data URL.
+  function normalizedProductName(value) {
+    return String(value || '').trim().toLocaleLowerCase('ar').replace(/[\s\u0640]+/g, ' ');
+  }
+  function downloadJsonFile(data, filename) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+  function safeBackupFilename(value) {
+    let name = String(value || '').trim();
+    name = name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '-').replace(/[. ]+$/g, '').trim();
+    name = name.replace(/\.json$/i, '').trim();
+    if (!name) throw new Error('اكتب اسماً للملف قبل التصدير.');
+    return name.slice(0, 80) + '.json';
+  }
+  $('exportBackupBtn').addEventListener('click', () => {
+    try {
+      const filename = safeBackupFilename($('backupFileName').value);
+      const backup = {
+        format: 'alhloo-nadwa-portable-backup',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        products: products,
+        cart: cart,
+        suppliers: suppliers,
+        supplierCarts: supplierCarts,
+        invoiceArchive: invoiceArchive,
+        activeSupplierId: activeSupplierId,
+        rates: { tryRate, sypRate }
+      };
+      const exportedImages = products.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+      downloadJsonFile(backup, filename);
+      $('backupMessage').textContent = 'تم تصدير ' + products.length + ' منتجاً، منها ' + exportedImages +
+        ' منتجاً يحتوي صورة محفوظة، باسم: ' + filename + ' — ستجده في مجلد التنزيلات.';
+      if (exportedImages < products.length) {
+        $('backupMessage').textContent += ' تنبيه: ' + (products.length - exportedImages) +
+          ' منتجاً لا توجد له صورة محفوظة في بيانات هذا الحساب، لذلك لن تظهر له صورة بعد النقل.';
+      }
+    } catch (error) {
+      $('backupMessage').textContent = 'تعذّر إنشاء الملف: ' + (error.message || error);
+    }
+  });
+  $('importBackupFile').addEventListener('change', async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const uid = cloudUser?.uid || 'guest';
+    const storageKeys = [
+      'nadwa_products_' + uid, 'nadwa_cart_' + uid,
+      'nadwa_suppliers_' + uid, 'nadwa_supplier_carts_' + uid,
+      'nadwa_invoice_archive_' + uid, 'nadwa_active_supplier_' + uid,
+      'nadwa_try','nadwa_syp'
+    ];
+    const storageSnapshot = new Map(storageKeys.map(key => [key, localStorage.getItem(key)]));
+    const previous = { products, cart, tryRate, sypRate, suppliers, supplierCarts, invoiceArchive, activeSupplierId };
+    try {
+      if (file.size > 100 * 1024 * 1024) throw new Error('حجم الملف أكبر من 100 ميغابايت.');
+      const backup = JSON.parse(await file.text());
+
+      // استيراد قائمة منتجات فقط: يحافظ على بقية المخازن والفواتير والإعدادات.
+      if (backup.format === 'alhloo-nadwa-product-import' && backup.version === 1) {
+        if (!Array.isArray(backup.products) || !backup.products.length ||
+            backup.products.some(p => !p || typeof p !== 'object' || !String(p.name || '').trim() ||
+              !Number.isFinite(Number(p.price)) || Number(p.price) < 0 ||
+              !Number.isFinite(Number(p.sellTry)) || Number(p.sellTry) < 0 ||
+              !Number.isFinite(Number(p.sellSyp)) || Number(p.sellSyp) < 0)) {
+          throw new Error('ملف المنتجات غير صالح أو يحتوي اسماً أو سعراً ناقصاً.');
+        }
+        const targetName = String(backup.supplierName || '').trim();
+        if (!targetName) throw new Error('اسم المخزن غير موجود في الملف.');
+        let target = suppliers.find(x => String(x.name || '').trim().toLocaleLowerCase('ar') === targetName.toLocaleLowerCase('ar'));
+        if (!target) {
+          target = { id: 'sup-' + Date.now(), name: targetName.slice(0,80) };
+          suppliers.push(target);
+        }
+        if (!supplierCarts[target.id]) supplierCarts[target.id] = {};
+        const existingIds = new Set(products.map(p => String(p.id)));
+        const imported = backup.products.map((p, index) => {
+          let id = 'import-' + Date.now() + '-' + index;
+          while (existingIds.has(String(id))) id += '-x';
+          existingIds.add(String(id));
+          return {
+            id, name: String(p.name).trim(), price: Number(p.price),
+            pieces: Math.max(1, Math.floor(Number(p.pieces) || 1)),
+            sellTry: Number(p.sellTry), sellSyp: Number(p.sellSyp),
+            unitPriceUsd: Number(p.price), unitPriceTry: Number(p.sellTry),
+            unitPriceSyp: Number(p.sellSyp),
+            stock: Math.max(0, Math.floor(Number(p.stock) || 0)), image: p.image || '',
+            supplierId: target.id
+          };
+        });
+        products.push(...imported);
+        activeSupplierId = target.id;
+        cart = supplierCarts[target.id] || (supplierCarts[target.id] = {});
+        saveWorkspaceLocal();
+        renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+        $('backupMessage').textContent = 'تمت إضافة ' + imported.length + ' منتجاً إلى مخزن «' + target.name +
+          '». لم يتم حذف أو استبدال المنتجات الأخرى أو المخازن أو الفواتير.';
+        return;
+      }
+
+      if (backup.format !== 'alhloo-nadwa-portable-backup' || backup.version !== 1 ||
+          !Array.isArray(backup.products) || !backup.cart || typeof backup.cart !== 'object' || Array.isArray(backup.cart)) {
+        throw new Error('هذا الملف ليس نسخة احتياطية صالحة من بضاعة الندوة.');
+      }
+      if (backup.products.some(p => !p || typeof p !== 'object' || p.id == null || !String(p.name || '').trim())) {
+        throw new Error('توجد بيانات منتج غير صالحة داخل الملف؛ لم يتم استيراد أي شيء.');
+      }
+      const sourceSuppliers = Array.isArray(backup.suppliers) ? backup.suppliers.map(x => ({...x})) : [{id:'general',name:'مخزن عام'}];
+      if (sourceSuppliers.some(x => !x || x.id == null || !String(x.name || '').trim())) {
+        throw new Error('قائمة المخازن داخل الملف غير صالحة.');
+      }
+      if (!sourceSuppliers.some(x => String(x.id) === 'general')) sourceSuppliers.unshift({id:'general',name:'مخزن عام'});
+      const supplierIds = new Set(sourceSuppliers.map(x => String(x.id)));
+      const sourceIdMap = new Map();
+      const usedProductIds = new Set();
+      backup.products.forEach((p, index) => {
+        const originalId = String(p.id);
+        let targetId = p.id;
+        if (usedProductIds.has(originalId)) targetId = 'restored-' + Date.now() + '-' + index;
+        usedProductIds.add(String(targetId));
+        sourceIdMap.set(originalId, targetId);
+      });
+      const restoredProducts = backup.products.map((p, index) => ({
+        ...p,
+        id: sourceIdMap.get(String(p.id)),
+        supplierId: supplierIds.has(String(p.supplierId || 'general')) ? (p.supplierId || 'general') : 'general'
+      }));
+
+      const remapCart = sourceCart => {
+        const result = {};
+        if (!sourceCart || typeof sourceCart !== 'object' || Array.isArray(sourceCart)) return result;
+        for (const [oldId, quantity] of Object.entries(sourceCart)) {
+          const mappedId = sourceIdMap.get(String(oldId));
+          const qty = Number(quantity);
+          if (mappedId !== undefined && Number.isSafeInteger(qty) && qty > 0) result[String(mappedId)] = qty;
+        }
+        return result;
+      };
+      const restoredSupplierCarts = {};
+      if (backup.supplierCarts && typeof backup.supplierCarts === 'object' && !Array.isArray(backup.supplierCarts)) {
+        for (const [storeId, sourceCart] of Object.entries(backup.supplierCarts)) {
+          restoredSupplierCarts[String(storeId)] = remapCart(sourceCart);
+        }
+      }
+      const restoredActiveSupplierId = supplierIds.has(String(backup.activeSupplierId || 'general'))
+        ? String(backup.activeSupplierId || 'general') : 'general';
+      if (!Object.prototype.hasOwnProperty.call(restoredSupplierCarts, restoredActiveSupplierId)) {
+        restoredSupplierCarts[restoredActiveSupplierId] = remapCart(backup.cart);
+      }
+      const restoredCart = restoredSupplierCarts[restoredActiveSupplierId] || remapCart(backup.cart);
+      const nextTry = Number(backup.rates?.tryRate);
+      const nextSyp = Number(backup.rates?.sypRate);
+      const imageCount = restoredProducts.filter(p => typeof p.image === 'string' && p.image.trim()).length;
+
+      const hasExistingData = (Array.isArray(products) && products.length > 0) ||
+        (Array.isArray(suppliers) && suppliers.some(x => String(x.id) !== 'general')) ||
+        (Array.isArray(invoiceArchive) && invoiceArchive.length > 0);
+      const warning = 'سيتم نقل نسخة الحساب المصدر كما هي إلى هذا الحساب. ' +
+        (hasExistingData ? 'سيتم استبدال المنتجات والمخازن والفواتير الموجودة حالياً في الحساب المستهدف.' : 'سيتم تحميل المنتجات والمخازن والفواتير من الملف.') +
+        '\\n\\nعدد المنتجات: ' + restoredProducts.length +
+        '\\nعدد المنتجات التي تحتوي صوراً داخل الملف: ' + imageCount +
+        '\\n\\nهل تريد المتابعة؟';
+      if (!window.confirm(warning)) return;
+
+      // استعادة كاملة مطابقة للملف: لا دمج حسب الاسم حتى لا تختفي المنتجات المتكررة بالاسم.
+      products = restoredProducts;
+      suppliers = sourceSuppliers;
+      supplierCarts = restoredSupplierCarts;
+      invoiceArchive = Array.isArray(backup.invoiceArchive) ? backup.invoiceArchive.map(x => ({...x})) : [];
+      activeSupplierId = restoredActiveSupplierId;
+      ensureSupplierData();
+      cart = supplierCarts[activeSupplierId] || restoredCart;
+      if (Number.isFinite(nextTry) && nextTry > 0) tryRate = nextTry;
+      if (Number.isFinite(nextSyp) && nextSyp > 0) sypRate = nextSyp;
+
+      saveWorkspaceLocal();
+      localStorage.setItem('nadwa_try', String(tryRate));
+      localStorage.setItem('nadwa_syp', String(sypRate));
+      $('tryRate').value = tryRate;
+      $('sypRate').value = sypRate;
+      renderSupplierSelectors(); renderSupplierList(); renderProducts(); renderInvoice();
+      $('backupMessage').textContent = 'اكتمل نقل نسخة الحساب: تم استيراد ' + products.length +
+        ' منتجاً كما هي، بما فيها المنتجات المتكررة بالاسم، و' + imageCount +
+        ' صورة مضمّنة، مع الأسعار والمخازن والفواتير وأسعار الصرف.';
+      if (imageCount < products.length) {
+        $('backupMessage').textContent += ' تنبيه: بعض المنتجات لا تحتوي صورة داخل ملف المصدر، لذلك لا يمكن استعادتها من هذا الملف.';
+      }
+    } catch (error) {
+      products=previous.products; cart=previous.cart; tryRate=previous.tryRate; sypRate=previous.sypRate;
+      suppliers=previous.suppliers; supplierCarts=previous.supplierCarts; invoiceArchive=previous.invoiceArchive; activeSupplierId=previous.activeSupplierId;
+      for (const [key,value] of storageSnapshot) {
+        try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } catch (_) {}
+      }
+      $('backupMessage').textContent = 'فشل الاستيراد ولم نعتمد البيانات: ' + (error.message || error);
+    } finally {
+      event.target.value = '';
+    }
+  });
+
+  if ("serviceWorker" in navigator && location.protocol === 'https:') {
+    window.addEventListener("load", () => navigator.serviceWorker.register(new URL("./sw.js", document.baseURI).toString()).catch(err => console.warn("Offline cache registration failed", err)));
+  }
+</script>
+</body>
+</html>
+ + Number(inv.totalUsd || 0).toFixed(2) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;"><span>بالليرة التركية</span><span>' + fmt(Number(inv.totalTry || 0)) + ' ل.ت</span></div>' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;"><span>بالسوري الجديد</span><span>' + fmt(Number(inv.totalSyp || 0)) + ' ل.س</span></div></div>' +
+      '<p style="margin:12px 0 0;color:#718078;font-size:12px;">🔒 هذه نسخة محفوظة للقراءة فقط، ولا يمكن تغيير المنتجات أو الأسماء أو الأسعار.</p></div>';
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    const close = () => { modal.style.display = 'none'; modal.classList.add('hidden'); };
+    modal.querySelector('#closeArchivedInvoiceNote').addEventListener('click', close);
+    modal.onclick = event => { if (event.target === modal) close(); };
+    modal.onkeydown = event => { if (event.key === 'Escape') close(); };
+    modal.querySelector('#closeArchivedInvoiceNote').focus();
+  };
+
   function renderInvoiceArchive() {
     const root=$('invoiceArchiveList'); if(!root)return;
     const list=invoiceArchive.filter(x=>x.supplierId===activeSupplierId);
