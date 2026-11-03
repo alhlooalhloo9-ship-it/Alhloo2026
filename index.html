@@ -1016,24 +1016,37 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   let invoiceArchive = [];
   let deletedSupplierIds = [];
   let activeSupplierId = 'main';
+  function canonicalSupplierId(id) {
+    const value = String(id == null ? '' : id);
+    return value === 'general' ? 'main' : value;
+  }
   function ensureSupplierData() {
     if (!Array.isArray(suppliers)) suppliers = [];
     if (!Array.isArray(deletedSupplierIds)) deletedSupplierIds = [];
-    const deletedSet = new Set(deletedSupplierIds.map(String));
-    suppliers = suppliers.filter(x => x && !deletedSet.has(String(x.id)));
+    // Normalize legacy "general" IDs BEFORE filtering; otherwise an old cloud row
+    // can bypass a deletion recorded against the canonical "main" ID.
+    deletedSupplierIds = Array.from(new Set(deletedSupplierIds.map(canonicalSupplierId).filter(Boolean)));
+    const deletedSet = new Set(deletedSupplierIds);
+    suppliers = suppliers.filter(x => x && x.id != null).map(x => ({
+      ...x,
+      id: canonicalSupplierId(x.id),
+      ...((canonicalSupplierId(x.id) === 'main' && (!x.name || x.name === 'مخزن عام'))
+        ? { name: 'المخزن الرئيسي' } : {})
+    }));
+    const uniqueSuppliers = new Map();
+    suppliers.forEach(x => uniqueSuppliers.set(String(x.id), x));
+    suppliers = Array.from(uniqueSuppliers.values()).filter(x => !deletedSet.has(String(x.id)));
     if (!supplierCarts || typeof supplierCarts !== 'object' || Array.isArray(supplierCarts)) supplierCarts = {};
     if (!Array.isArray(invoiceArchive)) invoiceArchive = [];
-    const legacyStore = suppliers.find(x => String(x.id) === 'general');
-    if (legacyStore) { legacyStore.id='main'; if(!legacyStore.name || legacyStore.name==='مخزن عام') legacyStore.name='المخزن الرئيسي'; }
     if (supplierCarts.general && !supplierCarts.main) supplierCarts.main=supplierCarts.general;
     else if (supplierCarts.general && supplierCarts.main) supplierCarts.main={...supplierCarts.general,...supplierCarts.main};
     delete supplierCarts.general;
-    products.forEach(p=>{if(!p.supplierId||String(p.supplierId)==='general')p.supplierId='main';});
-    invoiceArchive.forEach(x=>{if(String(x.supplierId)==='general')x.supplierId='main';});
+    products.forEach(p=>{if(!p.supplierId||canonicalSupplierId(p.supplierId)==='main')p.supplierId=canonicalSupplierId(p.supplierId||'main');});
+    invoiceArchive.forEach(x=>{if(x.supplierId!=null)x.supplierId=canonicalSupplierId(x.supplierId);});
     if (!suppliers.length && !deletedSet.has('main')) suppliers.push({id:'main',name:'المخزن الرئيسي'});
-    if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>String(x.supplierId)==='main') && !deletedSet.has('main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
+    if (!suppliers.some(x=>String(x.id)==='main') && products.some(x=>canonicalSupplierId(x.supplierId)==='main') && !deletedSet.has('main')) suppliers.unshift({id:'main',name:'المخزن الرئيسي'});
     if (!supplierCarts.main && suppliers.some(x=>String(x.id)==='main')) supplierCarts.main=cart&&typeof cart==='object'?cart:{};
-    if(String(activeSupplierId)==='general')activeSupplierId='main';
+    activeSupplierId=canonicalSupplierId(activeSupplierId);
     if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'';
     cart=activeSupplierId?(supplierCarts[activeSupplierId]||(supplierCarts[activeSupplierId]={})):{};
   }
@@ -3455,9 +3468,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const mergedDeletedSupplierIds = Array.from(new Set([
       ...(Array.isArray(remote.deletedSupplierIds) ? remote.deletedSupplierIds : []),
       ...(Array.isArray(deletedSupplierIds) ? deletedSupplierIds : [])
-    ].map(String)));
+    ].map(canonicalSupplierId).filter(Boolean)));
     const deletedSupplierSet = new Set(mergedDeletedSupplierIds);
     const mergedSuppliers = mergeRecordsById(remote.suppliers, suppliers)
+      .map(item => ({ ...item, id: canonicalSupplierId(item.id) }))
       .filter(item => !deletedSupplierSet.has(String(item.id)));
     const mergedInvoices = mergeRecordsById(remote.invoiceArchive, invoiceArchive);
     const mergedCarts = {};
