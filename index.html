@@ -588,6 +588,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   <nav class="drawer-nav">
     <button type="button" onclick="page('account');closeDrawer()">⚙️ إعدادات الحساب ونقل البيانات</button>
     <button type="button" onclick="page('settings');closeDrawer()">🎨 تخصيص شكل المنتجات</button>
+    <button type="button" id="navSavedInvoices" onclick="page('archive');closeDrawer()">📚 الفواتير المحفوظة</button>
   </nav>
   <hr class="drawer-divider">
   <button type="button" id="drawerSignOut" style="width:100%">تسجيل الخروج من الحساب</button>
@@ -702,7 +703,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div class="invoice-meta-grid"><label>اسم المشتري<input id="invoiceBuyerName" type="text" maxlength="100" placeholder="اكتب اسم المشتري"></label><label>اسم المخزن / المورد<input id="invoiceSupplierName" type="text" maxlength="100" placeholder="اسم المخزن أو المورد"></label></div><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
 <button class="primary" id="invoiceSaveBtn">💾 حفظ الفاتورة</button><button id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">📊 مشاركة جدول الفاتورة</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
-</div><hr><h3>📚 الفواتير المحفوظة</h3><p class="muted">الفواتير المحفوظة سجل ثابت غير قابل للتعديل. يمكنك تصديرها أو مشاركتها أو طباعتها.</p><div id="invoiceArchiveList" class="muted"></div></div>
+</div></div>
+</section>
+<section id="invoiceArchivePage" class="hidden">
+  <div class="box">
+    <h3>📚 الفواتير المحفوظة</h3>
+    <p class="muted">قسم مستقل عن الفاتورة المفتوحة. الفواتير هنا مغلقة وثابتة للقراءة والمشاركة فقط، ولا يمكن تعديل محتوياتها.</p>
+    <div id="invoiceArchiveList" class="muted"></div>
+  </div>
 </section>
 <div id="archivedNoteModal" class="detailsPanel archived-note-panel hidden" role="dialog" aria-modal="true" aria-labelledby="archivedNoteTitle" onclick="if(event.target===this)closeArchivedInvoiceNote()">
   <div class="detailsCard archived-note-card">
@@ -1040,22 +1048,24 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     $('supplierPage').classList.toggle('hidden', p !== 'suppliers');
     $('productFormPage').classList.toggle('hidden', p !== 'add');
     $('invoicePage').classList.toggle('hidden', p !== 'invoice');
+    $('invoiceArchivePage').classList.toggle('hidden', p !== 'archive');
     $('accountPage').classList.toggle('hidden', p !== 'account');
     $('settingsPage').classList.toggle('hidden', p !== 'settings');
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
-    const navStates = {navProducts:p==='products'||p==='add',navInvoice:p==='invoice',navSuppliers:p==='suppliers',navDesignSettings:p==='settings',navAccount:p==='account'};
+    const navStates = {navProducts:p==='products'||p==='add',navInvoice:p==='invoice',navSuppliers:p==='suppliers',navDesignSettings:p==='settings',navAccount:p==='account',navSavedInvoices:p==='archive'};
     Object.entries(navStates).forEach(([id,active])=>{const button=$(id);if(!button)return;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
     currentAppPage = p;
     if (p === 'invoice') { renderSupplierSelectors(); if($('invoiceSupplierName')&&!$('invoiceSupplierName').value)$('invoiceSupplierName').value=supplierName(activeSupplierId); renderInvoice(); }
+    if (p === 'archive') { renderInvoiceArchive(); }
     if (p === 'products') { renderSupplierSelectors(); renderProducts(); }
     if (p === 'suppliers') { renderSupplierSelectors(); renderSupplierList(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   window.page = function(p) {
-    if (!['products', 'suppliers', 'add', 'invoice', 'account', 'settings'].includes(p)) return;
+    if (!['products', 'suppliers', 'add', 'invoice', 'archive', 'account', 'settings'].includes(p)) return;
     if (!handlingAppPopState && p !== currentAppPage) {
       history.pushState({ nadwaApp: true, page: p }, '', location.pathname + location.search);
     }
@@ -1966,7 +1976,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted productSupplierLabel">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">الإضافات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="addToInvoice" title="إضافة قطعة واحدة إلى الفاتورة">＋ إضافة</button><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted productSupplierLabel">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">الإضافات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
@@ -2054,11 +2064,6 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       priceEl.setAttribute('aria-label', 'السعر الحالي ' + (+p.price).toFixed(2) + ' دولار. انقر مرتين لتعديل السعر');
       el.querySelector('.name').title = 'اضغط على اسم المنتج لإضافته إلى الفاتورة';
       el.querySelector('.name').onclick = e => {
-        e.preventDefault();
-        e.stopPropagation();
-        add(p.id);
-      };
-      el.querySelector('.addToInvoice').onclick = e => {
         e.preventDefault();
         e.stopPropagation();
         add(p.id);
@@ -2259,7 +2264,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     $('count').textContent=String(itemCount);
     const homeCount=$('homeInvoiceCount'); if(homeCount)homeCount.textContent=String(itemCount);
     const homeButton=$('homeInvoiceButton'); if(homeButton)homeButton.classList.toggle('has-items',itemCount>0);
-    if(!entries.length){root.innerHTML='<p class="muted">ما اخترت أي منتج لسه. ارجع للمنتجات واضغط «إضافة» على المنتجات المطلوبة.</p>';$('totals').innerHTML='';}
+    if(!entries.length){root.innerHTML='<p class="muted">ما اخترت أي منتج لسه. ارجع للمنتجات واضغط على صورة المنتج لإضافته للفاتورة.</p>';$('totals').innerHTML='';}
     else {
       entries.forEach(([id,n])=>{
         const p=products.find(x=>String(x.id)===String(id)); if(!p)return;
