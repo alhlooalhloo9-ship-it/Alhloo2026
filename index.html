@@ -2240,8 +2240,34 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     document.body.appendChild(page);
     try {
       const images = Array.from(page.querySelectorAll('img'));
-      await Promise.all(images.map(img => img.complete ? Promise.resolve() :
-        new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })));
+      const toDataUrl = blob => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('تعذر تجهيز إحدى صور الفاتورة.'));
+        reader.readAsDataURL(blob);
+      });
+      const waitForImage = async img => {
+        const originalSrc = img.getAttribute('src') || '';
+        if (!originalSrc) throw new Error('توجد صورة بلا مصدر في الفاتورة.');
+        if (!/^data:/i.test(originalSrc)) {
+          const response = await fetch(originalSrc, { mode: 'cors', credentials: 'same-origin' });
+          if (!response.ok) throw new Error('تعذر تحميل صورة أحد المنتجات (HTTP ' + response.status + ').');
+          img.src = await toDataUrl(await response.blob());
+        }
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else if (!img.complete) {
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => reject(new Error('تعذر تحميل صورة أحد المنتجات.'));
+          });
+        }
+        if (!img.complete || !img.naturalWidth || !img.naturalHeight) {
+          throw new Error('إحدى صور المنتجات غير متاحة، لذلك لم يتم إنشاء PDF ناقص الصور.');
+        }
+      };
+      await Promise.all(images.map(waitForImage));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const blob = await html2pdf().set({
         margin: [8, 8, 10, 8],
         image: { type: 'jpeg', quality: 0.98 },
