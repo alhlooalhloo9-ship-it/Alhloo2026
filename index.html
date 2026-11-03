@@ -2232,13 +2232,20 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
     const page = document.createElement('div');
     page.dir = 'rtl';
-    page.style.cssText = 'position:fixed;left:0;top:0;width:760px;min-height:100px;background:#fff;color:#172b24;z-index:1;pointer-events:none;display:block;visibility:visible;opacity:1;';
+    page.lang = 'ar';
+    page.style.cssText = 'position:fixed;left:0;top:0;width:760px;min-height:120px;padding:0;margin:0;box-sizing:border-box;background:#fff;color:#172b24;z-index:1;pointer-events:none;display:block;visibility:visible;opacity:1;overflow:visible;';
+    const sourceStyles = Array.from(parsed.head.querySelectorAll('style')).map(node => node.textContent).join('\\n');
     const style = document.createElement('style');
-    style.textContent = 'body{font-family:Arial,sans-serif}table{width:100%;border-collapse:collapse}tr{break-inside:avoid;page-break-inside:avoid}td,th{font-size:13px}img{max-width:64px}';
+    style.textContent = sourceStyles + '\\nhtml,body{margin:0;padding:0;background:#fff;color:#172b24}body{font-family:Tajawal,Cairo,Arial,sans-serif;direction:rtl}table{width:100%;border-collapse:collapse}tr{break-inside:avoid;page-break-inside:avoid}td,th{font-size:13px}img{max-width:64px}*{box-sizing:border-box}';
     page.appendChild(style);
-    page.appendChild(parsed.body.cloneNode(true));
+    const content = document.createElement('div');
+    content.dir = 'rtl';
+    content.style.cssText = 'display:block;width:100%;min-height:100px;background:#fff;color:#172b24;direction:rtl;';
+    content.appendChild(parsed.body.cloneNode(true));
+    page.appendChild(content);
     document.body.appendChild(page);
     try {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
       const images = Array.from(page.querySelectorAll('img'));
       const toDataUrl = blob => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -2268,14 +2275,29 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       };
       await Promise.all(images.map(waitForImage));
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const blob = await html2pdf().set({
+      const options = {
         margin: [8, 8, 10, 8],
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, scrollX: 0, scrollY: 0, windowWidth: 900 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
-      }).from(page).outputPdf('blob');
-      if (!blob || !blob.size) throw new Error('لم يتم إنشاء ملف PDF صالح.');
+      };
+      const worker = html2pdf().set(options).from(page).toCanvas();
+      const canvas = await worker.get('canvas');
+      if (!canvas || canvas.width < 10 || canvas.height < 10) {
+        throw new Error('تعذر تصوير محتوى الفاتورة قبل إنشاء PDF.');
+      }
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const sample = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let visiblePixels = 0;
+      const stride = Math.max(4, Math.floor(sample.length / 12000 / 4) * 4);
+      for (let i = 0; i < sample.length; i += stride) {
+        if (sample[i + 3] > 0 && (sample[i] < 245 || sample[i + 1] < 245 || sample[i + 2] < 245)) visiblePixels++;
+      }
+      if (visiblePixels < 8) throw new Error('تم إيقاف التصدير لأن صورة الفاتورة الناتجة فارغة. لم يتم إرسال PDF أبيض.');
+      await worker.toPdf();
+      const blob = await worker.outputPdf('blob');
+      if (!blob || blob.size < 1000) throw new Error('ملف PDF الناتج فارغ أو غير مكتمل.');
       return blob;
     } finally {
       page.remove();
