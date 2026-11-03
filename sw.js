@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v59";
+const CACHE_VERSION = "v60";
 const APP_CACHE = "nadwa-app-" + CACHE_VERSION;
 const FIREBASE_CACHE = "nadwa-firebase-" + CACHE_VERSION;
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
@@ -17,8 +17,9 @@ self.addEventListener("activate", event => {
     caches.keys()
       .then(keys => Promise.all(
         keys
-          .filter(key => /^nadwa-(offline|app|firebase)-/.test(key) &&
-            key !== APP_CACHE && key !== FIREBASE_CACHE)
+          // Keep Firebase's version-pinned module caches across app releases.
+          // A new app cache version must never erase the only offline copy of auth modules.
+          .filter(key => /^nadwa-(offline|app)-/.test(key) && key !== APP_CACHE)
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -39,6 +40,17 @@ self.addEventListener("fetch", event => {
         caches.open(FIREBASE_CACHE).then(async cache => {
           const cached = await cache.match(request);
           if (cached) return cached;
+          // Fall back to a Firebase module saved by an earlier app-cache version.
+          const cacheNames = await caches.keys();
+          for (const cacheName of cacheNames) {
+            if (!cacheName.startsWith("nadwa-firebase-") || cacheName === FIREBASE_CACHE) continue;
+            const previousCache = await caches.open(cacheName);
+            const previousResponse = await previousCache.match(request);
+            if (previousResponse) {
+              await cache.put(request, previousResponse.clone());
+              return previousResponse;
+            }
+          }
           try {
             const response = await fetch(request);
             if (response && response.ok) await cache.put(request, response.clone());
