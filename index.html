@@ -2283,10 +2283,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
       };
       const worker = html2pdf().set(options).from(page).toCanvas();
-      // html2pdf Worker is a Promise subclass whose .then() rebinds its result.
-      // Use get's callback to read the actual canvas value without losing the Worker chain.
-      let canvas = null;
-      await worker.get('canvas', value => { canvas = value; });
+      // Read the canvas from the Worker's own property after toCanvas has completed.
+      // Use a native Promise so html2pdf's Promise-subclass chaining cannot replace the canvas result.
+      const canvas = await new Promise((resolve, reject) => {
+        worker.thenCore(function() {
+          resolve(this.prop && this.prop.canvas);
+        }, reject);
+      });
       if (!canvas || typeof canvas.getContext !== 'function' || canvas.width < 10 || canvas.height < 10) {
         throw new Error('تعذر تصوير محتوى الفاتورة قبل إنشاء PDF. أداة التصوير لم تُرجع لوحة صالحة.');
       }
