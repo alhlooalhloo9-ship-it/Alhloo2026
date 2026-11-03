@@ -265,6 +265,22 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 
 #products .prod .name{font-size:calc(14px * var(--user-font-scale))}#products .prod .price{font-size:calc(16px * var(--user-font-scale))}#products .prod .muted,#products .prod .badge,#products .prod button,#products .prod summary{font-size:calc(13px * var(--user-font-scale))}
 </style>
+<style>
+.home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
+.home-invoice-button.has-items{background:#e7f4eb;border-color:#8db99a;color:#12472f}
+.home-invoice-button .badge{font-size:13px;min-width:26px;text-align:center}
+.invoice-meta-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0;padding:13px;background:#f6faf7;border:1px solid #e2ece5;border-radius:14px}
+.invoice-meta-grid label{font-size:13px;font-weight:700;color:#40584a;min-width:0}
+.invoice-meta-grid input{display:block;margin:6px 0 0;width:100%;min-width:0;background:#fff}
+.invoice-line{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #e8eee9}
+.invoice-line-photo{width:70px;height:70px;object-fit:contain;border-radius:10px;background:#f5f8f6;border:1px solid #edf1ee}
+.invoice-line-no-photo{width:70px;height:70px;display:grid;place-items:center;border-radius:10px;background:#f5f8f6;font-size:27px}
+.invoice-line-info{min-width:0}.invoice-line-info b{display:block;overflow-wrap:anywhere;color:#203c30}.invoice-line-info small{display:block;line-height:1.6;color:#718078;margin-top:3px}
+.invoice-line-controls{display:flex;align-items:center;gap:5px;direction:ltr}.invoice-line-controls button{min-width:34px;padding:7px 9px}.invoice-line-controls input{width:54px;text-align:center;padding:7px 3px;margin:0;font-weight:800}
+.invoice-archive-card{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px;margin:9px 0;border:1px solid #e3ebe5;border-radius:13px;background:#fbfdfb}
+.invoice-archive-card .actions{margin:0;flex-wrap:wrap}.invoice-archive-card .actions button{font-size:12px;padding:8px 10px}
+@media(max-width:520px){.invoice-meta-grid{grid-template-columns:1fr}.invoice-line{grid-template-columns:58px minmax(0,1fr);gap:8px}.invoice-line-photo,.invoice-line-no-photo{width:56px;height:56px}.invoice-line-controls{grid-column:2;justify-content:flex-start}.home-actions>button{flex:1 1 46%}}
+</style>
 <script
   src="https://js-de.sentry-cdn.com/6b360d8f124aaa77eef803eb43f37a3c.min.js"
   crossorigin="anonymous"
@@ -369,7 +385,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <button type="button" class="primary" id="saveUiSettings" style="margin-top:14px">💾 حفظ الإعدادات</button> <button type="button" id="resetUiSettings">استعادة الافتراضي</button>
 <div id="uiSettingsStatus" class="muted" role="status"></div></div></section>
 <section id="productsPage">
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button></div>
+<div class="home-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" type="button" onclick="resetForm();page('add')">➕ إضافة منتج جديد</button><button type="button" class="home-invoice-button" id="homeInvoiceButton" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="homeInvoiceCount">0</span></button></div>
 <div id="supplierQuickSwitch" class="supplier-quick-switch" aria-label="اختيار المخزن لعرض المنتجات"></div>
 <div class="box"><h3>المنتجات</h3>
 <div class="product-search-wrap" style="position:relative;margin:10px 0 14px">
@@ -408,10 +424,10 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <button class="primary" type="submit">حفظ المنتج</button><button type="button" onclick="resetForm();page('products')">إلغاء</button>
 </form><button type="button" onclick="page('products')">رجوع إلى المنتجات</button></div></section>
 <section id="invoicePage" class="hidden">
-<div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div id="items"></div><div id="totals"></div>
+<div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div class="invoice-meta-grid"><label>اسم المشتري<input id="invoiceBuyerName" type="text" maxlength="100" placeholder="اكتب اسم المشتري"></label><label>اسم المخزن / المورد<input id="invoiceSupplierName" type="text" maxlength="100" placeholder="اسم المخزن أو المورد"></label></div><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-<button class="primary" id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
-</div><hr><h3>📚 سجل الفواتير الصادرة</h3><div id="invoiceArchiveList" class="muted"></div></div>
+<button class="primary" id="invoiceSaveBtn">💾 حفظ الفاتورة</button><button id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
+</div><hr><h3>📚 الفواتير المحفوظة</h3><p class="muted">الفواتير المحفوظة سجل ثابت غير قابل للتعديل. يمكنك تصديرها أو مشاركتها أو طباعتها.</p><div id="invoiceArchiveList" class="muted"></div></div>
 </section>
 <div id="zoomPhotoModal" class="zoomPhotoPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeZoomPhoto()"><div class="zoomPhotoCard"><img id="zoomPhotoImg" alt="صورة المنتج مكبرة"><button type="button" class="primary" onclick="closeZoomPhoto()">إغلاق الصورة</button></div></div>
 <div id="moveProductModal" class="detailsPanel hidden" role="dialog" aria-modal="true" aria-labelledby="moveProductTitle">
