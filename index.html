@@ -481,14 +481,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   <button type="button" id="navAccount" onclick="page('account')"><span class="nav-icon" aria-hidden="true">⚙️</span><span class="nav-label">الإعدادات</span></button>
 </nav>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged 
-  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  // تحميل Firebase بشكل غير حاجب: تعطل CDN أو انقطاع الشبكة لا يعطّل واجهة التطبيق وأزراره.
+  let firebaseAuthApi = null;
+  let auth = null;
   const firebaseConfig = {
     apiKey: "AIzaSyD1iTNsgI-R12xywSKjyxmhQSF-sZ1qQ_Q",
     authDomain: "alhlooapp.firebaseapp.com",
@@ -498,10 +493,20 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     appId: "1:852295923543:web:0e911814369fbff47d7012",
     measurementId: "G-360V9996CH"
   };
+  const firebaseInitPromise = Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js")
+  ]).then(([appModule, authModule]) => {
+    const app = appModule.initializeApp(firebaseConfig);
+    auth = authModule.getAuth(app);
+    firebaseAuthApi = authModule;
+    return true;
+  }).catch(error => {
+    console.error("Firebase modules unavailable; local app remains enabled:", error);
+    return false;
+  });
 
   // Firebase Authentication + Realtime Database مباشرة عبر HTTPS.
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
   const RTDB_BASE = "https://alhlooapp-default-rtdb.europe-west1.firebasedatabase.app";
   const API_BASE = "https://alhloo2026.vercel.app/api";
 
@@ -2171,7 +2176,8 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
     }
     showCloudMessage('جارٍ إنشاء الحساب...');
     try {
-      await createUserWithEmailAndPassword(auth, account.email, password);
+      if (!firebaseAuthApi || !auth) throw new Error('خدمة تسجيل الدخول غير متاحة حالياً. بقي التطبيق المحلي يعمل.');
+      await firebaseAuthApi.createUserWithEmailAndPassword(auth, account.email, password);
       showCloudMessage('تم إنشاء الحساب بنجاح. جارٍ تفعيل المزامنة...');
       // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
     } catch (error) {
@@ -2194,7 +2200,8 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
     }
     showCloudMessage('جارٍ تسجيل الدخول...');
     try {
-      await signInWithEmailAndPassword(auth, account.email, password);
+      if (!firebaseAuthApi || !auth) throw new Error('خدمة تسجيل الدخول غير متاحة حالياً. بقي التطبيق المحلي يعمل.');
+      await firebaseAuthApi.signInWithEmailAndPassword(auth, account.email, password);
       showCloudMessage('تم تسجيل الدخول بنجاح. جارٍ تفعيل المزامنة...');
       // onAuthStateChanged هو المسؤول الوحيد عن تحديث الواجهة وبدء المزامنة لتجنب تشغيلها مرتين.
     } catch (error) {
@@ -2207,7 +2214,8 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
     saveWorkspaceLocal();
     if (cloudTimer) clearTimeout(cloudTimer);
     if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
-    await signOut(auth);
+    if (!firebaseAuthApi || !auth) throw new Error('خدمة تسجيل الدخول غير متاحة حالياً.');
+    await firebaseAuthApi.signOut(auth);
     // يتولى onAuthStateChanged تحميل مساحة الزائر الفارغة وإخفاء منتجات الحساب.
     showCloudMessage('تم تسجيل الخروج. منتجات الحساب محفوظة ضمن حسابه ولن تظهر بعد الخروج.');
   }
@@ -2601,24 +2609,40 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
     }
   }
 
-  onAuthStateChanged(auth, user => {
-    cloudUser = user || null;
-    loadWorkspace(cloudUser?.uid || null);
-    if (cloudUser) {
-      const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
-      if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+  // اعرض مساحة الجهاز فوراً، ثم اربط الحساب السحابي عندما تصبح مكتبات Firebase جاهزة.
+  loadWorkspace(null);
+  loadUiSettings();
+  refreshGeminiKeyUI();
+  updateAuthUI();
+  renderSupplierSelectors();
+  renderSupplierList();
+  renderProducts();
+  renderInvoice();
+
+  firebaseInitPromise.then(ready => {
+    if (!ready) {
+      showCloudMessage('تعذر تحميل خدمة الحسابات حالياً. الواجهة والأزرار والبيانات المحلية ما زالت تعمل؛ ستعود المزامنة عند توفر اتصال Firebase.');
+      return;
     }
-    loadUiSettings();
-    refreshGeminiKeyUI();
-    updateAuthUI();
-    renderSupplierSelectors();
-    renderSupplierList();
-    renderProducts();
-    renderInvoice();
-    if (cloudUser) {
-      showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
-      window.setTimeout(() => syncCloudSafely(), 500);
-    }
+    firebaseAuthApi.onAuthStateChanged(auth, user => {
+      cloudUser = user || null;
+      loadWorkspace(cloudUser?.uid || null);
+      if (cloudUser) {
+        const guestMerged = mergeGuestProductsIntoAccount(cloudUser.uid);
+        if (guestMerged) showCloudMessage('تم نقل ' + guestMerged + ' منتجاً من مساحة الزائر إلى الحساب دون حذف النسخة الأصلية. اضغط مزامنة الحساب لإتاحتها على الأجهزة الأخرى.');
+      }
+      loadUiSettings();
+      refreshGeminiKeyUI();
+      updateAuthUI();
+      renderSupplierSelectors();
+      renderSupplierList();
+      renderProducts();
+      renderInvoice();
+      if (cloudUser) {
+        showCloudMessage('تم تسجيل الدخول. جارٍ الاتصال بالخدمات السحابية...');
+        window.setTimeout(() => syncCloudSafely(), 500);
+      }
+    });
   });
   $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
