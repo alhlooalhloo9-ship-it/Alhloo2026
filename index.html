@@ -2232,7 +2232,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
     const page = document.createElement('div');
     page.dir = 'rtl';
-    page.style.cssText = 'position:fixed;left:-12000px;top:0;width:760px;background:#fff;color:#172b24;z-index:-1;';
+    page.style.cssText = 'position:fixed;left:0;top:0;width:760px;min-height:100px;background:#fff;color:#172b24;z-index:1;pointer-events:none;display:block;visibility:visible;opacity:1;';
     const style = document.createElement('style');
     style.textContent = 'body{font-family:Arial,sans-serif}table{width:100%;border-collapse:collapse}tr{break-inside:avoid;page-break-inside:avoid}td,th{font-size:13px}img{max-width:64px}';
     page.appendChild(style);
