@@ -311,6 +311,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
     <button type="button" onclick="page('suppliers');closeDrawer()">🏬 المخازن وأصحابها</button>
     <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
+    <button type="button" onclick="page('invoice');closeDrawer();setTimeout(()=>document.getElementById('invoiceArchiveList')?.scrollIntoView({behavior:'smooth'}),300)">📚 الفواتير المحفوظة</button>
     <button type="button" onclick="page('settings');closeDrawer()">🎨 إعدادات الصفحة الرئيسية</button>
     <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
   </nav>
