@@ -506,6 +506,10 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
 @media(min-width:600px){
   #products.grid .prod .productPhoto,#products.grid .prod img{height:132px}
 }
+
+/* حجم صورة المنتج قابل للتحكم من الإعدادات */
+#products .prod .productPhoto,#products .prod img:not(.noProductPhoto){height:calc(105px * var(--product-image-scale,1)) !important;max-height:calc(210px * var(--product-image-scale,1)) !important;max-width:calc(120px * var(--product-image-scale,1)) !important;object-fit:contain !important;}
+#products .prod .noProductPhoto{transform:scale(var(--product-image-scale,1));transform-origin:center center;}
 </style>
 <style>
 .home-invoice-button{background:#fff;border:1px solid #cfe0d4;color:#174c3c;display:flex;align-items:center;gap:8px;justify-content:center;min-height:44px;box-shadow:0 3px 12px #174c3c12}
@@ -720,6 +724,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <label for="uiFontSize">حجم الخط العام: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
 <label for="uiProductPriceSize">حجم أرقام الأسعار: <b id="uiProductPriceSizeValue">100%</b></label><input id="uiProductPriceSize" type="range" min="0" max="100" step="1" value="100"><p class="muted">كبّر أو صغّر أرقام الأسعار على جميع بطاقات المنتجات بشكل مستقل عن أسماء المنتجات.</p>
 <label for="uiProductNameSize">حجم أسماء المنتجات: <b id="uiProductNameSizeValue">85%</b></label><input id="uiProductNameSize" type="range" min="60" max="120" step="5" value="85"><p class="muted">حرّك المؤشر لتصغير أو تكبير اسم المنتج، وسيظهر الاسم كاملاً داخل البطاقة دون قص.</p>
+<label for="uiProductImageSize">حجم صور المنتجات: <b id="uiProductImageSizeValue">100%</b></label><input id="uiProductImageSize" type="range" min="50" max="200" step="5" value="100"><p class="muted">كبّر أو صغّر صور المنتجات داخل البطاقات بشكل مستقل عن الاسم والسعر.</p>
 <label for="uiPageColor">لون خلفية الصفحة</label><input id="uiPageColor" type="color" value="#f4f7f5">
 <label for="uiCardColor">لون بطاقات المنتجات</label><input id="uiCardColor" type="color" value="#ffffff">
 <label for="uiAccentColor">اللون الأساسي</label><input id="uiAccentColor" type="color" value="#174c3c">
@@ -1976,7 +1981,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,rotationLock:false,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:false,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
@@ -1985,6 +1990,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     document.documentElement.style.setProperty('--user-font-scale',String(Math.min(1.3,Math.max(.85,(+s.fontSize||100)/100))));
     document.documentElement.style.setProperty('--product-name-scale',String(Math.min(1.2,Math.max(.6,(Number(s.productNameSize)||85)/100))));
     document.documentElement.style.setProperty('--product-price-scale',String(Math.min(1,Math.max(0,Number.isFinite(Number(s.productPriceSize))?Number(s.productPriceSize)/100:1))));
+    document.documentElement.style.setProperty('--product-image-scale',String(Math.min(2,Math.max(.5,Number(s.productImageSize)||100)/100)));
     document.documentElement.style.setProperty('--user-page-bg',/^#[0-9a-f]{6}$/i.test(s.pageColor)?s.pageColor:'#f4f7f5');
     document.documentElement.style.setProperty('--user-card-bg',/^#[0-9a-f]{6}$/i.test(s.cardColor)?s.cardColor:'#fff');
     document.documentElement.style.setProperty('--user-accent',/^#[0-9a-f]{6}$/i.test(s.accentColor)?s.accentColor:'#174c3c');
@@ -1994,11 +2000,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const home=$('productsPage');if(home){for(const [selector,key] of [['.home-add-product','showAddProduct'],['.home-invoice-button','showInvoiceShortcut'],['#supplierQuickSwitch','showSupplierSwitch'],'.product-search-wrap' ? ['.product-search-wrap','showSearch'] : [],['#bulkSelectionIntro','showBulkTools'],['#toggleBulkSelection','showBulkTools']]){if(!selector)continue;const node=home.querySelector(selector);if(node)node.classList.toggle('ui-hidden-control',s[key]===false);}}
   }
   function fillUiSettings(){
-    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiProductNameSize:'productNameSize',uiProductPriceSize:'productPriceSize',uiRotationLock:'rotationLock',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
+    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiProductNameSize:'productNameSize',uiProductPriceSize:'productPriceSize',uiProductImageSize:'productImageSize',uiRotationLock:'rotationLock',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
     for(const [id,key] of Object.entries(map)){const el=$(id);if(el){if(el.type==='checkbox')el.checked=uiSettings[key]!==false;else el.value=uiSettings[key];}}
     if($('uiFontSizeValue'))$('uiFontSizeValue').textContent=(+uiSettings.fontSize||100)+'%';
     if($('uiProductNameSizeValue'))$('uiProductNameSizeValue').textContent=(+uiSettings.productNameSize||85)+'%';
     if($('uiProductPriceSizeValue'))$('uiProductPriceSizeValue').textContent=(+uiSettings.productPriceSize||100)+'%';
+    if($('uiProductImageSizeValue'))$('uiProductImageSizeValue').textContent=(+uiSettings.productImageSize||100)+'%';
   }
   function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}fillUiSettings();applyUiSettings();if(uiSettings.rotationLock===true)applyRotationLock(true);}
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&uiSettings.rotationLock===true)applyRotationLock(true);});
@@ -2016,12 +2023,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     });
   }
   function saveUiSettings(){
-    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,rotationLock:$('uiRotationLock').checked,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
+    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,productImageSize:+$('uiProductImageSize').value,rotationLock:$('uiRotationLock').checked,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked};
     try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(e){$('uiSettingsStatus').textContent='تعذر حفظ الإعدادات: '+(e.message||e);return;}
     applyUiSettings();renderProducts();if($('uiSettingsStatus'))$('uiSettingsStatus').textContent='تم حفظ الإعدادات وتطبيقها على الصفحة الرئيسية.';applyRotationLock(uiSettings.rotationLock===true);
   }
   $('saveUiSettings').addEventListener('click',saveUiSettings);
-  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiRotationLock'])$(id).addEventListener('change',saveUiSettings);
+  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiProductImageSize','uiRotationLock'])$(id).addEventListener('change',saveUiSettings);
+  $('uiProductImageSize').addEventListener('input',()=>{$('uiProductImageSizeValue').textContent=$('uiProductImageSize').value+'%';uiSettings.productImageSize=+$('uiProductImageSize').value;applyUiSettings();});
   $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
   $('uiProductNameSize').addEventListener('input',()=>{const value=Number($('uiProductNameSize').value);$('uiProductNameSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-name-scale',String(value/100));});
   $('uiProductPriceSize').addEventListener('input',()=>{const value=Math.min(100,Math.max(0,Number($('uiProductPriceSize').value)||0));$('uiProductPriceSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-price-scale',String(value/100));});
