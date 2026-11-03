@@ -619,7 +619,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
     currentAppPage = p;
-    if (p === 'invoice') { renderSupplierSelectors(); renderInvoice(); }
+    if (p === 'invoice') { renderSupplierSelectors(); if($('invoiceSupplierName')&&!$('invoiceSupplierName').value)$('invoiceSupplierName').value=supplierName(activeSupplierId); renderInvoice(); }
     if (p === 'products') { renderSupplierSelectors(); renderProducts(); }
     if (p === 'suppliers') { renderSupplierSelectors(); renderSupplierList(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1746,6 +1746,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     supplierCarts[activeSupplierId] = cart;
     activeSupplierId = id;
     cart = supplierCarts[id] || (supplierCarts[id] = {});
+    if($('invoiceSupplierName'))$('invoiceSupplierName').value=supplierName(activeSupplierId);
     save();
     if ($('invoiceSupplier')) $('invoiceSupplier').value = id;
     renderInvoice();
@@ -1857,25 +1858,56 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     } catch(e) { alert(e.message||e); }
   };
   async function shareInvoiceAsImage(inv) {
-    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');const width=1000,rowH=64,top=300;
-    canvas.width=width;canvas.height=top+inv.lines.length*rowH+280;
-    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#174c3c';ctx.font='bold 38px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,65);
-    ctx.fillStyle='#222';ctx.font='26px Arial';ctx.textAlign='right';ctx.fillText('المخزن: '+inv.supplierName,930,125);ctx.fillText('تاريخ الإصدار: '+new Date(inv.issuedAt).toLocaleString('ar'),930,175);
-    ctx.font='bold 24px Arial';ctx.fillText('المنتج',930,245);ctx.fillText('الكمية',500,245);ctx.fillText('الإجمالي',170,245);
-    inv.lines.forEach((x,i)=>{const y=top+i*rowH;ctx.font='23px Arial';ctx.fillText(x.name,930,y);ctx.fillText(String(x.quantity),500,y);ctx.fillText('$'+x.lineTotal.toFixed(2),170,y);ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(50,y+18);ctx.lineTo(950,y+18);ctx.stroke();});
-    const y=top+inv.lines.length*rowH+60;ctx.font='bold 28px Arial';ctx.fillText('الإجمالي: $'+inv.totalUsd.toFixed(2),930,y);ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',930,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',930,y+100);
+    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+    const width=1200,rowH=132,top=350;
+    canvas.width=width;canvas.height=top+inv.lines.length*rowH+250;
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#174c3c';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.fillText('فاتورة بضاعة الندوة',width/2,62);
+    ctx.fillStyle='#222';ctx.font='25px Arial';ctx.textAlign='right';
+    ctx.fillText('المشتري: '+(inv.buyerName||'—'),1130,125);
+    ctx.fillText('المخزن / المورد: '+inv.supplierName,1130,175);
+    ctx.fillText('تاريخ الحفظ: '+new Date(inv.issuedAt).toLocaleString('ar'),1130,225);
+    ctx.font='bold 23px Arial';ctx.fillText('الصورة',1120,310);ctx.fillText('اسم المنتج',970,310);ctx.fillText('الكمية',650,310);ctx.fillText('سعر العبوة',390,310);ctx.fillText('الإجمالي',150,310);
+    for(let i=0;i<inv.lines.length;i++){
+      const x=inv.lines[i],y=top+i*rowH;
+      ctx.fillStyle='#f7faf8';ctx.fillRect(45,y-55,1110,112);
+      ctx.fillStyle='#222';ctx.font='22px Arial';ctx.textAlign='right';
+      ctx.fillText(String(x.name||''),970,y-5,250);
+      ctx.fillText(String(x.quantity),650,y-5);
+      ctx.fillText('$'+(+x.unitPrice).toFixed(2),390,y-5);
+      ctx.fillText('$'+(+x.lineTotal).toFixed(2),150,y-5);
+      if(x.image){
+        try{
+          const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=x.image;});
+          const scale=Math.min(88/im.width,88/im.height);const iw=im.width*scale,ih=im.height*scale;
+          ctx.drawImage(im,1100-iw,y-45+(88-ih)/2,iw,ih);
+        }catch(_){ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('الصورة غير متاحة',1110,y-5);}
+      }else{ctx.fillStyle='#718078';ctx.font='16px Arial';ctx.fillText('—',1110,y-5);}
+    }
+    const y=top+inv.lines.length*rowH+55;
+    ctx.fillStyle='#174c3c';ctx.font='bold 29px Arial';ctx.textAlign='right';
+    ctx.fillText('الإجمالي: $'+(+inv.totalUsd).toFixed(2),1130,y);
+    ctx.font='24px Arial';ctx.fillText('بالتركي: '+fmt(inv.totalTry)+' ل.ت',1130,y+55);ctx.fillText('بالسوري الجديد: '+fmt(inv.totalSyp)+' ل.س',1130,y+100);
     const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('تعذر إنشاء صورة الفاتورة.');
     const file=new File([blob],safeInvoiceName(inv,'png'),{type:'image/png'});
     if(navigator.share&&navigator.canShare?.({files:[file]})) await navigator.share({title:'فاتورة '+inv.supplierName,files:[file]});
     else {const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);alert('تم تنزيل صورة الفاتورة. يمكنك إرسالها من معرض الملفات.');}
   }
-  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
-  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
-  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice();await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
-  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
-  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=issueCurrentInvoice();downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
-  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
-  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=issueCurrentInvoice(),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة مع تاريخ الإصدار.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
+  $('invoiceSaveBtn').addEventListener('click',()=>{
+    try{
+      if(!String($('invoiceBuyerName').value||'').trim() && !confirm('لم تكتب اسم المشتري. هل تريد حفظ الفاتورة بدون اسم؟')) return;
+      issueCurrentInvoice();
+      alert('تم حفظ الفاتورة بنجاح. أصبحت ضمن الفواتير المحفوظة وغير قابلة للتعديل.');
+      renderInvoiceArchive();
+    }catch(e){alert(e.message||e);}
+  });
+  $('invoicePdfBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة لإصدار PDF.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoicePrintBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);}catch(e){alert(e.message);}});
+  $('invoiceImageBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true);await shareInvoiceAsImage(inv);}catch(e){alert(e.message||e);}});
+  $('invoiceTextBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ نص الفاتورة',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceNoteBtn').addEventListener('click',()=>{try{const inv=invoiceSnapshot(true);downloadTextFile(invoiceText(inv),safeInvoiceName(inv,'txt'));}catch(e){alert(e.message);}});
+  $('invoiceShareBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);if(navigator.share)await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});else prompt('انسخ الفاتورة لمشاركتها',txt);}catch(e){alert(e.message||e);}});
+  $('invoiceCopyBtn').addEventListener('click',async()=>{try{const inv=invoiceSnapshot(true),txt=invoiceText(inv);await navigator.clipboard.writeText(txt);alert('تم نسخ الفاتورة الحالية.');}catch(e){alert(e.message||'تعذر النسخ؛ استخدم مشاركة كنص.');}});
   window.saveRates = function() {
     let t = +$('tryRate').value;
     let s = +$('sypRate').value;
