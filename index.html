@@ -1778,7 +1778,7 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
   }
   function invoiceText(inv) {
     const date = inv.issuedAt ? new Date(inv.issuedAt).toLocaleString('ar') : 'غير محفوظة بعد';
-    return ['فاتورة بضاعة الندوة',inv.buyerName?'اسم المشتري: '+inv.buyerName:'', 'المخزن / المورد: '+inv.supplierName,'تاريخ الحفظ: '+date,'--------------------------------',...inv.lines.map((x,i)=>(i+1)+'. '+x.name+' × '+x.quantity+' عبوة | '+x.pieces+' قطعة/عبوة | $'+x.unitPrice.toFixed(2)+' | الإجمالي $'+x.lineTotal.toFixed(2)),'--------------------------------','المجموع بالدولار: $'+inv.totalUsd.toFixed(2),'بالليرة التركية: '+fmt(inv.totalTry)+' ل.ت','بالليرة السورية الجديدة: '+fmt(inv.totalSyp)+' ل.س'].filter(Boolean).join('\\n');
+    return ['فاتورة بضاعة الندوة',inv.buyerName?'اسم المشتري: '+inv.buyerName:'', 'المخزن / المورد: '+inv.supplierName,'تاريخ الحفظ: '+date,'--------------------------------',...inv.lines.map((x,i)=>(i+1)+'. '+x.name+' × '+x.quantity+' عبوة | '+x.pieces+' قطعة/عبوة | $'+x.unitPrice.toFixed(2)+' | الإجمالي $'+x.lineTotal.toFixed(2)),'--------------------------------','المجموع بالدولار: $'+inv.totalUsd.toFixed(2),'بالليرة التركية: '+fmt(inv.totalTry)+' ل.ت','بالليرة السورية الجديدة: '+fmt(inv.totalSyp)+' ل.س'].filter(Boolean).join('\n');
   }
   function issueCurrentInvoice() {
     const inv = invoiceSnapshot(true);
