@@ -507,7 +507,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <section id="invoicePage" class="hidden">
 <div class="box"><h3>🧾 فواتير المخازن</h3><label for="invoiceSupplier">اختر المخزن لعرض فاتورته المستقلة</label><select id="invoiceSupplier" style="width:100%;padding:11px;margin:5px 0 12px;border:1px solid #ccd5d9;border-radius:8px;font-size:16px"></select><div id="invoiceSupplierInfo" class="muted"></div><div class="invoice-meta-grid"><label>اسم المشتري<input id="invoiceBuyerName" type="text" maxlength="100" placeholder="اكتب اسم المشتري"></label><label>اسم المخزن / المورد<input id="invoiceSupplierName" type="text" maxlength="100" placeholder="اسم المخزن أو المورد"></label></div><div id="items"></div><div id="totals"></div>
 <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-<button class="primary" id="invoiceSaveBtn">💾 حفظ الفاتورة</button><button id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">💬 مشاركة كنص</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
+<button class="primary" id="invoiceSaveBtn">💾 حفظ الفاتورة</button><button id="invoicePdfBtn">📄 تصدير / PDF</button><button id="invoicePrintBtn">🖨️ طباعة</button><button id="invoiceImageBtn">📷 مشاركة كصورة</button><button id="invoiceTextBtn">📊 مشاركة جدول الفاتورة</button><button id="invoiceNoteBtn">📝 حفظ كملاحظة</button><button id="invoiceShareBtn">📲 مشاركة</button><button id="invoiceCopyBtn">📋 نسخ</button><button class="danger" onclick="clearCart()">تفريغ فاتورة هذا المخزن</button>
 </div><hr><h3>📚 الفواتير المحفوظة</h3><p class="muted">الفواتير المحفوظة سجل ثابت غير قابل للتعديل. يمكنك تصديرها أو مشاركتها أو طباعتها.</p><div id="invoiceArchiveList" class="muted"></div></div>
 </section>
 <div id="archivedNoteModal" class="detailsPanel archived-note-panel hidden" role="dialog" aria-modal="true" aria-labelledby="archivedNoteTitle" onclick="if(event.target===this)closeArchivedInvoiceNote()">
@@ -516,7 +516,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     <div id="archivedNoteBody" class="archived-note-body"></div>
     <div class="archived-note-actions">
       <button type="button" class="primary" onclick="shareArchivedInvoiceNote('image')">📷 مشاركة صورة</button>
-      <button type="button" onclick="shareArchivedInvoiceNote('pdf')">📄 PDF / طباعة</button>
+      <button type="button" onclick="shareArchivedInvoiceNote('pdf')">📄 إنشاء ومشاركة PDF</button>
       <button type="button" onclick="shareArchivedInvoiceNote('text')">💬 مشاركة كنص</button>
       <button type="button" onclick="closeArchivedInvoiceNote()">إغلاق</button>
     </div>
@@ -2106,15 +2106,117 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const id=$('archivedNoteModal').dataset.invoiceId;
     if(id) exportArchivedInvoice(id,format);
   };
+  function invoiceTableText(inv) {
+    const lines = [
+      'فاتورة بضاعة الندوة',
+      'المشتري: ' + (inv.buyerName || '—'),
+      'المخزن / المورد: ' + (inv.supplierName || '—'),
+      'التاريخ: ' + new Date(inv.issuedAt).toLocaleString('ar'),
+      '',
+      'رقم | اسم المنتج | الكمية | سعر العبوة | الإجمالي',
+      '------------------------------------------------'
+    ];
+    (inv.lines || []).forEach((x, i) => {
+      lines.push((i + 1) + ' | ' + String(x.name || '—') + ' | ' +
+        String(x.quantity ?? 0) + ' | $' + (+x.unitPrice || 0).toFixed(2) +
+        ' | $' + (+x.lineTotal || 0).toFixed(2));
+    });
+    lines.push('------------------------------------------------');
+    lines.push('الإجمالي بالدولار: $' + (+inv.totalUsd || 0).toFixed(2));
+    lines.push('الإجمالي بالتركي: ' + fmt(+inv.totalTry || 0) + ' ل.ت');
+    lines.push('الإجمالي بالسوري الجديد: ' + fmt(+inv.totalSyp || 0) + ' ل.س');
+    return lines.join('\n');
+  }
+  function invoiceTableCsv(inv) {
+    const cell = value => '"' + String(value ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"';
+    const rows = [
+      ['رقم', 'اسم المنتج', 'الكمية', 'سعر العبوة بالدولار', 'الإجمالي بالدولار'],
+      ...(inv.lines || []).map((x, i) => [i + 1, x.name || '', x.quantity || 0,
+        (+x.unitPrice || 0).toFixed(2), (+x.lineTotal || 0).toFixed(2)]),
+      [],
+      ['الإجمالي بالدولار', (+inv.totalUsd || 0).toFixed(2)],
+      ['الإجمالي بالليرة التركية', fmt(+inv.totalTry || 0)],
+      ['الإجمالي بالليرة السورية الجديدة', fmt(+inv.totalSyp || 0)]
+    ];
+    return '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n');
+  }
+  async function loadHtml2Pdf() {
+    if (window.html2pdf) return window.html2pdf;
+    if (window.__nadwaPdfLoader) return window.__nadwaPdfLoader;
+    window.__nadwaPdfLoader = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = () => window.html2pdf ? resolve(window.html2pdf) : reject(new Error('تعذر تهيئة أداة إنشاء PDF.'));
+      script.onerror = () => reject(new Error('تعذر تحميل أداة إنشاء PDF. تحقق من اتصال الإنترنت ثم أعد المحاولة.'));
+      document.head.appendChild(script);
+    });
+    try { return await window.__nadwaPdfLoader; }
+    catch (error) { window.__nadwaPdfLoader = null; throw error; }
+  }
+  async function shareInvoiceAsPdf(inv) {
+    const html2pdf = await loadHtml2Pdf();
+    const parsed = new DOMParser().parseFromString(invoiceHtml(inv), 'text/html');
+    const page = document.createElement('div');
+    page.dir = 'rtl';
+    page.style.cssText = 'position:fixed;left:-12000px;top:0;width:760px;background:#fff;color:#172b24;z-index:-1;';
+    const style = document.createElement('style');
+    style.textContent = 'body{font-family:Arial,sans-serif}table{width:100%;border-collapse:collapse}tr{break-inside:avoid;page-break-inside:avoid}td,th{font-size:13px}img{max-width:64px}';
+    page.appendChild(style);
+    page.appendChild(parsed.body.cloneNode(true));
+    document.body.appendChild(page);
+    try {
+      const images = Array.from(page.querySelectorAll('img'));
+      await Promise.all(images.map(img => img.complete ? Promise.resolve() :
+        new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })));
+      const blob = await html2pdf().set({
+        margin: [8, 8, 10, 8],
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
+      }).from(page).outputPdf('blob');
+      if (!blob || !blob.size) throw new Error('لم يتم إنشاء ملف PDF صالح.');
+      const file = new File([blob], safeInvoiceName(inv, 'pdf'), { type: 'application/pdf' });
+      const shareData = { title: 'فاتورة ' + inv.supplierName, text: 'فاتورة محفوظة بصيغة PDF عالية الوضوح.', files: [file] };
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share(shareData);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        alert('تم إنشاء ملف PDF وتنزيله بجودة عالية. افتحه من التنزيلات ثم شاركه عبر واتساب.');
+      }
+    } finally {
+      page.remove();
+    }
+  }
+  async function shareArchivedInvoiceTable(inv) {
+    const text = invoiceTableText(inv);
+    const csv = new File([invoiceTableCsv(inv)], safeInvoiceName(inv, 'csv'), { type: 'text/csv;charset=utf-8' });
+    if (navigator.share && navigator.canShare?.({ files: [csv] })) {
+      await navigator.share({
+        title: 'جدول فاتورة ' + inv.supplierName,
+        text: 'جدول الفاتورة بصيغة CSV لفتحه كجدول مرتب في Excel أو تطبيق الجداول.',
+        files: [csv]
+      });
+    } else if (navigator.share) {
+      await navigator.share({ title: 'فاتورة ' + inv.supplierName, text });
+    } else {
+      downloadTextFile(invoiceTableCsv(inv), safeInvoiceName(inv, 'csv'), 'text/csv;charset=utf-8');
+      alert('تم تنزيل الفاتورة كجدول CSV مرتب. افتحه ببرنامج الجداول أو أرسله كمستند عبر واتساب.');
+    }
+  }
   window.exportArchivedInvoice = async function(id,format) {
-    const inv=invoiceArchive.find(x=>x.id===id);if(!inv)return;
+    const inv=invoiceArchive.find(x=>String(x.id)===String(id));if(!inv)return;
     try {
       if(format==='image') return await shareInvoiceAsImage(inv);
-      if(format==='pdf') { const w=window.open('','_blank');if(!w)throw new Error('اسمح بفتح نافذة الطباعة.');w.document.write(invoiceHtml(inv));w.document.close();w.focus();setTimeout(()=>w.print(),400);return; }
-      const txt=invoiceText(inv);
-      if(navigator.share) await navigator.share({title:'فاتورة '+inv.supplierName,text:txt});
-      else prompt('انسخ نص الفاتورة',txt);
-    } catch(e) { alert(e.message||e); }
+      if(format==='pdf') return await shareInvoiceAsPdf(inv);
+      if(format==='text') return await shareArchivedInvoiceTable(inv);
+    } catch(e) {
+      if (e && e.name === 'AbortError') return;
+      alert(e.message||e);
+    }
   };
   async function shareInvoiceAsImage(inv) {
     // ارسم بمقاسات تصميم ثابتة ثم كبّر لوحة الرسم نفسها لرفع دقة النصوص عند التكبير.
