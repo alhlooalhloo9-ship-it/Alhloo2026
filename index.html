@@ -280,6 +280,20 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 .invoice-archive-card{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px;margin:9px 0;border:1px solid #e3ebe5;border-radius:13px;background:#fbfdfb}
 .invoice-archive-card .actions{margin:0;flex-wrap:wrap}.invoice-archive-card .actions button{font-size:12px;padding:8px 10px}
 @media(max-width:520px){.invoice-meta-grid{grid-template-columns:1fr}.invoice-line{grid-template-columns:58px minmax(0,1fr);gap:8px}.invoice-line-photo,.invoice-line-no-photo{width:56px;height:56px}.invoice-line-controls{grid-column:2;justify-content:flex-start}.home-actions>button{flex:1 1 46%}}
+
+/* شريط تنقل سفلي ثابت لا يغطي محتوى التطبيق */
+body{padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+.bottom-nav{position:fixed;inset-inline:0;bottom:0;z-index:18;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));background:rgba(255,255,255,.97);backdrop-filter:blur(16px);border-top:1px solid #dfe9e2;box-shadow:0 -7px 24px rgba(20,55,38,.10);direction:rtl}
+.bottom-nav button{min-width:0;min-height:58px;padding:6px 2px 5px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:transparent;color:#64766b;font-size:11px;line-height:1.2;white-space:nowrap;position:relative}
+.bottom-nav button .nav-icon{font-size:20px;line-height:1.15}
+.bottom-nav button .nav-label{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bottom-nav button.active{background:#e8f3eb;color:#174c3c;font-weight:800}
+.bottom-nav button.active:before{content:"";position:absolute;top:0;left:25%;right:25%;height:3px;border-radius:0 0 5px 5px;background:#287257}
+.bottom-nav .nav-badge{position:absolute;top:1px;right:calc(50% - 25px);min-width:18px;height:18px;padding:2px 5px;border-radius:20px;background:#dcefe3;color:#174c3c;font-size:10px;font-weight:800;line-height:14px}
+@media(min-width:700px){.bottom-nav{padding-inline:calc((100vw - 700px)/2);gap:10px}.bottom-nav button{font-size:12px}}
+@media(max-width:360px){.bottom-nav{gap:1px;padding-inline:4px}.bottom-nav button{font-size:10px}.bottom-nav button .nav-icon{font-size:18px}}
+@media print{.bottom-nav{display:none!important}body{padding-bottom:0!important}main{padding-bottom:12px!important}}
 </style>
 <script
   src="https://js-de.sentry-cdn.com/6b360d8f124aaa77eef803eb43f37a3c.min.js"
@@ -308,19 +322,15 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     <div class="muted" style="font-size:12px;margin-top:5px">تُحفظ البيانات على هذا الجهاز وتُزامَن مع حسابك عند تسجيل الدخول ونجاح الاتصال.</div>
   </div>
   <nav class="drawer-nav">
-    <button type="button" onclick="page('products');closeDrawer()">📦 المنتجات</button>
-    <button type="button" onclick="page('suppliers');closeDrawer()">🏬 المخازن وأصحابها</button>
-    <button type="button" onclick="page('invoice');closeDrawer()">🧾 الفاتورة الحالية</button>
-    <button type="button" onclick="page('invoice');closeDrawer();setTimeout(()=>document.getElementById('invoiceArchiveList')?.scrollIntoView({behavior:'smooth'}),300)">📚 الفواتير المحفوظة</button>
-    <button type="button" onclick="page('settings');closeDrawer()">🎨 إعدادات الصفحة الرئيسية</button>
-    <button type="button" onclick="page('account');closeDrawer()">⚙️ الإعدادات ونقل البيانات</button>
+    <button type="button" onclick="page('account');closeDrawer()">⚙️ إعدادات الحساب ونقل البيانات</button>
+    <button type="button" onclick="page('settings');closeDrawer()">🎨 تخصيص شكل المنتجات</button>
   </nav>
   <hr class="drawer-divider">
   <button type="button" id="drawerSignOut" style="width:100%">تسجيل الخروج من الحساب</button>
 </aside>
-<div class="tabs" role="navigation" aria-label="التنقل الرئيسي">
+<div class="tabs" role="navigation" aria-label="التنقل الرئيسي" aria-hidden="true">
 <button id="tabProducts" class="primary" onclick="page('products')">المنتجات</button>
-<button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة <span class="badge" id="count">0</span></button>
+<button id="tabInvoice" onclick="page('invoice')">🧾 الفاتورة</button>
 <button id="tabAccount" onclick="page('account')">⚙️ الحساب والإعدادات</button>
 </div>
 <main>
@@ -451,6 +461,13 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
 <p class="muted">أسعار الصرف يدوية وقابلة للتعديل، وليست جلباً تلقائياً من الإنترنت.</p>
 </div>
 </main>
+<nav class="bottom-nav" id="bottomNav" aria-label="التنقل السريع">
+  <button type="button" id="navProducts" class="active" aria-current="page" onclick="page('products')"><span class="nav-icon" aria-hidden="true">📦</span><span class="nav-label">المنتجات</span></button>
+  <button type="button" id="navInvoice" onclick="page('invoice')"><span class="nav-icon" aria-hidden="true">🧾</span><span class="nav-label">الفواتير</span><span class="nav-badge" id="count">0</span></button>
+  <button type="button" id="navSuppliers" onclick="page('suppliers')"><span class="nav-icon" aria-hidden="true">🏬</span><span class="nav-label">المخازن</span></button>
+  <button type="button" id="navDesignSettings" onclick="page('settings')"><span class="nav-icon" aria-hidden="true">🎨</span><span class="nav-label">إعدادات العرض</span></button>
+  <button type="button" id="navAccount" onclick="page('account')"><span class="nav-icon" aria-hidden="true">⚙️</span><span class="nav-label">الإعدادات</span></button>
+</nav>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { 
@@ -619,6 +636,8 @@ body{background:var(--user-page-bg)!important;font-size:calc(16px * var(--user-f
     $('tabProducts').classList.toggle('primary', p === 'products' || p === 'add');
     $('tabInvoice').classList.toggle('primary', p === 'invoice');
     $('tabAccount').classList.toggle('primary', p === 'account');
+    const navStates = {navProducts:p==='products'||p==='add',navInvoice:p==='invoice',navSuppliers:p==='suppliers',navDesignSettings:p==='settings',navAccount:p==='account'};
+    Object.entries(navStates).forEach(([id,active])=>{const button=$(id);if(!button)return;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
     currentAppPage = p;
     if (p === 'invoice') { renderSupplierSelectors(); if($('invoiceSupplierName')&&!$('invoiceSupplierName').value)$('invoiceSupplierName').value=supplierName(activeSupplierId); renderInvoice(); }
     if (p === 'products') { renderSupplierSelectors(); renderProducts(); }
