@@ -739,7 +739,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   </div>
 </div>
 <div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
-<div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><div class="detailsModalActions" style="display:flex;gap:10px;margin-top:14px"><button type="button" class="primary" id="detailsEditBtn" style="flex:1;min-height:46px">✏️ تعديل</button><button type="button" id="detailsCloseBtn" style="flex:1;min-height:46px" onclick="closeDetails()">إغلاق</button></div></div>
+<div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><div class="detailsModalActions" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button type="button" class="primary" id="detailsEditBtn" style="flex:1;min-width:90px;min-height:46px">✏️ تعديل</button><button type="button" class="danger" id="detailsDeleteBtn" style="flex:1;min-width:90px;min-height:46px;background:#fee2e2;color:#9f2222">🗑️ حذف</button><button type="button" id="detailsCloseBtn" style="flex:1;min-width:90px;min-height:46px" onclick="closeDetails()">إغلاق</button></div></div>
 </div>
 <div class="box">
 <h3>💱 أسعار الصرف</h3>
@@ -1843,6 +1843,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     closeDetails(true);
     editProduct(id);
   });
+  $('detailsDeleteBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (activeDetailsProductId === null) return;
+    const id = activeDetailsProductId;
+    closeDetails(true);
+    deleteProduct(id);
+  });
   $('detailsCloseBtn').addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1958,7 +1966,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       el.className = 'prod';
       let pieces = Math.max(1, +p.pieces || 1);
       const supplierName = suppliers.find(x => x.id === (p.supplierId || 'general'))?.name || 'مخزن عام';
-      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted productSupplierLabel">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">الإضافات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="addToInvoice" title="إضافة قطعة واحدة إلى الفاتورة">＋ إضافة</button><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>' + '<details class="productDetails"><summary>التفاصيل والإجراءات</summary><button type="button" class="detailsBtn">عرض تفاصيل المنتج</button><div class="actions"><button class="edit">تعديل</button><button class="del danger">حذف</button></div></details>';
+      el.innerHTML = '<label class="bulkSelectLabel" style="display:none;align-items:center;gap:7px;justify-content:flex-start;padding:5px 8px;font-size:14px"><input class="bulkProductSelect" type="checkbox" value="' + esc(String(p.id)) + '" style="width:19px;height:19px;accent-color:#16734a"> تحديد للنقل</label>' + (p.image ? '<img class="productPhoto" src="' + p.image + '" alt="' + esc(p.name) + '">' : '<div class="noProductPhoto" style="display:flex;align-items:center;justify-content:center;gap:8px;margin:12px"><span style="font-size:42px">📦</span><button type="button" class="uploadProductPhoto" title="تحميل صورة للمنتج" aria-label="تحميل صورة للمنتج" style="padding:7px 9px;font-size:20px">⬆️</button></div>') + '<div class="name">' + esc(p.name) + '</div><div class="muted productSupplierLabel">🏬 ' + esc(supplierName) + '</div>' + '<div class="tapControls"><span class="badge">الإضافات: <b>' + (+(p.pickCount || 0)) + '</b></span><button type="button" class="addToInvoice" title="إضافة قطعة واحدة إلى الفاتورة">＋ إضافة</button><button type="button" class="undoTap" title="إزالة قطعة واحدة من الفاتورة">− إزالة</button></div>' + '<div class="muted productPiecesLabel">عدد القطع: ' + pieces + '</div>' + '<div class="price">$' + (+p.price).toFixed(2) + '</div>';
       if (p.image) {
         const photo = el.querySelector('.productPhoto');
         photo.style.touchAction = 'pan-y';
@@ -2059,23 +2067,6 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         e.preventDefault();
         e.stopPropagation();
         undoTap(p.id);
-      };
-      el.querySelector('.detailsBtn').onclick = e => {
-        e.preventDefault();
-        e.stopPropagation();
-        openDetails(p.id);
-      };
-      el.querySelector('.productDetails').addEventListener('click', e => e.stopPropagation());
-      el.querySelector('.productDetails summary').addEventListener('click', e => e.stopPropagation());
-      el.querySelector('.edit').onclick = e => {
-        e.preventDefault();
-        e.stopPropagation();
-        editProduct(p.id);
-      };
-      el.querySelector('.del').onclick = e => {
-        e.preventDefault();
-        e.stopPropagation();
-        deleteProduct(p.id);
       };
       root.appendChild(el);
     });
