@@ -2658,13 +2658,14 @@ input{padding:9px 10px;margin:4px 0 9px;font-size:15px}
     $('sideDrawer').setAttribute('aria-hidden','false');
     $('menuToggle').setAttribute('aria-expanded','true');
   }
-  window.closeDrawer = function() {
+  const closeDrawer = function() {
     $('sideDrawer').classList.remove('open');
     $('drawerBackdrop').classList.remove('open');
     document.body.classList.remove('drawer-open');
     $('sideDrawer').setAttribute('aria-hidden','true');
     $('menuToggle').setAttribute('aria-expanded','false');
   };
+  window.closeDrawer = closeDrawer;
   $('menuToggle').addEventListener('click', openDrawer);
   $('drawerClose').addEventListener('click', closeDrawer);
   $('drawerBackdrop').addEventListener('click', closeDrawer);
