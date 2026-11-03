@@ -1590,7 +1590,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const ids = new Set(Array.from(selectedProductIds, String));
     const deleting = products.filter(p => ids.has(String(p.id)));
     if (!deleting.length) return alert('حدد المنتجات التي تريد حذفها أولاً.');
-    const names = deleting.slice(0, 5).map(p => '• ' + p.name).join('\\n');
+    const names = deleting.slice(0, 5).map(p => '• ' + p.name).join('\n');
     const extra = deleting.length > 5 ? '\\nو' + (deleting.length - 5) + ' منتجات أخرى' : '';
     if (!confirm('⚠️ حذف نهائي\\n\\nسيتم حذف ' + deleting.length + ' منتجاً من جميع المخازن، وإزالتها من الفواتير الجارية.\\n\\n' + names + extra + '\\n\\nلا يمكن التراجع عن الحذف. هل تريد المتابعة؟')) return;
     products = products.filter(p => !ids.has(String(p.id)));
@@ -2269,6 +2269,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     page.style.height = Math.ceil(naturalHeight * scale) + 'px';
     page.style.margin = '0 auto';
   }
+  window.addEventListener('resize', fitArchivedInvoiceToScreen, { passive: true });
   function closeArchivedPdfPreview() {
     const modal = $('archivedPdfPreviewModal');
     if (modal) modal.classList.add('hidden');
