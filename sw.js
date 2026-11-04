@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v79";
+const CACHE_VERSION = "v80";
 const APP_CACHE = "nadwa-app-" + CACHE_VERSION;
 const FIREBASE_CACHE = "nadwa-firebase-" + CACHE_VERSION;
 const APP_SHELL = ["./", "./index.html", "./manifest.json", "./icon.svg"];
@@ -93,7 +93,7 @@ self.addEventListener("fetch", event => {
 
   if (isNavigation) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then(async response => {
           if (response && response.ok) {
             const cache = await caches.open(APP_CACHE);
