@@ -864,7 +864,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       <label><input type="checkbox" data-detail-field="pieceCost"> سعر الحبة</label>
       <label><input type="checkbox" data-detail-field="pieceUsd"> سعر الحبة بالدولار</label>
       <label><input type="checkbox" data-detail-field="pieceTry"> سعر الحبة بالتركي</label>
-      <label><input type="checkbox" data-detail-field="pieceSyp" checked> سعر الحبة بالسوري الجديد</label>
+      <label><input type="checkbox" data-detail-field="pieceSyp" checked> سعر الحبة بالليرة السورية</label>
     </div>
   </div>
 </details>
@@ -2034,7 +2034,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       pieceCost: 'سعر الحبة: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
       pieceUsd: 'سعر الحبة بالدولار: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
       pieceTry: 'سعر الحبة بالتركي: <b>' + fmt((packCost * tryRate) / pieces) + ' ل.ت</b>',
-      pieceSyp: 'سعر الحبة بالسوري الجديد: <b>' + fmt((packCost * sypRate) / pieces) + ' ل.س جديدة</b>'
+      pieceSyp: 'سعر الحبة بالليرة السورية: <b>' + fmt((packCost * sypRate) / pieces) + ' ل.س</b>'
     };
     const selectedDetailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
     const detailRows = selectedDetailFields.filter(key => Object.prototype.hasOwnProperty.call(detailValues, key)).map(key => '<div>' + detailValues[key] + '</div>').join('');
@@ -2239,7 +2239,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const detailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
     document.querySelectorAll('[data-detail-field]').forEach(el => { el.checked = detailFields.includes(el.dataset.detailField); });
   }
-  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const addButtonMigrationKey=uiSettingsKey()+'_restore_home_add_button_v2';if(localStorage.getItem(uiSettingsKey()+'_hide_home_add_button_v1')==='1'&&localStorage.getItem(addButtonMigrationKey)!=='1'){uiSettings.showAddProduct=true;localStorage.setItem(addButtonMigrationKey,'1');}const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};if(Array.isArray(uiSettings.detailsFields)&&!uiSettings.detailsFields.includes('pieceSyp'))uiSettings.detailsFields.push('pieceSyp');const addButtonMigrationKey=uiSettingsKey()+'_restore_home_add_button_v2';if(localStorage.getItem(uiSettingsKey()+'_hide_home_add_button_v1')==='1'&&localStorage.getItem(addButtonMigrationKey)!=='1'){uiSettings.showAddProduct=true;localStorage.setItem(addButtonMigrationKey,'1');}const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyRotationLock(true);});
   window.addEventListener('orientationchange',()=>applyRotationLock(true));
   document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&uiSettings.rotationLock===true)applyRotationLock(true);});
