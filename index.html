@@ -950,8 +950,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <div id="detailsModal" class="detailsPanel hidden" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDetails()">
 <div class="detailsCard"><h3 id="modalTitle">تفاصيل المنتج</h3><div id="modalContent"></div><div class="detailsModalActions" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button type="button" class="primary" id="detailsEditBtn" style="flex:1;min-width:90px;min-height:46px">✏️ تعديل</button><button type="button" class="danger" id="detailsDeleteBtn" style="flex:1;min-width:90px;min-height:46px;background:#fee2e2;color:#9f2222">🗑️ حذف</button><button type="button" id="detailsCloseBtn" style="flex:1;min-width:90px;min-height:46px" onclick="closeDetails()">إغلاق</button></div></div>
 </div>
-<div class="box">
-<h3>💱 أسعار الصرف التلقائية</h3>
+<div class="box exchange-rates-box">
+<h3>💱 أسعار الصرف</h3>
+<details class="settings-collapsible exchange-rates-details" id="exchangeRatesDetails">
+<summary>📊 تفاصيل سعر الصرف</summary>
+<div class="settings-collapsible-body">
 <label>الدولار مقابل الليرة التركية</label><input id="tryRate" type="number" min="0.01" step="0.01" readonly value="49.7">
 <label>الدولار مقابل الليرة السورية الجديدة</label><input id="sypRate" type="number" min="0.01" step="0.01" readonly value="140">
 <p class="muted">المصدر: موقع ليرتنا — أسعار إدلب. يعتمد الحساب على سعر مبيع الدولار وسعر شراء الليرة التركية لحماية تكلفة إعادة شراء البضاعة.</p>
@@ -959,6 +962,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <p id="exchangeRateStatus" class="muted" role="status" aria-live="polite">جارٍ تحميل آخر أسعار الصرف…</p>
 <button type="button" class="primary" onclick="refreshExchangeRates(true)">🔄 تحديث الأسعار الآن</button>
 <p class="muted">يتم تحديث الأسعار تلقائياً كل 5 ساعات. عند تعذّر الاتصال يبقى آخر سعر ناجح محفوظاً دون استبداله بقيمة خاطئة.</p>
+</div>
+</details>
 </div>
 </main>
 <nav class="bottom-nav" id="bottomNav" aria-label="التنقل السريع">
