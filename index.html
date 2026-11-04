@@ -841,11 +841,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <label><input type="checkbox" id="uiShowPieces" checked> عدد القطع</label>
 <label><input type="checkbox" id="uiShowTaps" checked> الإضافة</label>
 <label><input type="checkbox" id="uiShowActions" checked> أزرار الإجراءات داخل بطاقة المنتج</label>
-<label><input type="checkbox" id="uiShowAddProduct" checked> زر إضافة منتج جديد</label>
-<label><input type="checkbox" id="uiShowInvoiceShortcut" checked> زر الفاتورة السريع</label>
-<label><input type="checkbox" id="uiShowSupplierSwitch" checked> أزرار اختيار المخزن</label>
-<label><input type="checkbox" id="uiShowSearch" checked> مربع البحث</label>
-<label><input type="checkbox" id="uiShowBulkTools" checked> أدوات تحديد ونقل المنتجات</label></div>
+<label><input type="checkbox" id="uiShowAddProduct" checked> زر «إضافة منتج جديد» أعلى صفحة المنتجات</label>
+<label><input type="checkbox" id="uiShowInvoiceShortcut" checked> زر الانتقال السريع إلى الفاتورة</label>
+<label><input type="checkbox" id="uiShowSupplierSwitch" checked> أزرار التبديل السريع بين المخازن</label>
+<label><input type="checkbox" id="uiShowSearch" checked> مربع البحث عن المنتجات</label>
+<label><input type="checkbox" id="uiShowBulkTools" checked> زر تفعيل تحديد ونقل المنتجات</label></div>
 </div>
 </details>
 <details class="settings-collapsible" id="productDetailsSettings">
@@ -2207,7 +2207,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry']};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:false,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry']};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
@@ -2235,7 +2235,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const detailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
     document.querySelectorAll('[data-detail-field]').forEach(el => { el.checked = detailFields.includes(el.dataset.detailField); });
   }
-  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const addButtonMigrationKey=uiSettingsKey()+'_hide_home_add_button_v1';if(localStorage.getItem(addButtonMigrationKey)!=='1'){uiSettings.showAddProduct=false;localStorage.setItem(addButtonMigrationKey,'1');}const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyRotationLock(true);});
   window.addEventListener('orientationchange',()=>applyRotationLock(true));
   document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&uiSettings.rotationLock===true)applyRotationLock(true);});
