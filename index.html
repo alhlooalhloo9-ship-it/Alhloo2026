@@ -839,7 +839,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <label><input type="checkbox" id="uiShowPrice" checked> السعر</label>
 <label><input type="checkbox" id="uiShowSupplier" checked> اسم المخزن</label>
 <label><input type="checkbox" id="uiShowPieces" checked> عدد القطع</label>
-<label><input type="checkbox" id="uiShowTaps" checked> الإضافة</label>
+<label><input type="checkbox" id="uiShowTaps" checked> مجموعة أزرار الفاتورة داخل بطاقة المنتج</label>
+<label><input type="checkbox" id="uiShowCardAddButton" checked> زر إضافة قطعة للفاتورة داخل بطاقة المنتج</label>
+<label><input type="checkbox" id="uiShowCardQty" checked> عدّاد الكمية داخل بطاقة المنتج</label>
+<label><input type="checkbox" id="uiShowCardRemove" checked> زر إزالة قطعة من الفاتورة داخل بطاقة المنتج</label>
 <label><input type="checkbox" id="uiShowActions" checked> أزرار الإجراءات داخل بطاقة المنتج</label>
 <label><input type="checkbox" id="uiShowAddProduct" checked> زر «إضافة منتج جديد» أعلى صفحة المنتجات</label>
 <label><input type="checkbox" id="uiShowInvoiceShortcut" checked> زر الانتقال السريع إلى الفاتورة</label>
@@ -2207,7 +2210,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showActions:true,showAddProduct:false,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry']};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showCardAddButton:true,showCardQty:true,showCardRemove:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry']};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
@@ -2222,11 +2225,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     document.documentElement.style.setProperty('--user-accent',/^#[0-9a-f]{6}$/i.test(s.accentColor)?s.accentColor:'#174c3c');
     document.body.style.fontFamily=s.font==='Tahoma'?'Tahoma,Arial,sans-serif':s.font==='system'?'system-ui,Arial,sans-serif':'Arial,sans-serif';
     const root=$('products');if(root){root.classList.toggle('layout-list',s.layout==='list');root.classList.toggle('grid',s.layout!=='list');root.classList.remove('compact-four');
-      for(const pair of [['hide-image','showImage'],['hide-name','showName'],['hide-price','showPrice'],['hide-supplier','showSupplier'],['hide-pieces','showPieces'],['hide-taps','showTaps'],['hide-actions','showActions']])root.classList.toggle(pair[0],s[pair[1]]===false);}
+      for(const pair of [['hide-image','showImage'],['hide-name','showName'],['hide-price','showPrice'],['hide-supplier','showSupplier'],['hide-pieces','showPieces'],['hide-taps','showTaps'],['hide-card-add','showCardAddButton'],['hide-card-qty','showCardQty'],['hide-card-remove','showCardRemove'],['hide-actions','showActions']])root.classList.toggle(pair[0],s[pair[1]]===false);}
     const home=$('productsPage');if(home){for(const [selector,key] of [['.home-add-product','showAddProduct'],['.home-invoice-button','showInvoiceShortcut'],['#supplierQuickSwitch','showSupplierSwitch'],['.product-search-wrap','showSearch'],['#bulkSelectionIntro','showBulkTools'],['#toggleBulkSelection','showBulkTools']]){const node=home.querySelector(selector);if(node)node.classList.toggle('ui-hidden-control',s[key]===false);}}
   }
   function fillUiSettings(){
-    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiProductNameSize:'productNameSize',uiProductPriceSize:'productPriceSize',uiProductImageSize:'productImageSize',uiRotationLock:'rotationLock',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
+    const map={uiColumns:'columns',uiLayout:'layout',uiFont:'font',uiFontSize:'fontSize',uiProductNameSize:'productNameSize',uiProductPriceSize:'productPriceSize',uiProductImageSize:'productImageSize',uiRotationLock:'rotationLock',uiPageColor:'pageColor',uiCardColor:'cardColor',uiAccentColor:'accentColor',uiShowImage:'showImage',uiShowName:'showName',uiShowPrice:'showPrice',uiShowSupplier:'showSupplier',uiShowPieces:'showPieces',uiShowTaps:'showTaps',uiShowCardAddButton:'showCardAddButton',uiShowCardQty:'showCardQty',uiShowCardRemove:'showCardRemove',uiShowActions:'showActions',uiShowAddProduct:'showAddProduct',uiShowInvoiceShortcut:'showInvoiceShortcut',uiShowSupplierSwitch:'showSupplierSwitch',uiShowSearch:'showSearch',uiShowBulkTools:'showBulkTools'};
     for(const [id,key] of Object.entries(map)){const el=$(id);if(el){if(el.type==='checkbox')el.checked=uiSettings[key]!==false;else el.value=uiSettings[key];}}
     if($('uiFontSizeValue'))$('uiFontSizeValue').textContent=(+uiSettings.fontSize||100)+'%';
     if($('uiProductNameSizeValue'))$('uiProductNameSizeValue').textContent=(+uiSettings.productNameSize||85)+'%';
@@ -2235,7 +2238,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const detailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
     document.querySelectorAll('[data-detail-field]').forEach(el => { el.checked = detailFields.includes(el.dataset.detailField); });
   }
-  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const addButtonMigrationKey=uiSettingsKey()+'_hide_home_add_button_v1';if(localStorage.getItem(addButtonMigrationKey)!=='1'){uiSettings.showAddProduct=false;localStorage.setItem(addButtonMigrationKey,'1');}const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
+  function loadUiSettings(){try{const v=JSON.parse(localStorage.getItem(uiSettingsKey())||'{}');uiSettings={...defaultUiSettings,...(v&&typeof v==='object'?v:{})};const addButtonMigrationKey=uiSettingsKey()+'_restore_home_add_button_v2';if(localStorage.getItem(uiSettingsKey()+'_hide_home_add_button_v1')==='1'&&localStorage.getItem(addButtonMigrationKey)!=='1'){uiSettings.showAddProduct=true;localStorage.setItem(addButtonMigrationKey,'1');}const designKey=uiSettingsKey()+'_card_design_v2';if(localStorage.getItem(designKey)!=='1'){uiSettings.columns=2;uiSettings.layout='grid';uiSettings.showSupplier=false;uiSettings.showPieces=false;localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));localStorage.setItem(designKey,'1');}}catch(_){uiSettings={...defaultUiSettings,columns:2,layout:'grid',showSupplier:false,showPieces:false};}uiSettings.rotationLock=true;try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(_){}fillUiSettings();applyUiSettings();applyRotationLock(true);}
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')applyRotationLock(true);});
   window.addEventListener('orientationchange',()=>applyRotationLock(true));
   document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement&&uiSettings.rotationLock===true)applyRotationLock(true);});
@@ -2252,12 +2255,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     });
   }
   function saveUiSettings(){
-    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,productImageSize:+$('uiProductImageSize').value,rotationLock:true,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked,detailsFields:Array.from(document.querySelectorAll('[data-detail-field]:checked'),el=>el.dataset.detailField)};
+    uiSettings={columns:+$('uiColumns').value,layout:$('uiLayout').value,font:$('uiFont').value,fontSize:+$('uiFontSize').value,productNameSize:+$('uiProductNameSize').value,productPriceSize:+$('uiProductPriceSize').value,productImageSize:+$('uiProductImageSize').value,rotationLock:true,pageColor:$('uiPageColor').value,cardColor:$('uiCardColor').value,accentColor:$('uiAccentColor').value,showImage:$('uiShowImage').checked,showName:$('uiShowName').checked,showPrice:$('uiShowPrice').checked,showSupplier:$('uiShowSupplier').checked,showPieces:$('uiShowPieces').checked,showTaps:$('uiShowTaps').checked,showCardAddButton:$('uiShowCardAddButton').checked,showCardQty:$('uiShowCardQty').checked,showCardRemove:$('uiShowCardRemove').checked,showActions:$('uiShowActions').checked,showAddProduct:$('uiShowAddProduct').checked,showInvoiceShortcut:$('uiShowInvoiceShortcut').checked,showSupplierSwitch:$('uiShowSupplierSwitch').checked,showSearch:$('uiShowSearch').checked,showBulkTools:$('uiShowBulkTools').checked,detailsFields:Array.from(document.querySelectorAll('[data-detail-field]:checked'),el=>el.dataset.detailField)};
     try{localStorage.setItem(uiSettingsKey(),JSON.stringify(uiSettings));}catch(e){$('uiSettingsStatus').textContent='تعذر حفظ الإعدادات: '+(e.message||e);return;}
     applyUiSettings();renderProducts();if($('uiSettingsStatus'))$('uiSettingsStatus').textContent='تم حفظ الإعدادات وتطبيقها على الصفحة الرئيسية.';applyRotationLock(uiSettings.rotationLock===true);
   }
   $('saveUiSettings').addEventListener('click',saveUiSettings);
-  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiProductImageSize'])$(id).addEventListener('change',saveUiSettings);
+  for(const id of ['uiColumns','uiLayout','uiFont','uiPageColor','uiCardColor','uiAccentColor','uiShowImage','uiShowName','uiShowPrice','uiShowSupplier','uiShowPieces','uiShowTaps','uiShowCardAddButton','uiShowCardQty','uiShowCardRemove','uiShowActions','uiShowAddProduct','uiShowInvoiceShortcut','uiShowSupplierSwitch','uiShowSearch','uiShowBulkTools','uiFontSize','uiProductNameSize','uiProductPriceSize','uiProductImageSize'])$(id).addEventListener('change',saveUiSettings);
   $('uiProductImageSize').addEventListener('input',()=>{$('uiProductImageSizeValue').textContent=$('uiProductImageSize').value+'%';uiSettings.productImageSize=+$('uiProductImageSize').value;applyUiSettings();});
   $('uiFontSize').addEventListener('input',()=>{$('uiFontSizeValue').textContent=$('uiFontSize').value+'%';});
   $('uiProductNameSize').addEventListener('input',()=>{const value=Number($('uiProductNameSize').value);$('uiProductNameSizeValue').textContent=value+'%';document.documentElement.style.setProperty('--product-name-scale',String(value/100));});
@@ -4120,6 +4123,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   }
 </script>
 <style id="nadwa-reference-product-cards-v2">
+#products.hide-card-add .tapControls .addToInvoiceBtn,
+#products.hide-card-qty .tapControls .productCartQty,
+#products.hide-card-remove .tapControls .undoTap{display:none!important}
+
 /* Product cards: compact two-column reference layout; settings still allow 1–4 columns */
 #products.grid{
  display:grid!important;
