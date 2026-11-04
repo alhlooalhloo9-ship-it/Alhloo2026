@@ -1338,8 +1338,10 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   }
 
   function cartUpdatedAtKey() { return 'nadwa_cart_updated_at_' + (cloudUser?.uid || 'guest'); }
-  function save() {
+  function markCartChanged() {
     try { localStorage.setItem(cartUpdatedAtKey(), String(Date.now())); } catch (_) {}
+  }
+  function save() {
     saveWorkspaceLocal();
     queueCloudSync();
   }
@@ -1966,6 +1968,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     rememberDeletedProductIds([id]);publishProductDeletions([id]).catch(error=>{console.error('Product deletion sync failed:',error);showCloudMessage('تم الحذف محلياً وسيُعاد إرسال سجل الحذف عند عودة الاتصال.');});
     Object.values(supplierCarts).forEach(items => { if (items) delete items[id]; });
     delete cart[id];
+    markCartChanged();
     save();
     renderProducts();
     renderInvoice();
@@ -1975,6 +1978,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     let p = products.find(x => String(x.id) === String(id));
     if (p && (p.supplierId || 'main') !== activeSupplierId) switchSupplier(p.supplierId || 'main');
     cart[id] = (cart[id] || 0) + 1;
+    markCartChanged();
     if (p) p.pickCount = (+(p.pickCount || 0)) + 1;
     save();
     renderProducts();
@@ -1987,6 +1991,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (d < 0 && p) p.pickCount = Math.max(0, (+(p.pickCount || 0)) + d);
     if (n <= 0) delete cart[id];
     else cart[id] = n;
+    markCartChanged();
     save();
     renderProducts();
     renderInvoice();
@@ -2003,6 +2008,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
     if (currentQty === 1) delete cart[id];
     else cart[id] = currentQty - 1;
+    markCartChanged();
     p.pickCount = Math.max(0, (+(p.pickCount || 0)) - 1);
     save();
     renderProducts();
@@ -2109,6 +2115,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       for (const id of ids) delete items[id];
     }
     for (const id of ids) delete cart[id];
+    markCartChanged();
     selectedProductIds.clear();
     save();
     renderSupplierList();
@@ -2694,6 +2701,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const product=products.find(p=>String(p.id)===String(id));if(!product)return;
     const oldQuantity=Number(cart[id]||0);
     if(quantity===0)delete cart[id];else cart[id]=quantity;
+    markCartChanged();
     product.pickCount=Math.max(0,(Number(product.pickCount)||0)+(quantity-oldQuantity));
     save();renderProducts();renderInvoice();
   };
@@ -3117,7 +3125,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   window.clearCart = function() {
     if (confirm('تفريغ فاتورة هذا المخزن؟')) {
       Object.entries(cart).forEach(([id,n])=>{const p=products.find(x=>String(x.id)===String(id));if(p)p.pickCount=Math.max(0,(+(p.pickCount||0))-n);});
-      cart={};supplierCarts[activeSupplierId]=cart;save();renderProducts();renderInvoice();
+      cart={};supplierCarts[activeSupplierId]=cart;markCartChanged();save();renderProducts();renderInvoice();
     }
   };
   window.share = function(){ $('invoiceShareBtn').click(); };
