@@ -668,13 +668,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 #detailsModal #modalContent{
   flex:1 1 auto!important;
   min-height:0!important;
-  overflow:hidden!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
   font-size:clamp(11px,2.9vw,13px)!important;
   line-height:1.28!important;
   display:flex!important;
   flex-direction:column!important;
-  justify-content:space-evenly!important;
-  gap:2px!important;
+  justify-content:flex-start!important;
+  gap:4px!important;
 }
 #detailsModal #modalContent>img{
   flex:0 1 21dvh!important;
