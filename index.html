@@ -864,6 +864,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       <label><input type="checkbox" data-detail-field="pieceCost"> سعر الحبة</label>
       <label><input type="checkbox" data-detail-field="pieceUsd"> سعر الحبة بالدولار</label>
       <label><input type="checkbox" data-detail-field="pieceTry"> سعر الحبة بالتركي</label>
+      <label><input type="checkbox" data-detail-field="pieceSyp" checked> سعر الحبة بالسوري الجديد</label>
     </div>
   </div>
 </details>
@@ -2032,7 +2033,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       pieces: 'عدد الحبات في العبوة: <b>' + pieces + '</b>',
       pieceCost: 'سعر الحبة: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
       pieceUsd: 'سعر الحبة بالدولار: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
-      pieceTry: 'سعر الحبة بالتركي: <b>' + fmt((packCost * tryRate) / pieces) + ' ل.ت</b>'
+      pieceTry: 'سعر الحبة بالتركي: <b>' + fmt((packCost * tryRate) / pieces) + ' ل.ت</b>',
+      pieceSyp: 'سعر الحبة بالسوري الجديد: <b>' + fmt((packCost * sypRate) / pieces) + ' ل.س جديدة</b>'
     };
     const selectedDetailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
     const detailRows = selectedDetailFields.filter(key => Object.prototype.hasOwnProperty.call(detailValues, key)).map(key => '<div>' + detailValues[key] + '</div>').join('');
@@ -2209,7 +2211,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
   };
 
-  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showCardQty:true,showCardRemove:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry']};
+  const defaultUiSettings={columns:2,layout:'grid',font:'Arial',fontSize:100,productNameSize:85,productPriceSize:100,productImageSize:100,rotationLock:true,pageColor:'#f4f7f5',cardColor:'#ffffff',accentColor:'#174c3c',showImage:true,showName:true,showPrice:true,showSupplier:true,showPieces:true,showTaps:true,showCardQty:true,showCardRemove:true,showActions:true,showAddProduct:true,showInvoiceShortcut:true,showSupplierSwitch:true,showSearch:true,showBulkTools:true,detailsFields:['packUsd','packTry','sellPiece','profitUsd','profitTry','pieceSyp']};
   let uiSettings={...defaultUiSettings};
   function uiSettingsKey(){return 'nadwa_ui_settings_'+(cloudUser?.uid||'guest');}
   function applyUiSettings(){
