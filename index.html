@@ -2034,9 +2034,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       pieceCost: 'سعر الحبة: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
       pieceUsd: 'سعر الحبة بالدولار: <b>$' + (packCost / pieces).toFixed(4) + '</b>',
       pieceTry: 'سعر الحبة بالتركي: <b>' + fmt((packCost * tryRate) / pieces) + ' ل.ت</b>',
-      pieceSyp: 'سعر الحبة بالليرة السورية: <b>' + fmt((packCost * sypRate) / pieces) + ' ل.س</b>'
+      pieceSyp: 'سعر الحبة بالليرة السورية: <b>' + fmt((sellPieceTry * sypRate) / tryRate) + ' ل.س</b>'
     };
-    const selectedDetailFields = Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields;
+    const selectedDetailFields = Array.from(new Set([...(Array.isArray(uiSettings.detailsFields) ? uiSettings.detailsFields : defaultUiSettings.detailsFields), 'pieceSyp']));
     const detailRows = selectedDetailFields.filter(key => Object.prototype.hasOwnProperty.call(detailValues, key)).map(key => '<div>' + detailValues[key] + '</div>').join('');
     $('modalTitle').textContent = p.name + ' — تفاصيل العبوة';
     $('modalContent').innerHTML =
