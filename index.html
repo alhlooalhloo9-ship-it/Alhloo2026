@@ -3347,7 +3347,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
 
     if (resource === "products") {
-      const target = basePath + "/products";
+      const target = basePath + "/workspace/products";
       const query = new URLSearchParams(String(path).split("?")[1] || "");
       if (method === "GET") {
         let raw = null;
@@ -3357,7 +3357,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
           (raw && typeof raw === "object" ? Object.values(raw).filter(Boolean) : []);
         // سجل حذف دائم حتى لا تعود المنتجات المحذوفة من نسخة Firestore القديمة.
         let deletedRaw = {};
-        try { deletedRaw = await requestRtdb(basePath + "/productsDeleted", "GET") || {}; }
+        try { deletedRaw = await requestRtdb(basePath + "/workspace/productsDeleted", "GET") || {}; }
         catch (deletedReadError) { console.warn("Product deletion ledger read failed:", deletedReadError); }
         const deletedIds = Array.isArray(deletedRaw) ? deletedRaw.filter(Boolean).map(String) :
           (deletedRaw && typeof deletedRaw === "object" ? Object.keys(deletedRaw).filter(id => deletedRaw[id]).map(String) : []);
@@ -3410,7 +3410,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
 
     if (resource === "cart") {
-      const target = basePath + "/cart";
+      const target = basePath + "/workspace/cart";
       if (method === "GET") {
         let current = null;
         try { current = await requestRtdb(target, "GET"); }
@@ -3435,7 +3435,7 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
 
     if (resource === "settings") {
-      const target = basePath + "/settings";
+      const target = basePath + "/workspace/settings";
       if (method === "GET") {
         let current = null;
         try { current = await requestRtdb(target, "GET"); }
@@ -3463,9 +3463,13 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 
     if (resource === "workspace") {
       const target = basePath + "/workspace";
-      if (method === "GET") return { ok: true, workspace: await requestRtdb(target, "GET") };
+      if (method === "GET") {
+        const root = await requestRtdb(target, "GET") || {};
+        const { products: _products, cart: _cart, settings: _settings, productsDeleted: _productsDeleted, ...workspace } = root;
+        return { ok: true, workspace };
+      }
       if (method === "PUT") {
-        await requestRtdb(target, "PUT", options.body || {});
+        await requestRtdb(target, "PATCH", options.body || {});
         return { ok: true };
       }
     }
@@ -3718,12 +3722,15 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     const validSupplierIdForCart = (id, rows) => rows.some(x => String(x.id) === canonicalSupplierId(id));
     // سلال المخازن المحلية تمثل الحالة الحالية الكاملة، وليست تحديثات جزئية.
     // لذلك لا ندمج مفاتيح قديمة من السحابة؛ المفتاح المحذوف محلياً يجب أن يبقى محذوفاً.
-    for (const storeId of Object.keys(supplierCarts || {})) {
-      if (deletedSupplierSet.has(canonicalSupplierId(storeId))) continue;
-      if (!validSupplierIdForCart(storeId, mergedSuppliers)) continue;
-      const localCart = supplierCarts[storeId];
-      mergedCarts[storeId] = localCart && typeof localCart === 'object' && !Array.isArray(localCart)
-        ? { ...localCart } : {};
+    const allCartStores = new Set([
+      ...Object.keys(remote.supplierCarts || {}), ...Object.keys(supplierCarts || {})
+    ]);
+    for (const storeId of allCartStores) {
+      const canonicalId = canonicalSupplierId(storeId);
+      if (deletedSupplierSet.has(canonicalId) || !validSupplierIdForCart(canonicalId, mergedSuppliers)) continue;
+      const localCart = supplierCarts[storeId] && typeof supplierCarts[storeId] === 'object' ? supplierCarts[storeId] : {};
+      const remoteCart = remote.supplierCarts && remote.supplierCarts[storeId] && typeof remote.supplierCarts[storeId] === 'object' ? remote.supplierCarts[storeId] : {};
+      mergedCarts[canonicalId] = cartQuantityTotal(localCart) >= cartQuantityTotal(remoteCart) ? { ...localCart } : { ...remoteCart };
     }
     if (!deletedSupplierSet.has('main') && !mergedCarts.main) mergedCarts.main = {};
     const validSupplierIds = new Set(mergedSuppliers.map(x => String(x.id)));
