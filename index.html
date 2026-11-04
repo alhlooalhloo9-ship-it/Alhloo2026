@@ -798,18 +798,35 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <section id="settingsPage" class="hidden">
 <div class="box"><h3>🎨 تخصيص الصفحة الرئيسية</h3>
 <p class="muted">خصص شكل عرض المنتجات والخط والألوان. تُحفظ اختياراتك تلقائياً على هذا الجهاز لهذا الحساب.</p>
+<details class="settings-collapsible settings-group" id="settingsLayoutGroup">
+<summary>🧩 تخطيط بطاقات المنتجات</summary>
+<div class="settings-collapsible-body">
 <label for="uiColumns">عدد الأعمدة في شبكة المنتجات</label><select id="uiColumns" class="supplierSelect"><option value="1">عمود واحد</option><option value="2">عمودان</option><option value="3">ثلاثة أعمدة</option><option value="4">أربعة أعمدة</option></select><p class="muted">اختار عدد البطاقات بكل صف، وبيتطبق الاختيار مباشرة على الصفحة الرئيسية وبينحفظ لهالحساب على هالجهاز.</p>
 <label for="uiLayout">طريقة العرض</label><select id="uiLayout" class="supplierSelect"><option value="grid">شبكة بطاقات</option><option value="list">قائمة طولية</option></select>
 <label style="display:flex;align-items:center;gap:9px;margin-top:12px"><input type="checkbox" id="uiRotationLock" checked disabled> 🔒 تدوير الشاشة مقفول دائماً — الوضع العمودي فقط</label><p class="muted">تم تثبيت التطبيق على الوضع العمودي، ولا يمكن تغيير هذا الخيار من الإعدادات.</p>
+</div>
+</details>
+<details class="settings-collapsible settings-group" id="settingsTypographyGroup">
+<summary>🔤 الخطوط وأحجام العناصر</summary>
+<div class="settings-collapsible-body">
 <label for="uiFont">نوع الخط</label><select id="uiFont" class="supplierSelect"><option value="Arial">Arial</option><option value="Tahoma">Tahoma</option><option value="system">خط الجهاز</option></select>
 <label for="uiFontSize">حجم الخط العام: <b id="uiFontSizeValue">100%</b></label><input id="uiFontSize" type="range" min="85" max="130" step="5" value="100">
 <label for="uiProductPriceSize">حجم أرقام الأسعار: <b id="uiProductPriceSizeValue">100%</b></label><input id="uiProductPriceSize" type="range" min="0" max="100" step="1" value="100"><p class="muted">كبّر أو صغّر أرقام الأسعار على جميع بطاقات المنتجات بشكل مستقل عن أسماء المنتجات.</p>
 <label for="uiProductNameSize">حجم أسماء المنتجات: <b id="uiProductNameSizeValue">85%</b></label><input id="uiProductNameSize" type="range" min="60" max="120" step="5" value="85"><p class="muted">حرّك المؤشر لتصغير أو تكبير اسم المنتج، وسيظهر الاسم كاملاً داخل البطاقة دون قص.</p>
 <label for="uiProductImageSize">حجم صور المنتجات: <b id="uiProductImageSizeValue">100%</b></label><input id="uiProductImageSize" type="range" min="50" max="200" step="5" value="100"><p class="muted">كبّر أو صغّر صور المنتجات داخل البطاقات بشكل مستقل عن الاسم والسعر.</p>
+</div>
+</details>
+<details class="settings-collapsible settings-group" id="settingsColorsGroup">
+<summary>🎨 ألوان الصفحة والبطاقات</summary>
+<div class="settings-collapsible-body">
 <label for="uiPageColor">لون خلفية الصفحة</label><input id="uiPageColor" type="color" value="#f4f7f5">
 <label for="uiCardColor">لون بطاقات المنتجات</label><input id="uiCardColor" type="color" value="#ffffff">
 <label for="uiAccentColor">اللون الأساسي</label><input id="uiAccentColor" type="color" value="#174c3c">
-<hr class="drawer-divider"><h3>👁️ العناصر الظاهرة بالمنتج</h3>
+</div>
+</details>
+<details class="settings-collapsible settings-group" id="settingsVisibleGroup">
+<summary>👁️ العناصر الظاهرة بالمنتج</summary>
+<div class="settings-collapsible-body">
 <div class="setting-checks">
 <label><input type="checkbox" id="uiShowImage" checked> صورة المنتج</label>
 <label><input type="checkbox" id="uiShowName" checked> اسم المنتج</label>
@@ -823,7 +840,8 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <label><input type="checkbox" id="uiShowSupplierSwitch" checked> أزرار اختيار المخزن</label>
 <label><input type="checkbox" id="uiShowSearch" checked> مربع البحث</label>
 <label><input type="checkbox" id="uiShowBulkTools" checked> أدوات تحديد ونقل المنتجات</label></div>
-<hr class="drawer-divider">
+</div>
+</details>
 <details class="settings-collapsible" id="productDetailsSettings">
   <summary>📋 معلومات المنتج عند الضغط المطوّل على الصورة</summary>
   <div class="settings-collapsible-body">
