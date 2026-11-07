@@ -793,7 +793,11 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 <div id="authStatus" class="muted" role="status">جارٍ التحقق من الحساب...</div>
 <div id="authForm">
   <label for="authEmail">اسم المستخدم</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="اسم المستخدم">
-  <label for="authPassword">كلمة المرور</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+  <label for="authPassword">كلمة المرور</label>
+  <div class="password-field" style="display:flex;align-items:center;gap:7px;width:100%">
+    <input id="authPassword" type="password" autocomplete="current-password" placeholder="كلمة المرور" style="flex:1;min-width:0;margin-bottom:12px">
+    <button type="button" id="toggleAuthPassword" aria-label="إظهار كلمة المرور" aria-pressed="false" style="flex:0 0 46px;width:46px;height:42px;padding:6px;margin:4px 0 9px;background:#edf5ef;color:#174c3c;border:1px solid #d9e3dc;font-size:19px" title="إظهار أو إخفاء كلمة المرور">👁</button>
+  </div>
   <button type="button" class="primary" id="signInBtn" style="width:100%">تسجيل الدخول</button>
 </div>
 <div id="authActions" class="hidden"><button type="button" class="primary" id="syncCloudBtn" style="width:100%;margin:8px 0">☁️ مزامنة المنتجات والصور بين الأجهزة</button><button type="button" id="signOutBtn" style="width:100%">تسجيل الخروج</button></div>
@@ -3959,6 +3963,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     });
   });
   $('syncCloudBtn').addEventListener('click', runCloudSyncFromButton);
+  $('toggleAuthPassword').addEventListener('click', () => {
+    const passwordInput = $('authPassword');
+    const shouldShow = passwordInput.type === 'password';
+    passwordInput.type = shouldShow ? 'text' : 'password';
+    $('toggleAuthPassword').setAttribute('aria-label', shouldShow ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور');
+    $('toggleAuthPassword').setAttribute('aria-pressed', shouldShow ? 'true' : 'false');
+    $('toggleAuthPassword').textContent = shouldShow ? '🙈' : '👁';
+  });
   $('signInBtn').addEventListener('click', () => doSignIn().catch(e => showCloudMessage(e.message)));
   $('signOutBtn').addEventListener('click', () => doSignOut().catch(e => showCloudMessage(e.message)));
   $('drawerSignOut').addEventListener('click', () => {
