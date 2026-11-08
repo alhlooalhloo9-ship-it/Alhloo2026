@@ -1115,10 +1115,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if(!suppliers.some(x=>String(x.id)===String(activeSupplierId)))activeSupplierId=suppliers[0]?.id||'';
     if (activeSupplierId) {
       const storeCart = supplierCarts[activeSupplierId] && typeof supplierCarts[activeSupplierId] === 'object' ? supplierCarts[activeSupplierId] : {};
+      // سلة المخزن هي المصدر الوحيد المعتمد؛ لا ندمج معها نسخة cart القديمة
+      // لأن ذلك كان يعيد منتجات فواتير سابقة بعد التفريغ أو تحديث الصفحة.
       const recoveredCart = { ...storeCart };
-      if (activeSupplierId === 'main' && cart && typeof cart === 'object') {
-        for (const [id, qty] of Object.entries(cart)) if (Number(qty) > Number(recoveredCart[id] || 0)) recoveredCart[id] = Number(qty);
-      }
       supplierCarts[activeSupplierId] = recoveredCart;
       cart = recoveredCart;
     } else cart = {};
@@ -1208,9 +1207,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     copyIfEmpty(targetKeys.products, "nadwa_products_" + source, raw => {
       try { return !raw || !JSON.parse(raw).length; } catch (_) { return true; }
     });
-    copyIfEmpty(targetKeys.cart, "nadwa_cart_" + source, raw => {
-      try { return !raw || !Object.keys(JSON.parse(raw)).length; } catch (_) { return true; }
-    });
+    const cartWasExplicitlyCleared = localStorage.getItem('nadwa_cart_cleared_' + uid) === '1';
+    if (!cartWasExplicitlyCleared) {
+      copyIfEmpty(targetKeys.cart, "nadwa_cart_" + source, raw => {
+        try { return !raw || !Object.keys(JSON.parse(raw)).length; } catch (_) { return true; }
+      });
+    }
     copyIfEmpty("nadwa_invoice_archive_" + uid, "nadwa_invoice_archive_" + source, raw => {
       try { return !raw || !JSON.parse(raw).length; } catch (_) { return true; }
     });
@@ -3162,16 +3164,19 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
   };
 
   window.clearCart = function() {
-    if (confirm('تفريغ الفاتورة؟')) {
-      Object.entries(cart).forEach(([id, n]) => {
-        let p = products.find(x => x.id === +id);
-        if (p) p.pickCount = Math.max(0, (+(p.pickCount || 0)) - n);
-      });
-      cart = {};
-      save();
-      renderProducts();
-      renderInvoice();
-    }
+    if (!confirm('تفريغ الفاتورة الحالية نهائياً؟ لن تتأثر المنتجات أو المخزون أو الفواتير المحفوظة.')) return;
+    Object.entries(cart).forEach(([id, n]) => {
+      const p = products.find(x => String(x.id) === String(id));
+      if (p) p.pickCount = Math.max(0, (Number(p.pickCount) || 0) - (Number(n) || 0));
+    });
+    cart = {};
+    if (activeSupplierId) supplierCarts[activeSupplierId] = {};
+    const uid = cloudUser?.uid || 'guest';
+    try { localStorage.setItem('nadwa_cart_cleared_' + uid, '1'); } catch (_) {}
+    saveWorkspaceLocal();
+    save();
+    renderProducts();
+    renderInvoice();
   };
 
   window.share = function() {
