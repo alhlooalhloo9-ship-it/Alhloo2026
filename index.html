@@ -3171,10 +3171,21 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     });
     cart = {};
     if (activeSupplierId) supplierCarts[activeSupplierId] = {};
+    // سجّل التفريغ كتغيير أحدث من أي نسخة سحابية سابقة، حتى تُحترم السلة الفارغة.
+    markCartChanged();
     const uid = cloudUser?.uid || 'guest';
     try { localStorage.setItem('nadwa_cart_cleared_' + uid, '1'); } catch (_) {}
     saveWorkspaceLocal();
     save();
+    // اكتب الحالة الفارغة مباشرةً إلى مساري السحابة قبل أي قراءة/دمج لاحق.
+    if (cloudUser && navigator.onLine !== false) {
+      const clearedAt = Number(localStorage.getItem(cartUpdatedAtKey()) || Date.now());
+      Promise.all([
+        apiRequest('/cart', { method: 'PUT', body: { items: {}, updatedAt: clearedAt } }),
+        apiRequest('/workspace', { method: 'PUT', body: { supplierCarts: { [activeSupplierId]: {} }, activeSupplierId } })
+      ]).then(() => showCloudMessage('تم تفريغ الفاتورة وحفظها فارغة على السحابة.'))
+        .catch(error => showCloudMessage('تم تفريغ الفاتورة محلياً، وتعذر تأكيد التفريغ السحابي: ' + (error.message || error)));
+    }
     renderProducts();
     renderInvoice();
   };
@@ -3690,15 +3701,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     }
     const localUpdatedAt = Number(localStorage.getItem(cartUpdatedAtKey()) || 0);
     const remoteUpdatedAt = Number(data && data.updatedAt || 0);
-    const keepLocal = (!remoteUpdatedAt && !localUpdatedAt && cartQuantityTotal(localCart) > cartQuantityTotal(remoteCart)) ||
-      (localUpdatedAt > 0 && localUpdatedAt > remoteUpdatedAt);
-    const chosen = keepLocal ? localCart : remoteCart;
-    const recovered = { ...chosen };
-    const other = keepLocal ? remoteCart : localCart;
-    // أثناء ترحيل السجلات القديمة نحافظ على أي كمية أكبر حتى لا تختفي الفاتورة السابقة.
-    for (const [id, quantity] of Object.entries(other)) if (Number(quantity) > Number(recovered[id] || 0)) recovered[id] = Number(quantity);
-    cart = recovered;
-    const updatedAt = Math.max(Date.now(), localUpdatedAt, remoteUpdatedAt);
+    // السلة الفارغة حالة صحيحة وليست بيانات مفقودة. نعتمد الطابع الزمني
+    // لاختيار النسخة الأحدث، ولا ندمج كميات النسخة الأقدم معها حتى لا تعود منتجات محذوفة.
+    const keepLocal = localUpdatedAt > remoteUpdatedAt ||
+      (!remoteUpdatedAt && !localUpdatedAt && cartQuantityTotal(localCart) > 0 && cartQuantityTotal(remoteCart) === 0);
+    cart = { ...(keepLocal ? localCart : remoteCart) };
+    const updatedAt = Math.max(localUpdatedAt, remoteUpdatedAt, Date.now());
     localStorage.setItem(cartUpdatedAtKey(), String(updatedAt));
     supplierCarts[activeSupplierId] = { ...cart };
     await apiRequest('/cart', { method: 'PUT', body: { items: cart, updatedAt } });
@@ -3766,10 +3774,16 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     for (const storeId of allCartStores) {
       const canonicalId = canonicalSupplierId(storeId);
       if (deletedSupplierSet.has(canonicalId) || !validSupplierIdForCart(canonicalId, mergedSuppliers)) continue;
-      const localCart = supplierCarts[storeId] && typeof supplierCarts[storeId] === 'object' ? supplierCarts[storeId] : {};
-      const remoteCart = remote.supplierCarts && remote.supplierCarts[storeId] && typeof remote.supplierCarts[storeId] === 'object' ? remote.supplierCarts[storeId] : {};
-      const mergedCart = { ...remoteCart };
-      for (const [productId, quantity] of Object.entries(localCart)) if (Number(quantity) > Number(mergedCart[productId] || 0)) mergedCart[productId] = Number(quantity);
+      const localKey = Object.prototype.hasOwnProperty.call(supplierCarts || {}, storeId)
+        ? storeId
+        : (Object.prototype.hasOwnProperty.call(supplierCarts || {}, canonicalId) ? canonicalId : null);
+      const localCart = localKey !== null && supplierCarts[localKey] && typeof supplierCarts[localKey] === 'object'
+        ? supplierCarts[localKey] : {};
+      const remoteCart = remote.supplierCarts && remote.supplierCarts[storeId] && typeof remote.supplierCarts[storeId] === 'object'
+        ? remote.supplierCarts[storeId] : (remote.supplierCarts && remote.supplierCarts[canonicalId] && typeof remote.supplierCarts[canonicalId] === 'object' ? remote.supplierCarts[canonicalId] : {});
+      // وجود مفتاح محلي، حتى لو كانت قيمته {}، يعني أن هذه هي الحالة الكاملة الحالية للمخزن.
+      // لا ندمج معها كميات سحابية قديمة لأن ذلك يعيد منتجات فاتورة تم تفريغها.
+      const mergedCart = localKey !== null ? { ...localCart } : { ...remoteCart };
       mergedCarts[canonicalId] = mergedCart;
     }
     if (!deletedSupplierSet.has('main') && !mergedCarts.main) mergedCarts.main = {};
