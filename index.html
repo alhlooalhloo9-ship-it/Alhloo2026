@@ -3452,12 +3452,20 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
         let current = null;
         try { current = await requestRtdb(target, "GET"); }
         catch (rtdbError) { console.warn("Realtime Database cart read unavailable; checking legacy path:", rtdbError); }
-        if (!current || !current.items || !Object.keys(current.items).length) {
+        // وجود سجل حالي بطابع updatedAt، حتى لو كانت items فارغة/محذوفة من RTDB،
+        // يعني أن المستخدم فرّغ الفاتورة عمداً. لا تسترجع عندها المسار القديم أو Firestore.
+        const hasCurrentCartState = !!(current && typeof current === 'object' &&
+          (Object.prototype.hasOwnProperty.call(current, 'updatedAt') || Object.prototype.hasOwnProperty.call(current, 'items')));
+        if (!hasCurrentCartState) {
           try {
             const legacy = await requestRtdb(legacyTarget, "GET");
-            if (legacy && legacy.items && Object.keys(legacy.items).length) { current = legacy; await requestRtdb(target, "PUT", legacy); }
+            if (legacy && legacy.items && Object.keys(legacy.items).length) {
+              current = legacy;
+              await requestRtdb(target, "PUT", legacy);
+            }
           } catch (legacyPathError) { console.warn("Legacy cart path unavailable:", legacyPathError); }
         }
+        if (hasCurrentCartState) return { ok: true, ...current, items: current.items || {} };
         if (current && current.items && Object.keys(current.items).length) return { ok: true, ...current };
         if (firebaseFirestoreApi && firestoreDb) {
           try {
