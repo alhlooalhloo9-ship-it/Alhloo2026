@@ -1173,14 +1173,14 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
     if (!uid) return 0;
     const suffixes = new Set();
     const prefixes = [
-      "nadwa_products_", "nadwa_cart_", "nadwa_invoice_archive_",
+      "nadwa_products_", "nadwa_cart_", "nadwa_invoice_archive_", "nadwa_deleted_invoices_",
       "nadwa_suppliers_", "nadwa_supplier_carts_", "nadwa_active_supplier_"
     ];
     const meaningful = (prefix, raw) => {
       if (!raw) return false;
       try {
         const value = JSON.parse(raw);
-        if (prefix === "nadwa_products_" || prefix === "nadwa_invoice_archive_" || prefix === "nadwa_suppliers_") {
+        if (prefix === "nadwa_products_" || prefix === "nadwa_invoice_archive_" || prefix === "nadwa_suppliers_" || prefix === "nadwa_deleted_invoices_") {
           return Array.isArray(value) && value.length > (prefix === "nadwa_suppliers_" ? 1 : 0);
         }
         if (prefix === "nadwa_cart_" || prefix === "nadwa_supplier_carts_") {
@@ -1220,6 +1220,9 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
       });
     }
     copyIfEmpty("nadwa_invoice_archive_" + uid, "nadwa_invoice_archive_" + source, raw => {
+      try { return !raw || !JSON.parse(raw).length; } catch (_) { return true; }
+    });
+    copyIfEmpty("nadwa_deleted_invoices_" + uid, "nadwa_deleted_invoices_" + source, raw => {
       try { return !raw || !JSON.parse(raw).length; } catch (_) { return true; }
     });
     copyIfEmpty("nadwa_suppliers_" + uid, "nadwa_suppliers_" + source, raw => {
