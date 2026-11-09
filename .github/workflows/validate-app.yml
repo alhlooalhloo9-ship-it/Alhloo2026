@@ -1,0 +1,63 @@
+name: Validate application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check backend and worker JavaScript syntax
+        run: |
+          set -e
+          for file in api/*.js server/*.js scripts/*.js sw.js; do
+            node --check "$file"
+          done
+      - name: Check storage ES module syntax
+        run: node --input-type=module --check < storage.js
+      - name: Extract and check the application module
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("index.html").read_text(encoding="utf-8")
+          matches = re.findall(r'<script\s+type=["\\']module["\\']\s*>([\\s\\S]*?)</script>', html, re.I)
+          if len(matches) != 1:
+              raise SystemExit(f"Expected exactly one inline module, found {len(matches)}")
+          Path("/tmp/nadwa-app-module.mjs").write_text(matches[0], encoding="utf-8")
+          PY
+          node --input-type=module --check < /tmp/nadwa-app-module.mjs
+      - name: Validate app metadata and offline shell
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+          JSON.parse(fs.readFileSync('rates.json', 'utf8'));
+          if (manifest.start_url !== './' || manifest.scope !== './') {
+            throw new Error('PWA start_url/scope must remain relative to the deployment path');
+          }
+          const sw = fs.readFileSync('sw.js', 'utf8');
+          const shell = sw.match(/const APP_SHELL = \[(.*?)\];/s);
+          if (!shell) throw new Error('Service worker APP_SHELL declaration is missing');
+          for (const asset of [...shell[1].matchAll(/["']([^"']+)["']/g)].map(m => m[1])) {
+            const path = asset.replace(/^\.\//, '');
+            if (!fs.existsSync(path)) throw new Error('Missing offline shell asset: ' + asset);
+          }
+          const html = fs.readFileSync('index.html', 'utf8');
+          const ids = [...html.matchAll(/\\bid=["']([^"']+)["']/g)].map(m => m[1]);
+          const duplicates = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+          if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + duplicates.join(', '));
+          console.log('Metadata, offline shell assets, and HTML IDs validated.');
+          JS
