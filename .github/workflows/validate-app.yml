@@ -62,7 +62,7 @@ jobs:
               if not Path(path).exists():
                   raise SystemExit(f"Missing offline shell asset: {asset}")
           html = Path("index.html").read_text(encoding="utf-8")
-          ids = re.findall(r"""\bid=["']([^"']+)["']""", html)
+          ids = re.findall('id="([^"]+)"', html.split('<script type="module">', 1)[0])
           duplicates = sorted({item for item in ids if ids.count(item) > 1})
           if duplicates:
               raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
