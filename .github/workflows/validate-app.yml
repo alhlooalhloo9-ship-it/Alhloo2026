@@ -59,7 +59,7 @@ jobs:
               raise SystemExit("Service worker APP_SHELL declaration is missing")
           for asset in re.findall(r"""["']([^"']+)["']""", match.group(1)):
               path = asset.removeprefix("./")
-              if not Path(path).is_file():
+              if not Path(path).exists():
                   raise SystemExit(f"Missing offline shell asset: {asset}")
           html = Path("index.html").read_text(encoding="utf-8")
           ids = re.findall(r"""\bid=["']([^"']+)["']""", html)
