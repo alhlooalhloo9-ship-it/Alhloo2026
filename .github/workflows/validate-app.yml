@@ -31,33 +31,40 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           html = Path("index.html").read_text(encoding="utf-8")
-          matches = re.findall(r'<script\s+type=["\\']module["\\']\s*>([\\s\\S]*?)</script>', html, re.I)
-          if len(matches) != 1:
-              raise SystemExit(f"Expected exactly one inline module, found {len(matches)}")
-          Path("/tmp/nadwa-app-module.mjs").write_text(matches[0], encoding="utf-8")
+          marker = '<script type="module">'
+          start = html.find(marker)
+          if start < 0:
+              raise SystemExit("Inline application module was not found")
+          start += len(marker)
+          end = html.find("</script>", start)
+          if end < 0:
+              raise SystemExit("Inline application module closing tag was not found")
+          Path("/tmp/nadwa-app-module.mjs").write_text(html[start:end], encoding="utf-8")
           PY
           node --input-type=module --check < /tmp/nadwa-app-module.mjs
-      - name: Validate app metadata and offline shell
+      - name: Validate app metadata, offline shell, and HTML IDs
         run: |
-          node --input-type=module <<'JS'
-          import fs from 'node:fs';
-          const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
-          JSON.parse(fs.readFileSync('rates.json', 'utf8'));
-          if (manifest.start_url !== './' || manifest.scope !== './') {
-            throw new Error('PWA start_url/scope must remain relative to the deployment path');
-          }
-          const sw = fs.readFileSync('sw.js', 'utf8');
-          const shell = sw.match(/const APP_SHELL = \[(.*?)\];/s);
-          if (!shell) throw new Error('Service worker APP_SHELL declaration is missing');
-          for (const asset of [...shell[1].matchAll(/["']([^"']+)["']/g)].map(m => m[1])) {
-            const path = asset.replace(/^\.\//, '');
-            if (!fs.existsSync(path)) throw new Error('Missing offline shell asset: ' + asset);
-          }
-          const html = fs.readFileSync('index.html', 'utf8');
-          const ids = [...html.matchAll(/\\bid=["']([^"']+)["']/g)].map(m => m[1]);
-          const duplicates = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
-          if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + duplicates.join(', '));
-          console.log('Metadata, offline shell assets, and HTML IDs validated.');
-          JS
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          manifest = json.loads(Path("manifest.json").read_text(encoding="utf-8"))
+          json.loads(Path("rates.json").read_text(encoding="utf-8"))
+          if manifest.get("start_url") != "./" or manifest.get("scope") != "./":
+              raise SystemExit("PWA start_url/scope must remain relative to the deployment path")
+          sw = Path("sw.js").read_text(encoding="utf-8")
+          match = re.search(r"const APP_SHELL = \[(.*?)\];", sw, re.S)
+          if not match:
+              raise SystemExit("Service worker APP_SHELL declaration is missing")
+          for asset in re.findall(r"""["']([^"']+)["']""", match.group(1)):
+              path = asset.removeprefix("./")
+              if not Path(path).is_file():
+                  raise SystemExit(f"Missing offline shell asset: {asset}")
+          html = Path("index.html").read_text(encoding="utf-8")
+          ids = re.findall(r"""\bid=["']([^"']+)["']""", html)
+          duplicates = sorted({item for item in ids if ids.count(item) > 1})
+          if duplicates:
+              raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
+          print("Metadata, offline shell assets, and HTML IDs validated.")
+          PY
