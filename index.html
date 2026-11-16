@@ -112,7 +112,7 @@ function renderShopChips(){let box=document.getElementById('shopChips');if(!box)
 function refreshShopSelect(selectId){let sel=document.getElementById('pShopId');if(!sel)return;let html='<option value="none">بدون محل - عام</option>';shops.forEach(function(s){html+='<option value="'+s.id+'">🏪 '+s.name+(s.owner?' - '+s.owner:'')+'</option>'});sel.innerHTML=html;if(selectId)sel.value=selectId;updateShopInfo()}
 function updateShopInfo(){let sel=document.getElementById('pShopId');let info=document.getElementById('selectedShopInfo');if(!sel||!info)return;if(!sel.value||sel.value==='none')info.textContent='رح ينحفظ بدون محل.';else{let s=getShopById(sel.value);info.textContent=s?'رح ينحفظ بمحل: '+s.name:''}}
 document.addEventListener('change',function(e){if(e.target&&e.target.id==='pShopId')updateShopInfo()});
-function showPage(name){['catalog','shops','invoice','saved','add','settings','shared'].forEach(function(p){let el=document.getElementById('page-'+p);if(el)el.classList.toggle('hidden',p!==name);let btnId='btn'+p.charAt(0).toUpperCase()+p.slice(1);let btn=document.getElementById(btnId);if(btn)btn.classList.toggle('active',p===name)});if(name==='invoice')renderInvoice();if(name==='catalog'){renderShopChips();renderCatalog()}if(name==='shops'){renderShops();renderShopChips()}if(name==='saved')renderSavedInvoices();if(name==='add')refreshShopSelect();if(name==='settings'){loadSettings();loadUI();renderShowOpts();calc()}}
+function showPage(name){['catalog','shops','invoice','saved','add','settings','shared','users'].forEach(function(p){let el=document.getElementById('page-'+p);if(el)el.classList.toggle('hidden',p!==name);let btnId='btn'+p.charAt(0).toUpperCase()+p.slice(1);let btn=document.getElementById(btnId);if(btn)btn.classList.toggle('active',p===name)});if(name==='invoice')renderInvoice();if(name==='catalog'){renderShopChips();renderCatalog()}if(name==='shops'){renderShops();renderShopChips()}if(name==='saved')renderSavedInvoices();if(name==='add')refreshShopSelect();if(name==='settings'){loadSettings();loadUI();renderShowOpts();calc()}}
 function saveSettings(){settings={TRY:parseFloat(document.getElementById('rateTRY').value)||50.36,SYP_NEW:parseFloat(document.getElementById('rateSYPNew').value)||147,profit:parseFloat(document.getElementById('profitPct').value)||0};localStorage.setItem('nadba_settings',JSON.stringify(settings));renderCatalog();renderInvoice();renderShops();calc()}
 function loadSettings(){document.getElementById('rateTRY').value=settings.TRY;document.getElementById('rateSYPNew').value=settings.SYP_NEW;document.getElementById('profitPct').value=settings.profit}
 function setColumns(n){ui.cardSize=n;ui.layout='grid';localStorage.setItem('nadba_ui',JSON.stringify(ui));loadUI();applyUI();renderCatalog()}
@@ -198,7 +198,7 @@ function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader
  function queueSync(){if(!cloudReady)return;clearTimeout(syncTimer);syncTimer=setTimeout(syncCatalog,700);}
  const nativeSet=localStorage.setItem.bind(localStorage);
  localStorage.setItem=function(key,value){nativeSet(key,value);if(key==="nadba_catalog"&&cloudReady){try{products=JSON.parse(value);queueSync();}catch(_){}}};
- async function enterApp(authData){currentUser=authData&&authData.user?authData.user:currentUser;window.nadwaCurrentUser=currentUser;document.getElementById("btnUsers").classList.toggle("hidden",!currentUser||currentUser.role!=="owner");
+ async function enterApp(authData){currentUser=authData&&authData.user?authData.user:currentUser;window.nadwaCurrentUser=currentUser;const usersButton=document.getElementById("btnUsers");if(usersButton)usersButton.classList.toggle("hidden",!currentUser||currentUser.role!=="owner");
   setStatus("☁️ جارٍ تحميل الأصناف...");
   try{
    const response=await api("/api/products",{method:"GET"});const data=await response.json();
@@ -221,7 +221,7 @@ function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader
   catch(e){msg.textContent=e.message||"تعذر تسجيل الدخول";}
   finally{btn.disabled=false;btn.textContent="دخول";}
  });
- showLogin();
+ hideLogin();
  api("/api/auth").then(r=>r.json()).then(d=>{if(d&&d.authenticated)return enterApp(d);showLogin();setStatus("🔒 سجّل الدخول");}).catch(()=>{showLogin();setStatus("⚠️ تعذر الاتصال بخدمة الدخول");});
  window.nadwaLogout=async function(){await api("/api/auth",{method:"DELETE"});cloudReady=false;showLogin();setStatus("🔒 تم تسجيل الخروج");};
 })();
