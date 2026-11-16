@@ -55,7 +55,41 @@ function setSortMode(m){sortMode=m;localStorage.setItem('nadba_sort',m);renderCa
 function sortProducts(list){let o=getSalesCounts(),recent=o.recent,total=o.total;let c=list.slice();if(sortMode==='hot'){c.sort(function(a,b){let ra=recent[a.id]||0,rb=recent[b.id]||0;if(rb!==ra)return rb-ra;return (total[b.id]||0)-(total[a.id]||0)})}else if(sortMode==='new'){c.sort(function(a,b){return (parseInt((b.id||'').split('_')[0])||0)-(parseInt((a.id||'').split('_')[0])||0)})}else if(sortMode==='name'){c.sort(function(a,b){return a.name.localeCompare(b.name,'ar')})}return c}
 function updateSortButtons(){let m={hot:'sortHotBtn',new:'sortNewBtn',name:'sortNameBtn'};Object.keys(m).forEach(function(k){let b=document.getElementById(m[k]);if(b){b.style.background=sortMode===k?'#0f6fb8':'#eee';b.style.color=sortMode===k?'#fff':'#222'}})}
 let rateAutoTimer=null;
-async function updateRateAuto(silent){let info=document.getElementById('rateAutoInfo');if(info&&!silent)info.textContent='عم جيب سعر إدلب وسعر التركي...';try{let r=await fetch('/api/rates',{cache:'no-store'});let d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'فشل جلب الأسعار');let t=Number(d.try.value),s=Number(d.usd.sell);if(!Number.isFinite(t)||!Number.isFinite(s)||t<=0||s<=0)throw new Error('الأسعار المستلمة غير صالحة');document.getElementById('rateTRY').value=t.toFixed(2);document.getElementById('rateSYPNew').value=s.toFixed(2);saveSettings();let stamp=new Date(d.fetchedAt).toLocaleString('ar-SY');if(info)info.innerHTML='✅ تم التحديث تلقائياً<br>1 $ = <b>'+t.toFixed(2)+' ₺</b> (مصدر التركي: '+d.try.source+')<br>1 $ = <b>'+s.toFixed(2)+' ل.س جديد</b><br>شراء إدلب: '+Number(d.usd.buy).toFixed(2)+' | مبيع إدلب: '+Number(d.usd.sell).toFixed(2)+'<br>مصدر إدلب: <a href="'+d.usd.sourceUrl+'" target="_blank" rel="noopener"> '+d.usd.source+'</a><br>آخر جلب: '+stamp+'<br><small>التحديث التلقائي كل 5 ساعات</small>'}catch(e){if(info)info.textContent='⚠️ تعذر تحديث السعر: '+e.message+' — بقيت الأسعار المحفوظة كما هي.'}}
+async function updateRateAuto(silent){
+  let info=document.getElementById('rateAutoInfo');
+  if(info)info.textContent='عم جيب الأسعار من المصادر...';
+  try{
+    let r=await fetch('/api/rates?manual='+Date.now(),{cache:'no-store'});
+    let d=await r.json();
+    if(!r.ok||!d||(!d.usd&&!d.try))throw new Error(d.error||'فشل الاتصال بخدمة الأسعار');
+    let messages=[];
+    let changed=false;
+    if(d.usd&&d.usd.ok){
+      let sell=Number(d.usd.sell);
+      if(Number.isFinite(sell)&&sell>0){
+        document.getElementById('rateSYPNew').value=sell.toFixed(2);
+        messages.push('✅ الدولار السوري الجديد: '+sell.toFixed(2)+' (مبيع إدلب - '+d.usd.source+')');
+        changed=true;
+      }else messages.push('⚠️ سعر الدولار المستلم غير صالح؛ بقي السعر السابق.');
+    }else messages.push('⚠️ الدولار السوري: '+((d.usd&&d.usd.error)||'المصدر غير متاح')+'؛ بقي السعر السابق.');
+    if(d.try&&d.try.ok){
+      let tr=Number(d.try.value);
+      if(Number.isFinite(tr)&&tr>0){
+        document.getElementById('rateTRY').value=tr.toFixed(2);
+        messages.push('✅ الدولار التركي: '+tr.toFixed(2)+' ₺ ('+d.try.source+')');
+        changed=true;
+      }else messages.push('⚠️ سعر التركي المستلم غير صالح؛ بقي السعر السابق.');
+    }else messages.push('⚠️ التركي: '+((d.try&&d.try.error)||'المصدر غير متاح')+'؛ بقي السعر السابق.');
+    if(changed)saveSettings();
+    let stamp=d.fetchedAt?new Date(d.fetchedAt).toLocaleString('ar-SY'):'غير معروف';
+    messages.push('آخر محاولة: '+stamp);
+    messages.push('التحديث التلقائي كل 5 ساعات، ويمكنك الجلب اليدوي من الزر.');
+    if(info)info.innerHTML=messages.join('<br>')+(d.usd&&d.usd.ok&&d.usd.sourceUrl?'<br>المصدر: <a href="'+d.usd.sourceUrl+'" target="_blank" rel="noopener">'+d.usd.source+'</a>':'');
+    if(!changed)throw new Error('لم ينجح أي مصدر في إرجاع سعر صالح');
+  }catch(e){
+    if(info)info.innerHTML='⚠️ '+e.message+'<br>ما غيرت الأسعار المحفوظة.';
+  }
+}
 function applyAutoRate(t,s){document.getElementById('rateTRY').value=Number(t).toFixed(2);document.getElementById('rateSYPNew').value=Number(s).toFixed(2);saveSettings()}
 function startAutoRateUpdates(){if(rateAutoTimer)clearInterval(rateAutoTimer);updateRateAuto(true);rateAutoTimer=setInterval(function(){updateRateAuto(true)},5*60*60*1000)}
 function compressImage(file){return new Promise(function(resolve){let r=new FileReader();r.onerror=function(){resolve(null)};r.onload=function(){let img=new Image();img.onerror=function(){resolve(r.result)};img.onload=function(){try{let c=document.createElement('canvas');let max=800,w=img.width,h=img.height;if(w>max){h=h*max/w;w=max}if(h>max){w=w*max/h;h=max}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);resolve(c.toDataURL('image/jpeg',0.7))}catch(e){resolve(r.result)}};img.src=r.result};r.readAsDataURL(file)})}
