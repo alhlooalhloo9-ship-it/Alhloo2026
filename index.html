@@ -241,7 +241,7 @@ function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader
       if(!remoteReady){
         var first=await request('GET',null,t);
         revision=Number(first.revision||0);
-        if(first.state){applyState(first.state);remoteReady=true;status('تم تحميل بيانات الحساب');}
+        if(first.state){applyState(first.state);remoteReady=true;loadSettings();loadUI();renderCatalog();renderShops();renderSavedInvoices();refreshShopSelect();calc();renderInvoice();status('تم تحميل بيانات الحساب');}
         else{
           var initial=snapshot();
           try{var created=await request('PUT',{state:initial,expectedRevision:0},t);revision=created.revision||1;remoteReady=true;status('تم ربط الحساب وحفظ البيانات');}
