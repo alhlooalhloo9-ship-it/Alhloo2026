@@ -11,7 +11,10 @@ module.exports = async function productsHandler(req, res) {
     const db = await getDatabase();
     const products = db.collection("products");
     const tombstones = db.collection("product_tombstones");
-    const userId = user.uid;
+    const userId = user.workspaceId || "owner";
+    if (user.role !== "owner" && req.method === "GET" && !user.permissions?.viewProducts) return res.status(403).json({ok:false,error:"ليس لديك صلاحية مشاهدة الأصناف"});
+    if (user.role !== "owner" && req.method === "POST" && !user.permissions?.editProducts && !user.permissions?.recordSales) return res.status(403).json({ok:false,error:"ليس لديك صلاحية تعديل الأصناف"});
+    if (user.role !== "owner" && req.method === "DELETE" && !user.permissions?.deleteProducts) return res.status(403).json({ok:false,error:"ليس لديك صلاحية حذف الأصناف"});
 
     if (req.method === "GET") {
       const skipValue = Number.parseInt(req.query && req.query.skip, 10);
