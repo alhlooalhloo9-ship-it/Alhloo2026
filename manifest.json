@@ -11,9 +11,9 @@
     "standalone",
     "minimal-ui"
   ],
-  "background_color": "#f3f5f7",
-  "theme_color": "#174c3c",
-  "description": "إدارة المنتجات والفواتير ومزامنة المنتجات بين الأجهزة والعمل دون إنترنت",
+  "background_color": "#f2f2f2",
+  "theme_color": "#c81e1e",
+  "description": "إدارة الأصناف والمحلات والمبيعات والفواتير",
   "categories": [
     "business",
     "shopping"
