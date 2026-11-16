@@ -23,17 +23,19 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   try {
     if (req.method === "GET") {
+      const user = await authenticate(req,res);
+      if (!user) return;
       const id = String(req.query && req.query.id || "");
       if (!/^[a-f0-9]{32}$/.test(id)) return res.status(400).end();
       const store = await bucket();
-      const file = (await store.find({ _id: id }).limit(1).toArray())[0];
+      const file = (await store.find({ _id: id, "metadata.userId": user.uid }).limit(1).toArray())[0];
       if (!file) return res.status(404).end();
       const type = TYPES.has(file.metadata && file.metadata.contentType) ? file.metadata.contentType : "image/jpeg";
       res.status(200);
       res.setHeader("Content-Type",type);
       res.setHeader("Content-Length",String(file.length));
       res.setHeader("X-Content-Type-Options","nosniff");
-      res.setHeader("Cache-Control","public, max-age=31536000, immutable");
+      res.setHeader("Cache-Control","private, max-age=3600");
       const stream = store.openDownloadStream(id);
       stream.on("error",e=>{ console.error("Image read error",e); if(!res.headersSent)res.status(404).end(); else res.destroy(e); });
       stream.pipe(res);
