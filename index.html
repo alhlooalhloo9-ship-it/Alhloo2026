@@ -56,7 +56,14 @@ let selectedShopFilter='all',currentShopDetailId='',exportScope='all',currentSav
 let tempImage='',currentDetailId='',currentEditId='',pressTimer=null,longPressed=false,openModalId='';
 function pushModalHistory(id){try{if(history.state&&history.state.modal===id)return;history.pushState({modal:id},'');openModalId=id}catch(e){openModalId=id}}
 function closeModalForce(id){document.getElementById(id).classList.remove('open');if(openModalId===id)openModalId=''}
-window.addEventListener('popstate',function(e){if(openModalId){let id=openModalId;closeModalForce(id);showPage('catalog');return}if(!e.state||!e.state.modal)showPage('catalog')});
+window.addEventListener('popstate',function(e){
+ if(openModalId){let id=openModalId;closeModalForce(id);showPage('catalog');return}
+ const catalog=document.getElementById('page-catalog');
+ const onCatalog=!!(catalog&&!catalog.classList.contains('hidden'));
+ if(!onCatalog){showPage('catalog');try{history.pushState({appRoot:true},'',location.pathname+location.search+'#app')}catch(err){}}
+});
+try{history.replaceState({appRoot:true},'',location.href);history.pushState({appRoot:true},'',location.pathname+location.search+'#app')}catch(err){}
+
 function fmt(n,d){if(n==null||isNaN(n))return '0';let s=Number(n).toFixed(d==null?3:d);if(s.indexOf('.')>-1){s=s.replace(/0+$/,'').replace(/\.$/,'')}if(s==='-0')s='0';if(s==='')s='0';return s}
 function isLoss(p){return (p.sellPieceTRY*p.per)<(p.boxPrice*settings.TRY)}
 function getShopName(id){if(!id||id==='none')return '';let s=shops.find(function(x){return x.id===id});return s?s.name:''}
