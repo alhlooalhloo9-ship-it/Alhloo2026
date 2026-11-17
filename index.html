@@ -55,7 +55,7 @@ function setSortMode(m){sortMode=m;localStorage.setItem('nadba_sort',m);renderCa
 function sortProducts(list){let o=getSalesCounts(),recent=o.recent,total=o.total;let c=list.slice();if(sortMode==='hot'){c.sort(function(a,b){let ra=recent[a.id]||0,rb=recent[b.id]||0;if(rb!==ra)return rb-ra;return (total[b.id]||0)-(total[a.id]||0)})}else if(sortMode==='new'){c.sort(function(a,b){return (parseInt((b.id||'').split('_')[0])||0)-(parseInt((a.id||'').split('_')[0])||0)})}else if(sortMode==='name'){c.sort(function(a,b){return a.name.localeCompare(b.name,'ar')})}return c}
 function updateSortButtons(){let m={hot:'sortHotBtn',new:'sortNewBtn',name:'sortNameBtn'};Object.keys(m).forEach(function(k){let b=document.getElementById(m[k]);if(b){b.style.background=sortMode===k?'#0f6fb8':'#eee';b.style.color=sortMode===k?'#fff':'#222'}})}
 let rateAutoTimer=null;
-async async function updateRateAuto(silent){
+async function updateRateAuto(silent){
   const info=document.getElementById('rateAutoInfo');
   if(info)info.textContent='عم جيب الأسعار من المصادر...';
   try{
