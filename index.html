@@ -55,39 +55,45 @@ function setSortMode(m){sortMode=m;localStorage.setItem('nadba_sort',m);renderCa
 function sortProducts(list){let o=getSalesCounts(),recent=o.recent,total=o.total;let c=list.slice();if(sortMode==='hot'){c.sort(function(a,b){let ra=recent[a.id]||0,rb=recent[b.id]||0;if(rb!==ra)return rb-ra;return (total[b.id]||0)-(total[a.id]||0)})}else if(sortMode==='new'){c.sort(function(a,b){return (parseInt((b.id||'').split('_')[0])||0)-(parseInt((a.id||'').split('_')[0])||0)})}else if(sortMode==='name'){c.sort(function(a,b){return a.name.localeCompare(b.name,'ar')})}return c}
 function updateSortButtons(){let m={hot:'sortHotBtn',new:'sortNewBtn',name:'sortNameBtn'};Object.keys(m).forEach(function(k){let b=document.getElementById(m[k]);if(b){b.style.background=sortMode===k?'#0f6fb8':'#eee';b.style.color=sortMode===k?'#fff':'#222'}})}
 let rateAutoTimer=null;
-async function updateRateAuto(silent){
-  let info=document.getElementById('rateAutoInfo');
+async async function updateRateAuto(silent){
+  const info=document.getElementById('rateAutoInfo');
   if(info)info.textContent='عم جيب الأسعار من المصادر...';
   try{
-    let r=await fetch('/api/rates?manual='+Date.now(),{cache:'no-store'});
-    let d=await r.json();
-    if(!r.ok||!d||(!d.usd&&!d.try))throw new Error(d.error||'فشل الاتصال بخدمة الأسعار');
-    let messages=[];
+    const endpoint='https://alhloo2026.vercel.app/api/rates?manual='+Date.now();
+    const response=await fetch(endpoint,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
+    const raw=await response.text();
+    let d;
+    try{d=JSON.parse(raw)}catch(parseError){
+      const preview=raw.slice(0,100).replace(/\\s+/g,' ');
+      throw new Error('خدمة الأسعار رجّعت استجابة مو JSON (HTTP '+response.status+'): '+preview);
+    }
+    if(!response.ok||!d||typeof d!=='object')throw new Error((d&&d.error)||('فشل الاتصال بخدمة الأسعار (HTTP '+response.status+')'));
+    const messages=[];
     let changed=false;
     if(d.usd&&d.usd.ok){
-      let sell=Number(d.usd.sell);
-      if(Number.isFinite(sell)&&sell>0){
+      const sell=Number(d.usd.sell);
+      if(Number.isFinite(sell)&&sell>0&&sell<100000){
         document.getElementById('rateSYPNew').value=sell.toFixed(2);
-        messages.push('✅ الدولار السوري الجديد: '+sell.toFixed(2)+' (مبيع إدلب - '+d.usd.source+')');
+        messages.push('✅ الدولار السوري الجديد: '+sell.toFixed(2)+' (مبيع إدلب - '+(d.usd.source||'المصدر')+')');
         changed=true;
       }else messages.push('⚠️ سعر الدولار المستلم غير صالح؛ بقي السعر السابق.');
     }else messages.push('⚠️ الدولار السوري: '+((d.usd&&d.usd.error)||'المصدر غير متاح')+'؛ بقي السعر السابق.');
     if(d.try&&d.try.ok){
-      let tr=Number(d.try.value);
-      if(Number.isFinite(tr)&&tr>0){
+      const tr=Number(d.try.value);
+      if(Number.isFinite(tr)&&tr>0&&tr<1000){
         document.getElementById('rateTRY').value=tr.toFixed(2);
-        messages.push('✅ الدولار التركي: '+tr.toFixed(2)+' ₺ ('+d.try.source+')');
+        messages.push('✅ الدولار التركي: '+tr.toFixed(2)+' ₺ ('+(d.try.source||'المصدر')+')');
         changed=true;
       }else messages.push('⚠️ سعر التركي المستلم غير صالح؛ بقي السعر السابق.');
     }else messages.push('⚠️ التركي: '+((d.try&&d.try.error)||'المصدر غير متاح')+'؛ بقي السعر السابق.');
     if(changed)saveSettings();
-    let stamp=d.fetchedAt?new Date(d.fetchedAt).toLocaleString('ar-SY'):'غير معروف';
-    messages.push('آخر محاولة: '+stamp);
+    messages.push('آخر محاولة: '+(d.fetchedAt?new Date(d.fetchedAt).toLocaleString('ar-SY'):'غير معروف'));
     messages.push('التحديث التلقائي كل 5 ساعات، ويمكنك الجلب اليدوي من الزر.');
-    if(info)info.innerHTML=messages.join('<br>')+(d.usd&&d.usd.ok&&d.usd.sourceUrl?'<br>المصدر: <a href="'+d.usd.sourceUrl+'" target="_blank" rel="noopener">'+d.usd.source+'</a>':'');
-    if(!changed)throw new Error('لم ينجح أي مصدر في إرجاع سعر صالح');
+    if(info)info.innerHTML=messages.join('<br>')+(d.usd&&d.usd.ok&&d.usd.sourceUrl?'<br>المصدر: <a href="'+d.usd.sourceUrl+'" target="_blank" rel="noopener">'+(d.usd.source||'المصدر')+'</a>':'');
+    if(!changed)throw new Error('لم ينجح أي مصدر في إرجاع سعر صالح؛ بقيت الأسعار المحفوظة كما هي.');
   }catch(e){
-    if(info)info.innerHTML='⚠️ '+e.message+'<br>ما غيرت الأسعار المحفوظة.';
+    if(info)info.textContent='⚠️ '+(e&&e.message?e.message:'تعذر جلب سعر الصرف')+' — ما غيرت الأسعار المحفوظة.';
+    if(!silent)console.error('Rate update failed:',e);
   }
 }
 function applyAutoRate(t,s){document.getElementById('rateTRY').value=Number(t).toFixed(2);document.getElementById('rateSYPNew').value=Number(s).toFixed(2);saveSettings()}
